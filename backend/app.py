@@ -1,13 +1,14 @@
 from flask import Flask
 from flask_cors import CORS
 from sqlalchemy import create_engine
+from config import user, password, host, port, database
 
 # defining the database credentials
-user = "postgres"
-password = "Sanjankrishna@13"
-host = "127.0.0.1"
-port = 5432
-database = "HRDaddy"
+database_user = user
+database_password = password
+host = host
+port = port
+database_name = database
 
 
 def get_connection():
@@ -31,7 +32,9 @@ def employee_directory():
 if __name__ == "__main__":
     try:
         engine = get_connection()
-        print(f"Connection to the {host} for user {user} created successfully.")
+        print(
+            f"Connection to the {host} for user {database_user} created successfully."
+        )
     except Exception as ex:
         print("Connection could not be made due to the following error: \n", ex)
     app.run(debug=True)
