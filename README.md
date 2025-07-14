@@ -16,3 +16,10 @@ password = "your_database_password"
 host = "your_database_host"       # Use '127.0.0.1' for localhost
 port = 5432                       # Default PostgreSQL port
 name = "your_database_name"       # Common defaults: 'HRDaddy' or 'postgres'
+```
+
+Run the Flask application:
+
+```bash
+python backend/app.py
+```
