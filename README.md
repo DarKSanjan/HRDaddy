@@ -6,7 +6,7 @@
 
 ## 🛠 Setup Instructions
 
-Before running `app.py`, create a file named `config.py` in the root directory with the following contents:
+Before running `app.py`, create a file named `config.py` in the backend directory with the following contents:
 
 ```python
 # config.py
