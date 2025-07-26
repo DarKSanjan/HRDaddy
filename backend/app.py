@@ -135,11 +135,11 @@ def delete_employee(id):
 
 
 if __name__ == "__main__":
-    try:
-        db.create_all()
-        print(
-            f"Connection to the {host} for user {user} created successfully."
-        )
-    except Exception as ex:
-        print("Connection could not be made due to the following error: \n", ex)
+    with app.app_context():
+        try:
+            db.create_all()
+            print(f"Connection to the {host} for user {user} created successfully.")
+            print("Database tables created successfully!")
+        except Exception as ex:
+            print("Connection could not be made due to the following error: \n", ex)
     app.run(debug=True, port=5001)
