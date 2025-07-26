@@ -1,4 +1,6 @@
-Flask
-Flask-CORS
-Flask-SQLAlchemy
-psycopg2-binary
+Flask==3.1.1
+Flask-CORS==6.0.1
+Flask-SQLAlchemy==3.1.1
+psycopg2-binary==2.9.10
+SQLAlchemy==2.0.41
+Werkzeug==3.1.3
