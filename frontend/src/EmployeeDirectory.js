@@ -23,6 +23,79 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 
+// Animated Icon Component for Employee Actions
+function AnimatedActionIcon({ icon: Icon, onClick, color = "primary", size = "small" }) {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const handleClick = () => {
+    setIsAnimating(true);
+    setTimeout(() => setIsAnimating(false), 300);
+    if (onClick) onClick();
+  };
+
+  return (
+    <IconButton
+      color={color}
+      onClick={handleClick}
+      size={size}
+      sx={{
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: isAnimating ? 'scale(0.8) rotate(-10deg)' : 'scale(1) rotate(0deg)',
+        '&:hover': {
+          transform: 'scale(1.2)',
+          filter: color === 'error' 
+            ? 'drop-shadow(0 0 8px rgba(244, 67, 54, 0.6))' 
+            : 'drop-shadow(0 0 8px rgba(27, 209, 254, 0.6))',
+        },
+        '&:active': {
+          transform: 'scale(0.9)',
+        }
+      }}
+    >
+      <Icon />
+    </IconButton>
+  );
+}
+
+// Animated Add Button Component
+function AnimatedAddButton({ onClick }) {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const handleClick = () => {
+    setIsAnimating(true);
+    setTimeout(() => setIsAnimating(false), 300);
+    if (onClick) onClick();
+  };
+
+  return (
+    <Button
+      variant="contained"
+      startIcon={
+        <Box sx={{
+          transition: 'all 0.3s ease',
+          transform: isAnimating ? 'rotate(90deg) scale(1.2)' : 'rotate(0deg) scale(1)',
+        }}>
+          <AddIcon />
+        </Box>
+      }
+      onClick={handleClick}
+      sx={{
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: isAnimating ? 'scale(0.95)' : 'scale(1)',
+        '&:hover': {
+          transform: 'scale(1.05)',
+          boxShadow: '0 8px 25px rgba(27, 209, 254, 0.3)',
+        },
+        '&:active': {
+          transform: 'scale(0.98)',
+        }
+      }}
+    >
+      Add Employee
+    </Button>
+  );
+}
+
 function EmployeeDirectory() {
   // State for employees data
   const [employees, setEmployees] = useState([]);
@@ -107,7 +180,7 @@ function EmployeeDirectory() {
     setDialogOpen(true);
   };
 
-  // Handle form submission (add or edit)
+  // Handle form submission (add or edit employee)
   const handleSubmit = async () => {
     try {
       const url = editingEmployee 
@@ -125,29 +198,31 @@ function EmployeeDirectory() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save employee');
+        throw new Error('Failed to save employee');
       }
 
+      // Refresh the employee list
+      await fetchEmployees();
+      
+      // Close dialog and show success message
+      setDialogOpen(false);
       setSnackbar({
         open: true,
         message: editingEmployee ? 'Employee updated successfully!' : 'Employee added successfully!',
         severity: 'success'
       });
       
-      setDialogOpen(false);
-      fetchEmployees(); // Refresh the list
     } catch (err) {
+      console.error('Error saving employee:', err);
       setSnackbar({
         open: true,
-        message: 'Error: ' + err.message,
+        message: 'Error saving employee: ' + err.message,
         severity: 'error'
       });
-      console.error('Error saving employee:', err);
     }
   };
 
-  // Handle delete employee
+  // Handle employee deletion
   const handleDeleteEmployee = async (employeeId) => {
     if (!window.confirm('Are you sure you want to delete this employee?')) {
       return;
@@ -162,20 +237,22 @@ function EmployeeDirectory() {
         throw new Error('Failed to delete employee');
       }
 
+      // Refresh the employee list
+      await fetchEmployees();
+      
       setSnackbar({
         open: true,
         message: 'Employee deleted successfully!',
         severity: 'success'
       });
       
-      fetchEmployees(); // Refresh the list
     } catch (err) {
+      console.error('Error deleting employee:', err);
       setSnackbar({
         open: true,
-        message: 'Error: ' + err.message,
+        message: 'Error deleting employee: ' + err.message,
         severity: 'error'
       });
-      console.error('Error deleting employee:', err);
     }
   };
 
@@ -190,14 +267,18 @@ function EmployeeDirectory() {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
+  // Show loading state
   if (loading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography>Loading employees...</Typography>
+      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+        <Typography variant="h6" color="text.secondary">
+          Loading employees...
+        </Typography>
       </Box>
     );
   }
 
+  // Show error state
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
@@ -213,60 +294,142 @@ function EmployeeDirectory() {
     <Box sx={{ p: 3 }}>
       {/* Header with Add button */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
+        <Typography variant="h4" gutterBottom sx={{ fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' }}>
           Employee Directory
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleAddEmployee}
-        >
-          Add Employee
-        </Button>
+        <AnimatedAddButton onClick={handleAddEmployee} />
       </Box>
 
       {/* Employee table */}
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ 
+        borderRadius: '16px',
+        overflow: 'hidden',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        backgroundColor: '#1a1a1a'
+      }}>
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Employee ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>Position</TableCell>
-              <TableCell>Date of Joining</TableCell>
-              <TableCell>Salary</TableCell>
-              <TableCell>Actions</TableCell>
+            <TableRow sx={{ backgroundColor: '#2a2a2a' }}>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: '#ffffff',
+                borderBottom: '2px solid #3a3a3a'
+              }}>ID</TableCell>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: '#ffffff',
+                borderBottom: '2px solid #3a3a3a'
+              }}>Employee ID</TableCell>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: '#ffffff',
+                borderBottom: '2px solid #3a3a3a'
+              }}>Name</TableCell>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: '#ffffff',
+                borderBottom: '2px solid #3a3a3a'
+              }}>Email</TableCell>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: '#ffffff',
+                borderBottom: '2px solid #3a3a3a'
+              }}>Phone</TableCell>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: '#ffffff',
+                borderBottom: '2px solid #3a3a3a'
+              }}>Position</TableCell>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: '#ffffff',
+                borderBottom: '2px solid #3a3a3a'
+              }}>Date of Joining</TableCell>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: '#ffffff',
+                borderBottom: '2px solid #3a3a3a'
+              }}>Salary</TableCell>
+              <TableCell sx={{ 
+                fontWeight: 600, 
+                fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                color: '#ffffff',
+                borderBottom: '2px solid #3a3a3a'
+              }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {employees.map((employee) => (
-              <TableRow key={employee.id}>
-                <TableCell>{employee.id}</TableCell>
-                <TableCell>{employee.employee_id}</TableCell>
-                <TableCell>{employee.name}</TableCell>
-                <TableCell>{employee.email || '-'}</TableCell>
-                <TableCell>{employee.phone_number}</TableCell>
-                <TableCell>{employee.position}</TableCell>
-                <TableCell>{employee.date_of_joining}</TableCell>
-                <TableCell>${employee.salary}</TableCell>
-                <TableCell>
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleEditEmployee(employee)}
-                    size="small"
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton
-                    color="error"
-                    onClick={() => handleDeleteEmployee(employee.id)}
-                    size="small"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+              <TableRow key={employee.id} sx={{ 
+                backgroundColor: '#1a1a1a',
+                '&:hover': { 
+                  backgroundColor: 'rgba(27, 209, 254, 0.1)',
+                  transition: 'background-color 0.3s ease'
+                }
+              }}>
+                <TableCell sx={{ 
+                  fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                  color: '#d1d5db',
+                  borderBottom: '1px solid #2a2a2a'
+                }}>{employee.id}</TableCell>
+                <TableCell sx={{ 
+                  fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                  color: '#d1d5db',
+                  borderBottom: '1px solid #2a2a2a'
+                }}>{employee.employee_id}</TableCell>
+                <TableCell sx={{ 
+                  fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                  color: '#d1d5db',
+                  borderBottom: '1px solid #2a2a2a'
+                }}>{employee.name}</TableCell>
+                <TableCell sx={{ 
+                  fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                  color: '#d1d5db',
+                  borderBottom: '1px solid #2a2a2a'
+                }}>{employee.email || '-'}</TableCell>
+                <TableCell sx={{ 
+                  fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                  color: '#d1d5db',
+                  borderBottom: '1px solid #2a2a2a'
+                }}>{employee.phone_number}</TableCell>
+                <TableCell sx={{ 
+                  fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                  color: '#d1d5db',
+                  borderBottom: '1px solid #2a2a2a'
+                }}>{employee.position}</TableCell>
+                <TableCell sx={{ 
+                  fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                  color: '#d1d5db',
+                  borderBottom: '1px solid #2a2a2a'
+                }}>{employee.date_of_joining}</TableCell>
+                <TableCell sx={{ 
+                  fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif',
+                  color: '#d1d5db',
+                  borderBottom: '1px solid #2a2a2a'
+                }}>${employee.salary}</TableCell>
+                <TableCell sx={{ 
+                  borderBottom: '1px solid #2a2a2a'
+                }}>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <AnimatedActionIcon 
+                      icon={EditIcon} 
+                      onClick={() => handleEditEmployee(employee)}
+                      color="primary"
+                    />
+                    <AnimatedActionIcon 
+                      icon={DeleteIcon} 
+                      onClick={() => handleDeleteEmployee(employee.id)}
+                      color="error"
+                    />
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}
@@ -276,7 +439,7 @@ function EmployeeDirectory() {
 
       {/* Add/Edit Employee Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
+        <DialogTitle sx={{ fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' }}>
           {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
         </DialogTitle>
         <DialogContent>
@@ -287,6 +450,7 @@ function EmployeeDirectory() {
               onChange={(e) => handleInputChange('employee_id', e.target.value)}
               required
               fullWidth
+              sx={{ '& .MuiInputLabel-root': { fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' } }}
             />
             <TextField
               label="Name"
@@ -294,6 +458,7 @@ function EmployeeDirectory() {
               onChange={(e) => handleInputChange('name', e.target.value)}
               required
               fullWidth
+              sx={{ '& .MuiInputLabel-root': { fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' } }}
             />
             <TextField
               label="Email"
@@ -301,6 +466,7 @@ function EmployeeDirectory() {
               onChange={(e) => handleInputChange('email', e.target.value)}
               type="email"
               fullWidth
+              sx={{ '& .MuiInputLabel-root': { fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' } }}
             />
             <TextField
               label="Phone Number"
@@ -308,6 +474,7 @@ function EmployeeDirectory() {
               onChange={(e) => handleInputChange('phone_number', e.target.value)}
               required
               fullWidth
+              sx={{ '& .MuiInputLabel-root': { fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' } }}
             />
             <TextField
               label="Position"
@@ -315,6 +482,7 @@ function EmployeeDirectory() {
               onChange={(e) => handleInputChange('position', e.target.value)}
               required
               fullWidth
+              sx={{ '& .MuiInputLabel-root': { fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' } }}
             />
             <TextField
               label="Date of Joining"
@@ -324,6 +492,7 @@ function EmployeeDirectory() {
               required
               fullWidth
               InputLabelProps={{ shrink: true }}
+              sx={{ '& .MuiInputLabel-root': { fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' } }}
             />
             <TextField
               label="Salary"
@@ -332,12 +501,15 @@ function EmployeeDirectory() {
               type="number"
               required
               fullWidth
+              sx={{ '& .MuiInputLabel-root': { fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' } }}
             />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained">
+          <Button onClick={handleCloseDialog} sx={{ fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' }}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} variant="contained" sx={{ fontFamily: '"Sora", "Roboto", "Helvetica", "Arial", sans-serif' }}>
             {editingEmployee ? 'Update' : 'Add'}
           </Button>
         </DialogActions>
