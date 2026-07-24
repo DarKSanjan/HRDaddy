@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { CheckCircle2 } from 'lucide-react'
 import { Button } from '@/core/ui'
 import { completeStep1 } from '../actions'
 
@@ -40,16 +41,10 @@ export function Step1VerifyEmail({ userEmail, userName, onNext }: Step1Props) {
       <div className="rounded-[var(--radius-md)] border border-border bg-surface p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-success/10">
-            <svg
+            <CheckCircle2
               className="h-5 w-5 text-success"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
               aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
+            />
           </div>
           <div>
             <p className="text-[13px] font-medium text-text">Email verified</p>
@@ -59,7 +54,7 @@ export function Step1VerifyEmail({ userEmail, userName, onNext }: Step1Props) {
       </div>
 
       {error && (
-        <p className="text-[13px] text-danger" role="alert">
+        <p className="text-[13px] text-danger" role="alert" id="step1-error" aria-live="assertive">
           {error}
         </p>
       )}

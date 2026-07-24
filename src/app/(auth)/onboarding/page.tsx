@@ -3,7 +3,7 @@ import { getSetupProgress } from './actions'
 import { WizardShell } from './_components/wizard-shell'
 
 export const metadata = {
-  title: 'Set up your organisation — HR Daddy',
+  title: 'Set up your organisation',
 }
 
 export default async function OnboardingPage() {

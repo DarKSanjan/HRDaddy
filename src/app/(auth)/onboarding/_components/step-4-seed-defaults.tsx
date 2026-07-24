@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Plus, X } from 'lucide-react'
 import { Button, Input } from '@/core/ui'
 import { completeStep4 } from '../actions'
 import type { Step4Data, WizardData } from '../schemas'
@@ -146,7 +147,8 @@ export function Step4SeedDefaults({
         <div className="flex items-center justify-between">
           <h3 className="text-[14px] font-semibold text-text">Departments</h3>
           <Button variant="ghost" size="sm" onClick={addDepartment} type="button">
-            + Add
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            Add
           </Button>
         </div>
         <div className="space-y-2">
@@ -164,9 +166,7 @@ export function Step4SeedDefaults({
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-text-subtle hover:bg-surface-hover hover:text-danger"
                 aria-label={`Remove department ${dept.name || i + 1}`}
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           ))}
@@ -183,7 +183,8 @@ export function Step4SeedDefaults({
         <div className="flex items-center justify-between">
           <h3 className="text-[14px] font-semibold text-text">Job titles</h3>
           <Button variant="ghost" size="sm" onClick={addJobTitle} type="button">
-            + Add
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            Add
           </Button>
         </div>
         <div className="space-y-2">
@@ -201,9 +202,7 @@ export function Step4SeedDefaults({
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-text-subtle hover:bg-surface-hover hover:text-danger"
                 aria-label={`Remove job title ${jt.title || i + 1}`}
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           ))}
@@ -221,7 +220,8 @@ export function Step4SeedDefaults({
           <div className="flex items-center justify-between">
             <h3 className="text-[14px] font-semibold text-text">Leave types</h3>
             <Button variant="ghost" size="sm" onClick={addLeaveType} type="button">
-              + Add
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Add
             </Button>
           </div>
           <p className="text-[12px] text-text-subtle">
@@ -269,9 +269,7 @@ export function Step4SeedDefaults({
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-text-subtle hover:bg-surface-hover hover:text-danger"
                     aria-label={`Remove leave type ${lt.name || i + 1}`}
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -286,7 +284,7 @@ export function Step4SeedDefaults({
       )}
 
       {error && (
-        <p className="text-[13px] text-danger" role="alert">
+        <p className="text-[13px] text-danger" role="alert" id="step4-error" aria-live="assertive">
           {error}
         </p>
       )}

@@ -91,3 +91,92 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-subtle);
 }
+
+/* ─── Wizard step transitions ──────────────────────────────────── */
+.wizard-step-transition {
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+
+.wizard-exit-left {
+  opacity: 0;
+  transform: translateX(-12px);
+}
+
+.wizard-exit-right {
+  opacity: 0;
+  transform: translateX(12px);
+}
+
+.wizard-enter-from-right {
+  animation: wizard-slide-in-right 180ms ease-out;
+}
+
+.wizard-enter-from-left {
+  animation: wizard-slide-in-left 180ms ease-out;
+}
+
+@keyframes wizard-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes wizard-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─── Check draw-in animation ──────────────────────────────────── */
+.check-draw-in {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: check-draw 240ms ease-out forwards;
+}
+
+@keyframes check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ─── Module card select pop ───────────────────────────────────── */
+.module-card-pop {
+  animation: card-pop 200ms ease-out;
+}
+
+@keyframes card-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* ─── prefers-reduced-motion ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .wizard-step-transition,
+  .wizard-exit-left,
+  .wizard-exit-right {
+    transition: none;
+  }
+
+  .wizard-enter-from-right,
+  .wizard-enter-from-left,
+  .check-draw-in,
+  .module-card-pop {
+    animation: none;
+  }
+
+  .check-draw-in {
+    stroke-dashoffset: 0;
+  }
+}

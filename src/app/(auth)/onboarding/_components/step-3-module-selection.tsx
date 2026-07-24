@@ -1,6 +1,18 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import {
+  Users,
+  CalendarDays,
+  Clock,
+  ClipboardList,
+  FileText,
+  CreditCard,
+  Check,
+  Lock,
+  type LucideIcon,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/core/ui'
 import { completeStep3 } from '../actions'
 import type { Step3Data, WizardData } from '../schemas'
@@ -10,45 +22,52 @@ const MODULE_CARDS: {
   id: string
   name: string
   description: string
-  icon: string
+  benefits: string[]
+  icon: LucideIcon
   locked?: boolean
 }[] = [
   {
     id: 'employees',
     name: 'Employees',
     description: 'Your team directory — profiles, departments, job titles, and org structure all in one place.',
-    icon: '👥',
+    benefits: ['People directory', 'Org chart', 'Job history'],
+    icon: Users,
     locked: true,
   },
   {
     id: 'leave',
     name: 'Leave',
     description: 'Requests, approvals, and balances. Singapore-compliant statutory types built in.',
-    icon: '🏖️',
+    benefits: ['Leave requests & approvals', 'Balance tracking', 'Statutory types'],
+    icon: CalendarDays,
   },
   {
     id: 'attendance',
     name: 'Attendance',
     description: 'Clock in/out with one tap. Timesheets auto-generate for payroll.',
-    icon: '⏱️',
+    benefits: ['Clock in/out', 'Timesheet generation', 'Overtime tracking'],
+    icon: Clock,
   },
   {
     id: 'onboarding',
     name: 'Onboarding',
     description: 'Checklists that guide new hires from day one — no one falls through the cracks.',
-    icon: '🚀',
+    benefits: ['Task checklists', 'Progress tracking', 'Template library'],
+    icon: ClipboardList,
   },
   {
     id: 'documents',
     name: 'Documents',
     description: 'Secure, categorised storage for contracts, IDs, and certificates.',
-    icon: '📄',
+    benefits: ['Secure storage', 'Categories & tags', 'Expiry alerts'],
+    icon: FileText,
   },
   {
     id: 'payroll',
     name: 'Payroll',
     description: 'CPF-ready payroll processing with compliant payslips generated automatically.',
-    icon: '💰',
+    benefits: ['CPF calculation', 'Compliant payslips', 'Salary history'],
+    icon: CreditCard,
   },
 ]
 
@@ -70,12 +89,18 @@ export function Step3ModuleSelection({
     defaultValues?.modules ?? ['employees']
   )
   const [error, setError] = useState<string | null>(null)
+  const [justSelected, setJustSelected] = useState<string | null>(null)
 
   function toggleModule(id: string) {
     if (id === 'employees') return // locked
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
-    )
+    setSelected((prev) => {
+      const next = prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
+      if (!prev.includes(id)) {
+        setJustSelected(id)
+        setTimeout(() => setJustSelected(null), 200)
+      }
+      return next
+    })
   }
 
   function handleSubmit() {
@@ -109,6 +134,7 @@ export function Step3ModuleSelection({
         {MODULE_CARDS.map((mod) => {
           const isSelected = selected.includes(mod.id)
           const isLocked = mod.locked
+          const Icon = mod.icon
 
           return (
             <button
@@ -118,37 +144,44 @@ export function Step3ModuleSelection({
               disabled={isLocked}
               aria-pressed={isSelected}
               aria-label={`${mod.name}${isLocked ? ' (always enabled)' : ''}`}
-              className={`group relative flex flex-col rounded-[var(--radius-md)] border p-4 text-left transition-all ${
+              className={cn(
+                'group relative flex flex-col rounded-[var(--radius-md)] border p-4 text-left transition-all duration-150',
                 isSelected
                   ? 'border-accent-500 bg-accent-50/50'
-                  : 'border-border bg-surface hover:border-border-strong hover:bg-surface-hover'
-              } ${isLocked ? 'cursor-default' : 'cursor-pointer'}`}
+                  : 'border-border bg-surface hover:border-border-strong hover:bg-surface-hover',
+                isLocked ? 'cursor-default' : 'cursor-pointer',
+                justSelected === mod.id && 'module-card-pop',
+              )}
             >
               {/* Selection indicator */}
               <div className="absolute right-3 top-3">
                 {isSelected ? (
                   <div className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-500">
-                    <svg
+                    <Check
                       className="h-3 w-3 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
                       strokeWidth={3}
                       aria-hidden="true"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                    />
                   </div>
                 ) : (
                   <div className="h-5 w-5 rounded-full border-2 border-border group-hover:border-border-strong" />
                 )}
               </div>
 
-              {/* Icon + content */}
-              <span className="text-[20px]" aria-hidden="true">
-                {mod.icon}
-              </span>
-              <h3 className="mt-2 text-[14px] font-semibold text-text">
+              {/* Icon */}
+              <div className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] transition-colors',
+                isSelected ? 'bg-accent-100 text-accent-700' : 'bg-surface-hover text-text-muted',
+              )}>
+                {isLocked ? (
+                  <Lock className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                )}
+              </div>
+
+              {/* Content */}
+              <h3 className="mt-3 text-[14px] font-semibold text-text">
                 {mod.name}
                 {isLocked && (
                   <span className="ml-2 inline-flex items-center rounded-full bg-surface-hover px-1.5 py-0.5 text-[10px] font-medium text-text-subtle">
@@ -159,13 +192,26 @@ export function Step3ModuleSelection({
               <p className="mt-1 text-[12px] leading-relaxed text-text-muted">
                 {mod.description}
               </p>
+
+              {/* Benefit list */}
+              <ul className="mt-2 space-y-0.5">
+                {mod.benefits.map((benefit) => (
+                  <li
+                    key={benefit}
+                    className="flex items-center gap-1.5 text-[11px] text-text-subtle"
+                  >
+                    <Check className="h-3 w-3 shrink-0 text-accent-500" strokeWidth={2.5} aria-hidden="true" />
+                    {benefit}
+                  </li>
+                ))}
+              </ul>
             </button>
           )
         })}
       </div>
 
       {error && (
-        <p className="text-[13px] text-danger" role="alert">
+        <p className="text-[13px] text-danger" role="alert" id="step3-error" aria-live="assertive">
           {error}
         </p>
       )}

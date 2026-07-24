@@ -87,7 +87,7 @@ export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0
   return (
     <aside
       className={cn(
-        'flex h-full flex-col border-r border-border bg-bg transition-[width] duration-200',
+        'flex h-full flex-col border-r border-border bg-bg transition-[width] duration-[160ms] ease-out',
         collapsed ? 'w-[var(--sidebar-collapsed-width)]' : 'w-[var(--sidebar-width)]'
       )}
     >
@@ -128,19 +128,26 @@ export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0
                 <Link
                   href={href}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                    'relative flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] transition-colors',
                     isActive
-                      ? 'bg-accent-50 text-accent-700'
-                      : 'text-text-muted hover:bg-surface-hover hover:text-text',
+                      ? 'bg-accent-50 font-semibold text-accent-700'
+                      : 'font-medium text-text-muted hover:bg-surface-hover hover:text-text',
                     collapsed && 'justify-center px-0'
                   )}
                   title={collapsed ? entry.label : undefined}
                   aria-current={isActive ? 'page' : undefined}
                 >
+                  {/* Accent left-rail for active item */}
+                  {isActive && (
+                    <span
+                      className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-500"
+                      aria-hidden="true"
+                    />
+                  )}
                   {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
                   {!collapsed && <span className="truncate">{entry.label}</span>}
                   {!collapsed && entry.badge && (
-                    <span className="ml-auto rounded-full bg-accent-50 px-1.5 py-0.5 text-[10px] font-medium text-accent-700">
+                    <span className="ml-auto rounded-full bg-accent-50 px-1.5 py-0.5 text-[10px] font-medium text-accent-700 tabular-nums">
                       {entry.badge}
                     </span>
                   )}

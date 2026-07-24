@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Plus, X, UserPlus } from 'lucide-react'
 import { Button, Input } from '@/core/ui'
 import { completeStep5 } from '../actions'
 import type { Step5Data, WizardData } from '../schemas'
@@ -109,28 +110,28 @@ export function Step5InviteTeam({ defaultValues, onBack, onSave }: Step5Props) {
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-text-subtle hover:bg-surface-hover hover:text-danger"
               aria-label={`Remove invitation ${inv.email || i + 1}`}
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         ))}
 
         <Button variant="secondary" size="sm" onClick={addInvitation} type="button">
-          + Add team member
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+          Add team member
         </Button>
       </div>
 
       {invitations.length === 0 && (
         <div className="rounded-[var(--radius-md)] border border-border bg-bg-subtle p-6 text-center">
-          <p className="text-[13px] text-text-muted">
+          <UserPlus className="mx-auto h-8 w-8 text-text-subtle" aria-hidden="true" />
+          <p className="mt-2 text-[13px] text-text-muted">
             No invitations yet. You can always invite people later.
           </p>
         </div>
       )}
 
       {error && (
-        <p className="text-[13px] text-danger" role="alert">
+        <p className="text-[13px] text-danger" role="alert" id="step5-error" aria-live="assertive">
           {error}
         </p>
       )}

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useTransition, useCallback, useRef } from 'react'
+import { Check, X, Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button, Input, FormField } from '@/core/ui'
 import { completeStep2, checkSlugAvailability } from '../actions'
 import {
@@ -10,6 +12,88 @@ import {
   type Step2Data,
   type WizardData,
 } from '../schemas'
+
+// ─── Country / timezone / currency data ─────────────────────────
+const COUNTRIES = [
+  { code: 'Singapore', timezone: 'Asia/Singapore', currency: 'SGD' },
+  { code: 'Malaysia', timezone: 'Asia/Kuala_Lumpur', currency: 'MYR' },
+  { code: 'Indonesia', timezone: 'Asia/Jakarta', currency: 'IDR' },
+  { code: 'Thailand', timezone: 'Asia/Bangkok', currency: 'THB' },
+  { code: 'Philippines', timezone: 'Asia/Manila', currency: 'PHP' },
+  { code: 'Vietnam', timezone: 'Asia/Ho_Chi_Minh', currency: 'VND' },
+  { code: 'Hong Kong', timezone: 'Asia/Hong_Kong', currency: 'HKD' },
+  { code: 'Japan', timezone: 'Asia/Tokyo', currency: 'JPY' },
+  { code: 'South Korea', timezone: 'Asia/Seoul', currency: 'KRW' },
+  { code: 'India', timezone: 'Asia/Kolkata', currency: 'INR' },
+  { code: 'Australia', timezone: 'Australia/Sydney', currency: 'AUD' },
+  { code: 'New Zealand', timezone: 'Pacific/Auckland', currency: 'NZD' },
+  { code: 'United Kingdom', timezone: 'Europe/London', currency: 'GBP' },
+  { code: 'United States', timezone: 'America/New_York', currency: 'USD' },
+  { code: 'Canada', timezone: 'America/Toronto', currency: 'CAD' },
+] as const
+
+const TIMEZONES = [
+  'Asia/Singapore',
+  'Asia/Kuala_Lumpur',
+  'Asia/Jakarta',
+  'Asia/Bangkok',
+  'Asia/Manila',
+  'Asia/Ho_Chi_Minh',
+  'Asia/Hong_Kong',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Asia/Kolkata',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+  'Europe/London',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+] as const
+
+const CURRENCIES = [
+  'SGD', 'MYR', 'IDR', 'THB', 'PHP', 'VND', 'HKD', 'JPY',
+  'KRW', 'INR', 'AUD', 'NZD', 'GBP', 'USD', 'CAD', 'EUR',
+] as const
+
+const LEAVE_YEAR_OPTIONS = [
+  { value: '01-01', label: 'January 1' },
+  { value: '04-01', label: 'April 1' },
+  { value: '07-01', label: 'July 1' },
+  { value: '10-01', label: 'October 1' },
+] as const
+
+// ─── Select component (styled consistently) ────────────────────
+function Select({
+  id,
+  value,
+  onChange,
+  children,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
+}: {
+  id: string
+  value: string
+  onChange: (value: string) => void
+  children: React.ReactNode
+  'aria-describedby'?: string
+  'aria-invalid'?: boolean
+}) {
+  return (
+    <select
+      id={id}
+      className="flex h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-[14px] text-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid}
+    >
+      {children}
+    </select>
+  )
+}
 
 interface Step2Props {
   defaultValues?: Step2Data
@@ -43,6 +127,10 @@ export function Step2CompanyProfile({
     workingHoursStart: defaultValues?.workingHoursStart ?? '09:00',
     workingHoursEnd: defaultValues?.workingHoursEnd ?? '18:00',
   })
+
+  // Track whether user manually changed timezone/currency
+  const [manualTimezone, setManualTimezone] = useState(false)
+  const [manualCurrency, setManualCurrency] = useState(false)
 
   // Auto-generate slug from company name
   const generateSlug = useCallback((name: string) => {
@@ -104,6 +192,21 @@ export function Step2CompanyProfile({
     checkSlug(sanitized)
   }
 
+  function handleCountryChange(country: string) {
+    const countryData = COUNTRIES.find((c) => c.code === country)
+    setFormValues((prev) => {
+      const patch = { ...prev, country }
+      // Update timezone/currency defaults if user hasn't explicitly changed them
+      if (!manualTimezone && countryData) {
+        patch.timezone = countryData.timezone
+      }
+      if (!manualCurrency && countryData) {
+        patch.currency = countryData.currency
+      }
+      return patch
+    })
+  }
+
   function toggleWorkingDay(day: number) {
     setFormValues((prev) => {
       const days = prev.workingDays.includes(day)
@@ -139,6 +242,15 @@ export function Step2CompanyProfile({
     })
   }
 
+  // Slug status indicator
+  const slugStatusIndicator = slugStatus === 'checking' ? (
+    <Loader2 className="h-3.5 w-3.5 animate-spin text-text-subtle" aria-hidden="true" />
+  ) : slugStatus === 'available' ? (
+    <Check className="h-3.5 w-3.5 text-success" aria-hidden="true" />
+  ) : slugStatus === 'taken' ? (
+    <X className="h-3.5 w-3.5 text-danger" aria-hidden="true" />
+  ) : null
+
   return (
     <div className="space-y-6">
       <div>
@@ -170,25 +282,32 @@ export function Step2CompanyProfile({
           htmlFor="slug"
           required
           hint={
-            slugStatus === 'checking'
-              ? 'Checking...'
-              : slugStatus === 'available'
-                ? '✓ ' + slugMessage
-                : slugStatus === 'taken'
-                  ? undefined
-                  : 'app.hrdaddy.co/your-slug'
+            slugStatus === 'idle'
+              ? 'app.hrdaddy.co/your-slug'
+              : undefined
           }
           error={
             fieldErrors.slug?.[0] ??
             (slugStatus === 'taken' ? slugMessage : undefined)
           }
         >
-          <Input
-            id="slug"
-            value={formValues.slug}
-            onChange={(e) => handleSlugChange(e.target.value)}
-            placeholder="acme-pte-ltd"
-          />
+          <div className="relative">
+            <Input
+              id="slug"
+              value={formValues.slug}
+              onChange={(e) => handleSlugChange(e.target.value)}
+              placeholder="acme-pte-ltd"
+              className="pr-8"
+            />
+            {slugStatusIndicator && (
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                {slugStatusIndicator}
+              </div>
+            )}
+          </div>
+          {slugStatus === 'available' && (
+            <p className="text-[12px] text-success">{slugMessage}</p>
+          )}
         </FormField>
 
         <div className="grid grid-cols-2 gap-4">
@@ -197,12 +316,11 @@ export function Step2CompanyProfile({
             htmlFor="companySize"
             error={fieldErrors.companySize?.[0]}
           >
-            <select
+            <Select
               id="companySize"
-              className="flex h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-[14px] text-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
               value={formValues.companySize}
-              onChange={(e) =>
-                setFormValues((prev) => ({ ...prev, companySize: e.target.value as typeof formValues.companySize }))
+              onChange={(v) =>
+                setFormValues((prev) => ({ ...prev, companySize: v as typeof formValues.companySize }))
               }
             >
               {COMPANY_SIZES.map((size) => (
@@ -210,7 +328,7 @@ export function Step2CompanyProfile({
                   {size} employees
                 </option>
               ))}
-            </select>
+            </Select>
           </FormField>
 
           <FormField
@@ -218,12 +336,11 @@ export function Step2CompanyProfile({
             htmlFor="industry"
             error={fieldErrors.industry?.[0]}
           >
-            <select
+            <Select
               id="industry"
-              className="flex h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-[14px] text-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
               value={formValues.industry}
-              onChange={(e) =>
-                setFormValues((prev) => ({ ...prev, industry: e.target.value as typeof formValues.industry }))
+              onChange={(v) =>
+                setFormValues((prev) => ({ ...prev, industry: v as typeof formValues.industry }))
               }
             >
               {INDUSTRIES.map((ind) => (
@@ -231,9 +348,93 @@ export function Step2CompanyProfile({
                   {ind}
                 </option>
               ))}
-            </select>
+            </Select>
           </FormField>
         </div>
+
+        {/* Country, Timezone, Currency — real controls */}
+        <div className="grid grid-cols-3 gap-4">
+          <FormField
+            label="Country"
+            htmlFor="country"
+            error={fieldErrors.country?.[0]}
+          >
+            <Select
+              id="country"
+              value={formValues.country}
+              onChange={handleCountryChange}
+            >
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+
+          <FormField
+            label="Timezone"
+            htmlFor="timezone"
+            error={fieldErrors.timezone?.[0]}
+          >
+            <Select
+              id="timezone"
+              value={formValues.timezone}
+              onChange={(v) => {
+                setManualTimezone(true)
+                setFormValues((prev) => ({ ...prev, timezone: v }))
+              }}
+            >
+              {TIMEZONES.map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+
+          <FormField
+            label="Currency"
+            htmlFor="currency"
+            error={fieldErrors.currency?.[0]}
+          >
+            <Select
+              id="currency"
+              value={formValues.currency}
+              onChange={(v) => {
+                setManualCurrency(true)
+                setFormValues((prev) => ({ ...prev, currency: v }))
+              }}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+        </div>
+
+        {/* Leave year start */}
+        <FormField
+          label="Leave year starts"
+          htmlFor="leaveYearStart"
+          error={fieldErrors.leaveYearStart?.[0]}
+        >
+          <Select
+            id="leaveYearStart"
+            value={formValues.leaveYearStart}
+            onChange={(v) =>
+              setFormValues((prev) => ({ ...prev, leaveYearStart: v }))
+            }
+          >
+            {LEAVE_YEAR_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </Select>
+        </FormField>
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -267,12 +468,18 @@ export function Step2CompanyProfile({
           </FormField>
         </div>
 
+        {/* Working days — all 7 fit one row at >= 1280 using fixed widths */}
         <FormField
           label="Working days"
           htmlFor="workingDays"
           error={fieldErrors.workingDays?.[0]}
         >
-          <div className="flex flex-wrap gap-2" id="workingDays" role="group" aria-label="Working days">
+          <div
+            className="flex gap-1.5"
+            id="workingDays"
+            role="group"
+            aria-label="Working days"
+          >
             {WORKING_DAYS.map((day) => {
               const selected = formValues.workingDays.includes(day.value)
               return (
@@ -280,11 +487,12 @@ export function Step2CompanyProfile({
                   key={day.value}
                   type="button"
                   onClick={() => toggleWorkingDay(day.value)}
-                  className={`rounded-[var(--radius-xs)] border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                  className={cn(
+                    'flex-1 rounded-[var(--radius-xs)] border px-2 py-1.5 text-[12px] font-medium transition-colors',
                     selected
                       ? 'border-accent-500 bg-accent-50 text-accent-700'
-                      : 'border-border bg-surface text-text-muted hover:bg-surface-hover'
-                  }`}
+                      : 'border-border bg-surface text-text-muted hover:bg-surface-hover',
+                  )}
                   aria-pressed={selected}
                 >
                   {day.label.slice(0, 3)}
