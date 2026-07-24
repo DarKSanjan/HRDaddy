@@ -84,6 +84,18 @@ enum PayrollPeriodStatus {
   PUBLISHED
   PAID
   ARCHIVED
+  REOPENED
+}
+
+enum ResidencyStatus {
+  CITIZEN
+  PR
+  FOREIGNER
+}
+
+enum PrArrangement {
+  GRADUATED_GRADUATED
+  FULL_GRADUATED
 }
 
 enum PayrollLineItemType {

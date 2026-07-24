@@ -17,7 +17,7 @@ export const payrollModule = defineModule({
   permissions: [
     { key: 'payroll.process', description: 'Process payroll runs', defaultRoles: ADMIN_ROLES },
     { key: 'payroll.approve', description: 'Approve payroll for payment', defaultRoles: ['OWNER'] },
-    { key: 'payroll.view_all', description: 'View all payslips', defaultRoles: ADMIN_ROLES },
+    { key: 'payroll.view_all', description: 'View all payslips', defaultRoles: ADMIN_ROLES, sensitive: true },
     { key: 'payroll.view_own', description: 'View own payslips', defaultRoles: ALL_ROLES },
   ],
 

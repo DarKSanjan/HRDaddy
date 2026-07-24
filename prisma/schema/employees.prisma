@@ -28,6 +28,10 @@ model Employee {
   compensationAmountCents Int?    @map("compensation_amount_cents")
   compensationCurrency    String? @map("compensation_currency")
 
+  residencyStatus ResidencyStatus? @map("residency_status")
+  prStartDate     DateTime?        @map("pr_start_date")
+  prArrangement   PrArrangement?   @map("pr_arrangement")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
