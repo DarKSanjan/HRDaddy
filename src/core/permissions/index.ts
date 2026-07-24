@@ -33,7 +33,10 @@ export function resolvePermissions(
   enabledModules: string[]
 ): Set<string> {
   const granted = new Set<string>()
-  for (const moduleId of enabledModules) {
+  // Kernel permissions (organisation admin, notifications, audit) are never
+  // gated on a module being enabled — otherwise disabling a module could lock
+  // an owner out of their own organisation settings.
+  for (const moduleId of ['core', ...enabledModules]) {
     const defs = registry.get(moduleId)
     if (!defs) continue
     for (const def of defs) {

@@ -41,6 +41,14 @@ export interface ModuleManifest {
   description: string
   dependsOn: string[]
   required?: boolean
+  /**
+   * Permission-key prefixes this module owns. Defaults to [id].
+   * A module may legitimately own more than one domain — `employees` owns both
+   * `employee.*` and `department.*` — so ownership is declared rather than
+   * inferred from the id. Declaring it lets the registry reject keys a module
+   * has no business defining, and catch two modules claiming the same key.
+   */
+  permissionNamespaces?: string[]
   permissions: PermissionDef[]
   nav: NavEntry[]
   settings?: ZodSchema
@@ -61,8 +69,32 @@ const manifests = new Map<string, ModuleManifest>()
  * Define and register a module manifest.
  */
 export function defineModule(m: ModuleManifest): ModuleManifest {
+  const namespaces = m.permissionNamespaces ?? [m.id]
+
+  for (const def of m.permissions) {
+    if (!namespaces.some((ns) => def.key.startsWith(`${ns}.`))) {
+      throw new Error(
+        `Module "${m.id}" declares permission "${def.key}", which is outside ` +
+          `its namespaces (${namespaces.join(', ')}). Either correct the key or ` +
+          `add the namespace to permissionNamespaces.`
+      )
+    }
+  }
+
+  // Two modules owning the same key would make authorisation depend on import
+  // order — whichever registered last would silently win.
+  for (const [otherId, other] of manifests) {
+    if (otherId === m.id) continue
+    for (const def of m.permissions) {
+      if (other.permissions.some((p) => p.key === def.key)) {
+        throw new Error(
+          `Modules "${m.id}" and "${otherId}" both declare permission "${def.key}".`
+        )
+      }
+    }
+  }
+
   manifests.set(m.id, m)
-  // Register this module's permissions with the permissions kernel
   registerPermissions(m.id, m.permissions)
   return m
 }

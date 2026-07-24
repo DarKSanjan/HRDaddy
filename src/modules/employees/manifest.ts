@@ -17,14 +17,10 @@ export const employeesModule = defineModule({
   description: 'Employee records, departments, job titles, and org structure',
   dependsOn: [],
   required: true,
+  permissionNamespaces: ['employee', 'department'],
 
   permissions: [
     // Organisation
-    { key: 'org.view', description: 'View organisation info', defaultRoles: ALL_ROLES },
-    { key: 'org.edit', description: 'Edit organisation settings', defaultRoles: ADMIN_ROLES },
-    { key: 'org.manage_settings', description: 'Manage org settings', defaultRoles: ADMIN_ROLES },
-    { key: 'org.manage_members', description: 'Manage org memberships', defaultRoles: ADMIN_ROLES },
-    { key: 'org.invite', description: 'Invite members to the org', defaultRoles: ADMIN_ROLES },
 
     // Employees
     { key: 'employee.view_all', description: 'View all employees', defaultRoles: ADMIN_ROLES },
@@ -39,8 +35,6 @@ export const employeesModule = defineModule({
     { key: 'department.manage', description: 'Create/edit departments', defaultRoles: ADMIN_ROLES },
 
     // Notifications & Audit (shared core)
-    { key: 'notification.view_own', description: 'View own notifications', defaultRoles: ALL_ROLES },
-    { key: 'audit.view', description: 'View audit logs', defaultRoles: ADMIN_ROLES },
   ],
 
   nav: [

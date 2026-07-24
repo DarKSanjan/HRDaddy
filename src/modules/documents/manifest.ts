@@ -13,6 +13,7 @@ export const documentsModule = defineModule({
   version: '1.0.0',
   description: 'Secure document storage with categories and access control',
   dependsOn: ['employees'],
+  permissionNamespaces: ['document'],
 
   permissions: [
     { key: 'document.upload', description: 'Upload documents', defaultRoles: ADMIN_ROLES },
