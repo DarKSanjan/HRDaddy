@@ -2,6 +2,7 @@
  * Organisation setup service — lives in core because it uses dbAdmin
  * for pre-RLS operations (creating the org itself).
  */
+import { randomUUID } from 'crypto'
 import { dbAdmin } from '@/core/db/admin'
 import type { WizardData } from '@/app/(auth)/onboarding/schemas'
 import { RESERVED_SLUGS } from '@/app/(auth)/onboarding/schemas'
@@ -109,77 +110,95 @@ export async function commitOrgSetup(
       },
     })
 
-    // 4. Create organisation_modules rows
-    for (const moduleId of step3.modules) {
-      await tx.organisationModule.create({
-        data: {
-          orgId: org.id,
-          moduleId,
-          enabled: true,
-        },
-      })
-    }
+    // Steps 4-8 use createMany rather than a create() per row.
+    //
+    // The per-row version issued one round trip each — modules, departments,
+    // job titles, a leave type *and* a policy per leave type, then one per
+    // invitation. Against the Singapore pooler that is 30-40 sequential
+    // round trips, which overran Prisma's 5s interactive-transaction budget
+    // and failed with "a query cannot be executed on an expired transaction".
+    // Batched, it is six.
 
-    // 5. Seed departments
-    for (const dept of step4.departments) {
-      await tx.department.create({
-        data: {
+    // 4. Enabled modules
+    await tx.organisationModule.createMany({
+      data: step3.modules.map((moduleId) => ({
+        orgId: org.id,
+        moduleId,
+        enabled: true,
+      })),
+    })
+
+    // 5. Departments
+    if (step4.departments.length > 0) {
+      await tx.department.createMany({
+        data: step4.departments.map((dept) => ({
           orgId: org.id,
           name: dept.name,
-        },
+        })),
       })
     }
 
-    // 6. Seed job titles
-    for (const jt of step4.jobTitles) {
-      await tx.jobTitle.create({
-        data: {
+    // 6. Job titles
+    if (step4.jobTitles.length > 0) {
+      await tx.jobTitle.createMany({
+        data: step4.jobTitles.map((jt) => ({
           orgId: org.id,
           name: jt.title,
-        },
+        })),
       })
     }
 
-    // 7. Seed leave types (if leave module is selected)
-    if (step3.modules.includes('leave')) {
-      for (const lt of step4.leaveTypes) {
-        const leaveType = await tx.leaveType.create({
-          data: {
-            orgId: org.id,
-            name: lt.name,
-          },
-        })
-        // Create a matching policy with the default allowance
-        await tx.leavePolicy.create({
-          data: {
-            orgId: org.id,
-            leaveTypeId: leaveType.id,
-            defaultAllowance: lt.daysPerYear,
-          },
-        })
-      }
+    // 7. Leave types and their policies, when the leave module is on.
+    // Ids are generated here so the policies can reference their types
+    // without reading the rows back.
+    if (step3.modules.includes('leave') && step4.leaveTypes.length > 0) {
+      const withIds = step4.leaveTypes.map((lt) => ({
+        id: randomUUID(),
+        ...lt,
+      }))
+
+      await tx.leaveType.createMany({
+        data: withIds.map((lt) => ({
+          id: lt.id,
+          orgId: org.id,
+          name: lt.name,
+        })),
+      })
+
+      await tx.leavePolicy.createMany({
+        data: withIds.map((lt) => ({
+          orgId: org.id,
+          leaveTypeId: lt.id,
+          defaultAllowance: lt.daysPerYear,
+        })),
+      })
     }
 
-    // 8. Create invitations
-    for (const inv of invitations) {
-      const token = crypto.randomUUID()
-      await tx.invitation.create({
-        data: {
+    // 8. Invitations
+    if (invitations.length > 0) {
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      await tx.invitation.createMany({
+        data: invitations.map((inv) => ({
           orgId: org.id,
           email: inv.email,
           role: inv.role,
-          token,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        },
+          token: randomUUID(),
+          expiresAt,
+        })),
       })
     }
 
-    // 9. Delete setup progress
+    // 9. Drop the wizard progress row — the organisation now exists.
     await tx.orgSetupProgress.delete({
       where: { userId },
     })
 
     return org
+  }, {
+    // Headroom for slow links. The work is now batched, so this is a safety
+    // net rather than the thing making it fit.
+    timeout: 30_000,
+    maxWait: 10_000,
   })
 
   return { org: newOrg }
