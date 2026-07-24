@@ -39,9 +39,18 @@ export const RESERVED_SLUGS = new Set([
 // Step 1: Verify email
 // ─────────────────────────────────────────────
 
+/**
+ * Step 1 confirms an already-authenticated, already-verified identity. It
+ * collects no credentials: the account exists before the wizard starts, and
+ * Supabase Auth owns the password.
+ *
+ * An earlier version declared a `password` field here, which forced the action
+ * to write a placeholder into the progress row just to satisfy the schema. A
+ * credential-shaped field on a record that gets persisted as JSON is a trap
+ * worth removing rather than working around.
+ */
 export const step1Schema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(1, 'Name is required').max(100),
 })
 
