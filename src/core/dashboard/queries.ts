@@ -6,7 +6,7 @@ import 'server-only'
 
 import { dbAs } from '@/core/db/client'
 import { TZDate } from '@date-fns/tz'
-import { startOfMonth, subMonths, addDays, format } from 'date-fns'
+import { startOfMonth, addDays, format } from 'date-fns'
 
 // ─────────────────────────────────────────────
 // Helpers
