@@ -5,6 +5,7 @@ import 'server-only'
 import { dbAs } from '@/core/db'
 import type { LeaveRequestStatus } from '@prisma/client'
 import type { LeaveListParams, LeaveCalendarParams } from './schemas'
+import { ensureLeaveBalances } from '@/core/leave/balances'
 
 // ─────────────────────────────────────────────
 // Types
@@ -103,6 +104,13 @@ export async function getEmployeeBalances(
   const targetYear = year ?? new Date().getFullYear()
 
   return dbAs(userId, async (tx) => {
+    // Provision on first read. Balances are otherwise never created — an
+    // employee added after org setup, or a new leave year starting, would
+    // leave the employee with no rows at all and no way to request leave.
+    // ensureLeaveBalances is idempotent and only restates the allowance, so
+    // it is safe on every read.
+    await ensureLeaveBalances(tx, orgId, employeeId, targetYear)
+
     const balances = await tx.leaveBalance.findMany({
       where: { orgId, employeeId, year: targetYear },
       include: { leaveType: { select: { name: true, color: true } } },

@@ -170,6 +170,12 @@ export async function commitOrgSetup(
           orgId: org.id,
           leaveTypeId: lt.id,
           defaultAllowance: lt.daysPerYear,
+          // Singapore annual leave accrues with service (7 days after one
+          // completed year, +1 per further year, capped at 14). The other
+          // statutory types are flat. Matched once here at seed time rather
+          // than by name at runtime, so renaming a type later cannot silently
+          // change how it is calculated.
+          serviceBased: /annual/i.test(lt.name),
         })),
       })
     }

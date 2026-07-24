@@ -26,6 +26,12 @@ model LeavePolicy {
   defaultAllowance Decimal  @map("default_allowance") @db.Decimal(5, 2)
   carryOverLimit   Decimal  @default(0) @map("carry_over_limit") @db.Decimal(5, 2)
   accrualEnabled   Boolean  @default(false) @map("accrual_enabled")
+
+  /// When true the allowance is derived from length of service rather than
+  /// taken from defaultAllowance. Singapore annual leave works this way: 7 days
+  /// after one completed year, +1 per further year, capped at 14. Sick,
+  /// hospitalisation and the parental types are flat, so they leave this false.
+  serviceBased     Boolean  @default(false) @map("service_based")
   createdAt        DateTime @default(now()) @map("created_at")
 
   organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
