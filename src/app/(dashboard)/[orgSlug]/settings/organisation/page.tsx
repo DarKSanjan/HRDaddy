@@ -1,12 +1,17 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { Breadcrumb } from '@/core/ui'
-import { listDepartments, listJobTitles, listWorkLocations, listEmploymentTypes } from '@/modules/employees/queries'
-import { EmployeeForm } from '../_components/employee-form'
+import {
+  listDepartments,
+  listJobTitles,
+  listWorkLocations,
+  listEmploymentTypes,
+} from '@/modules/employees/queries'
+import { OrgStructurePanel } from './_components/org-structure-panel'
 
 export const dynamic = 'force-dynamic'
 
-export default async function NewEmployeePage({
+export default async function OrgSettingsPage({
   params,
 }: {
   params: Promise<{ orgSlug: string }>
@@ -16,9 +21,8 @@ export default async function NewEmployeePage({
   const session = await verifySession()
   const { org, enabledModules } = await getOrgContext(orgSlug)
   moduleGuard('employees', enabledModules)
-  await requirePermission(org.id, 'employee.create')
+  await requirePermission(org.id, 'department.manage')
 
-  // Fetch org structure for form selects
   const [departments, jobTitles, locations, employmentTypes] = await Promise.all([
     listDepartments(session.userId, org.id),
     listJobTitles(session.userId, org.id),
@@ -30,14 +34,17 @@ export default async function NewEmployeePage({
     <div className="space-y-6">
       <Breadcrumb
         items={[
-          { label: 'Employees', href: `/${orgSlug}/employees` },
-          { label: 'Add Employee' },
+          { label: 'Settings', href: `/${orgSlug}/settings` },
+          { label: 'Organisation' },
         ]}
       />
 
-      <h1 className="text-[20px] font-bold text-text">Add Employee</h1>
+      <h1 className="text-[20px] font-bold text-text">Organisation Structure</h1>
+      <p className="text-[13px] text-text-muted">
+        Manage departments, job titles, work locations, and employment types.
+      </p>
 
-      <EmployeeForm
+      <OrgStructurePanel
         orgSlug={orgSlug}
         departments={departments}
         jobTitles={jobTitles}
