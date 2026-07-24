@@ -10,13 +10,11 @@ import { Step3ModuleSelection } from './step-3-module-selection'
 import { Step4SeedDefaults } from './step-4-seed-defaults'
 import { Step5InviteTeam } from './step-5-invite-team'
 
-const STEP_LABELS = [
-  'Verify email',
-  'Company profile',
-  'Select modules',
-  'Seed defaults',
-  'Invite team',
-]
+/**
+ * One word each. Two-word labels truncated to "Comp…" / "Select m…" at five
+ * across, which reads worse than a shorter label does.
+ */
+const STEP_LABELS = ['Account', 'Company', 'Modules', 'Defaults', 'Team']
 
 interface WizardShellProps {
   initialStep: number
@@ -67,7 +65,7 @@ export function WizardShell({
     <div className="flex min-h-screen flex-col bg-bg">
       {/* Header with progress */}
       <header className="sticky top-0 z-10 border-b border-border bg-surface/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-2xl px-6 py-4">
+        <div className="mx-auto w-full max-w-4xl px-8 py-4">
           <div className="mb-3 flex items-center justify-between">
             <h1 className="text-[14px] font-semibold text-text">
               Set up your organisation
@@ -85,7 +83,7 @@ export function WizardShell({
       </header>
 
       {/* Step content — sizes to content, centred in remaining space */}
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-8">
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-8 py-8">
         <div
           ref={contentRef}
           className={cn(
