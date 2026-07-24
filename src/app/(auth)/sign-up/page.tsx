@@ -3,17 +3,10 @@
 import { useActionState } from 'react'
 import Link from 'next/link'
 import { signUp } from '@/actions/auth'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Button } from '@/core/ui/button'
+import { Input } from '@/core/ui/input'
+import { FormField } from '@/core/ui/form-field'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/core/ui/card'
 
 export default function SignUpPage() {
   const [state, formAction, pending] = useActionState(signUp, {
@@ -31,12 +24,11 @@ export default function SignUpPage() {
       <form action={formAction}>
         <CardContent className="space-y-4">
           {state.error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="rounded-[var(--radius-sm)] bg-danger/10 p-3 text-[13px] text-danger" role="alert">
               {state.error}
             </div>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="name">Full name</Label>
+          <FormField label="Full name" htmlFor="name" required>
             <Input
               id="name"
               name="name"
@@ -45,9 +37,8 @@ export default function SignUpPage() {
               required
               autoComplete="name"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+          </FormField>
+          <FormField label="Email" htmlFor="email" required>
             <Input
               id="email"
               name="email"
@@ -56,9 +47,8 @@ export default function SignUpPage() {
               required
               autoComplete="email"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+          </FormField>
+          <FormField label="Password" htmlFor="password" required>
             <Input
               id="password"
               name="password"
@@ -67,9 +57,8 @@ export default function SignUpPage() {
               minLength={8}
               autoComplete="new-password"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="orgName">Organisation name</Label>
+          </FormField>
+          <FormField label="Organisation name" htmlFor="orgName" required>
             <Input
               id="orgName"
               name="orgName"
@@ -77,17 +66,17 @@ export default function SignUpPage() {
               placeholder="Acme Inc."
               required
             />
-          </div>
+          </FormField>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? 'Creating account...' : 'Create account'}
+          <Button type="submit" className="w-full" loading={pending}>
+            Create account
           </Button>
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-[13px] text-text-muted">
             Already have an account?{' '}
             <Link
               href="/sign-in"
-              className="text-primary underline-offset-4 hover:underline"
+              className="text-accent-600 underline-offset-4 hover:underline"
             >
               Sign in
             </Link>

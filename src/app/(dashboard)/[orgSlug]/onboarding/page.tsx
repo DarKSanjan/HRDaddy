@@ -13,8 +13,8 @@ export default async function OnboardingPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Setup Your Organisation</h1>
-      <p className="text-sm text-gray-500">
+      <h1 className="text-[20px] font-bold text-text">Setup Your Organisation</h1>
+      <p className="text-[13px] text-text-muted">
         {/* TODO(M2) Signup wizard and org setup */}
         Organisation setup coming in M2.
       </p>

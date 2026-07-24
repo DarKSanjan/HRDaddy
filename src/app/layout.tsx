@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     template: '%s | HR Daddy',
   },
   description: 'Modern HR management platform for growing teams',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
@@ -21,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
         {children}
       </body>

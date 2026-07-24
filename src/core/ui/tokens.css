@@ -1,0 +1,113 @@
+/**
+ * HR Daddy Design Tokens
+ * All colours defined here — no component may hardcode a colour.
+ * Consumed through Tailwind 4's @theme inline.
+ */
+
+:root {
+  /* Brand gradient */
+  --brand-gradient: linear-gradient(135deg, #0EE7FF 0%, #6758FF 50%, #8A1FFF 100%);
+  --brand-cyan: #0EE7FF;
+  --brand-indigo: #6758FF;
+  --brand-purple: #8A1FFF;
+
+  /* Accent scale — org-overridable via --accent-500 */
+  --accent-50: #F0EFFF;
+  --accent-100: #E4E1FF;
+  --accent-200: #CDC7FF;
+  --accent-300: #ADA3FF;
+  --accent-400: #8B7BFF;
+  --accent-500: #6758FF;
+  --accent-600: #5340F0;
+  --accent-700: #4632D4;
+  --accent-800: #3A2BAB;
+  --accent-900: #322887;
+  --accent-950: #1E184F;
+
+  /* Neutrals — Light */
+  --bg: #FFFFFF;
+  --bg-subtle: #FAFAFB;
+  --surface: #FFFFFF;
+  --surface-hover: #F5F5F7;
+  --border: #E8E8EC;
+  --border-strong: #D5D5DC;
+  --text: #101014;
+  --text-muted: #61616B;
+  --text-subtle: #8A8A96;
+
+  /* Status — Light */
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --info: #2563EB;
+
+  /* Typography */
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+
+  /* Spacing grid (base 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Sidebar */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 56px;
+
+  color-scheme: light;
+}
+
+.dark {
+  /* Neutrals — Dark */
+  --bg: #0B0B0F;
+  --bg-subtle: #101015;
+  --surface: #141419;
+  --surface-hover: #1A1A21;
+  --border: #22222B;
+  --border-strong: #32323D;
+  --text: #F5F5F7;
+  --text-muted: #9B9BA6;
+  --text-subtle: #6E6E7A;
+
+  /* Status — Dark */
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #3B82F6;
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --bg: #0B0B0F;
+    --bg-subtle: #101015;
+    --surface: #141419;
+    --surface-hover: #1A1A21;
+    --border: #22222B;
+    --border-strong: #32323D;
+    --text: #F5F5F7;
+    --text-muted: #9B9BA6;
+    --text-subtle: #6E6E7A;
+
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --info: #3B82F6;
+
+    color-scheme: dark;
+  }
+}

@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext } from '@/core/auth'
-import { Sidebar } from '@/components/sidebar'
-import { Header } from '@/components/header'
+import { resolveNav } from '@/core/modules'
+import { AppShell } from '@/core/ui/shell'
 
 export default async function OrgDashboardLayout({
   children,
@@ -11,18 +11,20 @@ export default async function OrgDashboardLayout({
 }) {
   const session = await verifySession()
   const { orgSlug } = await params
+  const { org, membership, enabledModules } = await getOrgContext(orgSlug)
 
-  const { org, membership } = await getOrgContext(orgSlug)
+  // Resolve nav from module registry — no hardcoded navigation
+  const navEntries = resolveNav(membership.role, enabledModules)
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar orgSlug={org.slug} orgName={org.name} role={membership.role} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header userName={session.name} userEmail={session.email} />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
-          {children}
-        </main>
-      </div>
-    </div>
+    <AppShell
+      orgSlug={org.slug}
+      orgName={org.name}
+      userName={session.name}
+      userEmail={session.email}
+      navEntries={navEntries}
+    >
+      {children}
+    </AppShell>
   )
 }

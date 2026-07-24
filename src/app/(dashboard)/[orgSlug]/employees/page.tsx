@@ -13,8 +13,8 @@ export default async function EmployeesPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
-      <p className="text-sm text-gray-500">
+      <h1 className="text-[20px] font-bold text-text">Employees</h1>
+      <p className="text-[13px] text-text-muted">
         {/* TODO(M3) Employee list UI */}
         Employee management coming in M3.
       </p>

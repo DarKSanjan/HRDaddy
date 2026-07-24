@@ -5,7 +5,7 @@
  * is covered.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync, existsSync } from 'fs'
 import { join } from 'path'
 
 // Tables that have org_id and require RLS policies
@@ -43,11 +43,24 @@ const TENANT_OWNED_TABLES = [
  */
 const NON_ORG_SCOPED_TABLES = ['organisations', 'users', 'org_setup_progress']
 
+/**
+ * Tables reachable through PostgREST that carry no org_id and so were missed by
+ * the first pass. onboarding_template_tasks is keyed only by template_id and
+ * was flagged by the Supabase security advisor; it is scoped via its parent.
+ */
+const INDIRECTLY_SCOPED_TABLES = ['onboarding_template_tasks']
+
+/**
+ * Reads every migration, not just the first. Policies added in later migrations
+ * count as coverage, and a test that only read 00001 would report a false gap.
+ */
 function readMigration(): string {
-  return readFileSync(
-    join(process.cwd(), 'prisma/migrations/00001_rls_policies/migration.sql'),
-    'utf-8'
-  )
+  const dir = join(process.cwd(), 'prisma/migrations')
+  return readdirSync(dir)
+    .filter((d) => existsSync(join(dir, d, 'migration.sql')))
+    .sort()
+    .map((d) => readFileSync(join(dir, d, 'migration.sql'), 'utf-8'))
+    .join('\n')
 }
 
 describe('RLS Coverage', () => {
@@ -104,7 +117,7 @@ describe('RLS Coverage', () => {
   it('every protected table also forces RLS for the table owner', () => {
     const migration = readMigration()
 
-    for (const table of [...TENANT_OWNED_TABLES, ...NON_ORG_SCOPED_TABLES]) {
+    for (const table of [...TENANT_OWNED_TABLES, ...NON_ORG_SCOPED_TABLES, ...INDIRECTLY_SCOPED_TABLES]) {
       expect(
         new RegExp(
           `ALTER\\s+TABLE\\s+${table}\\s+FORCE\\s+ROW\\s+LEVEL\\s+SECURITY`,
@@ -139,6 +152,21 @@ describe('RLS Coverage', () => {
     // organisation_memberships recurses infinitely at runtime.
     expect(migration).toMatch(/FUNCTION\s+public\.user_org_ids/i)
     expect(migration).toMatch(/SECURITY\s+DEFINER/i)
+  })
+
+  it('covers tables scoped through a parent rather than org_id', () => {
+    const migration = readMigration()
+
+    for (const table of INDIRECTLY_SCOPED_TABLES) {
+      expect(
+        new RegExp(`ALTER\\s+TABLE\\s+${table}\\s+ENABLE\\s+ROW\\s+LEVEL\\s+SECURITY`, 'i').test(migration),
+        `${table} is missing ENABLE ROW LEVEL SECURITY`
+      ).toBe(true)
+      expect(
+        new RegExp(`CREATE\\s+POLICY\\s+\\w+\\s+ON\\s+${table}`, 'i').test(migration),
+        `${table} is missing a policy`
+      ).toBe(true)
+    }
   })
 
   it('audit_logs has REVOKE UPDATE, DELETE for authenticated role', () => {

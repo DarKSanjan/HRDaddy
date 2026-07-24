@@ -4,10 +4,10 @@ import { useActionState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createEmployee, type EmployeeFormState } from '@/actions/employees'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/core/ui/button'
+import { Input } from '@/core/ui/input'
+import { FormField } from '@/core/ui/form-field'
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/ui/card'
 import { ArrowLeft } from 'lucide-react'
 
 export default function NewEmployeePage() {
@@ -22,110 +22,91 @@ export default function NewEmployeePage() {
       <div className="flex items-center gap-4">
         <Link
           href={`/${params.orgSlug}/employees`}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          className="flex items-center gap-1 text-[13px] text-text-muted hover:text-text transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Add Employee</h1>
+        <h1 className="text-[20px] font-bold text-text">Add Employee</h1>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Employee Details</CardTitle>
+          <CardTitle>Employee Details</CardTitle>
         </CardHeader>
         <CardContent>
           <form action={formAction} className="space-y-6">
             <input type="hidden" name="orgSlug" value={params.orgSlug} />
 
             {state.error && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+              <div className="rounded-[var(--radius-sm)] bg-danger/10 p-3 text-[13px] text-danger" role="alert">
                 {state.error}
               </div>
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name *</Label>
+              <FormField label="First Name" htmlFor="firstName" required error={state.fieldErrors?.firstName}>
                 <Input id="firstName" name="firstName" required />
-                {state.fieldErrors?.firstName && (
-                  <p className="text-xs text-red-600">{state.fieldErrors.firstName}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name *</Label>
+              </FormField>
+              <FormField label="Last Name" htmlFor="lastName" required error={state.fieldErrors?.lastName}>
                 <Input id="lastName" name="lastName" required />
-                {state.fieldErrors?.lastName && (
-                  <p className="text-xs text-red-600">{state.fieldErrors.lastName}</p>
-                )}
-              </div>
+              </FormField>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="workEmail">Work Email *</Label>
+              <FormField label="Work Email" htmlFor="workEmail" required error={state.fieldErrors?.workEmail}>
                 <Input id="workEmail" name="workEmail" type="email" required />
-                {state.fieldErrors?.workEmail && (
-                  <p className="text-xs text-red-600">{state.fieldErrors.workEmail}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="personalEmail">Personal Email</Label>
+              </FormField>
+              <FormField label="Personal Email" htmlFor="personalEmail">
                 <Input id="personalEmail" name="personalEmail" type="email" />
-              </div>
+              </FormField>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
+              <FormField label="Phone" htmlFor="phone">
                 <Input id="phone" name="phone" type="tel" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dateOfBirth">Date of Birth</Label>
+              </FormField>
+              <FormField label="Date of Birth" htmlFor="dateOfBirth">
                 <Input id="dateOfBirth" name="dateOfBirth" type="date" />
-              </div>
+              </FormField>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
+              <FormField label="Start Date" htmlFor="startDate">
                 <Input id="startDate" name="startDate" type="date" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="employmentType">Employment Type</Label>
+              </FormField>
+              <FormField label="Employment Type" htmlFor="employmentType">
                 <Input
                   id="employmentType"
                   name="employmentType"
                   placeholder="e.g. Full-time, Part-time"
                 />
-              </div>
+              </FormField>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
+              <FormField label="Department" htmlFor="department">
                 <Input
                   id="department"
                   name="department"
                   placeholder="e.g. Engineering"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="jobTitle">Job Title</Label>
+              </FormField>
+              <FormField label="Job Title" htmlFor="jobTitle">
                 <Input
                   id="jobTitle"
                   name="jobTitle"
                   placeholder="e.g. Software Engineer"
                 />
-              </div>
+              </FormField>
             </div>
 
             <div className="flex gap-3">
-              <Button type="submit" disabled={pending}>
-                {pending ? 'Creating...' : 'Create Employee'}
+              <Button type="submit" loading={pending}>
+                Create Employee
               </Button>
               <Link href={`/${params.orgSlug}/employees`}>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="secondary">
                   Cancel
                 </Button>
               </Link>
