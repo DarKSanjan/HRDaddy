@@ -230,3 +230,44 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ---------------------------------------------------------------------------
+-- Storage policies for the private employee-documents bucket.
+--
+-- Object keys are org/{orgId}/employee/{employeeId}/{uuid}, so element 2 of the
+-- path is the owning organisation. Scoping on it means a caller cannot read or
+-- write another tenant's files even if an application permission check were
+-- bypassed. This is why the storage adapter uses the caller's session rather
+-- than a service-role key — the key would bypass every policy below.
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS employee_documents_read ON storage.objects;
+CREATE POLICY employee_documents_read ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'employee-documents'
+    AND (storage.foldername(name))[2] IN (SELECT public.user_org_ids())
+  );
+
+DROP POLICY IF EXISTS employee_documents_insert ON storage.objects;
+CREATE POLICY employee_documents_insert ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'employee-documents'
+    AND (storage.foldername(name))[2] IN (SELECT public.user_org_ids())
+  );
+
+DROP POLICY IF EXISTS employee_documents_update ON storage.objects;
+CREATE POLICY employee_documents_update ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'employee-documents'
+    AND (storage.foldername(name))[2] IN (SELECT public.user_org_ids())
+  );
+
+DROP POLICY IF EXISTS employee_documents_delete ON storage.objects;
+CREATE POLICY employee_documents_delete ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'employee-documents'
+    AND (storage.foldername(name))[2] IN (SELECT public.user_org_ids())
+  );

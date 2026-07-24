@@ -1,9 +1,18 @@
 /**
  * Storage adapter interface and Supabase implementation.
- * Object keys follow org/{orgId}/employee/{employeeId}/{uuid}.
- * No object is ever public.
+ *
+ * Object keys follow org/{orgId}/employee/{employeeId}/{uuid}. The bucket is
+ * private; access is always via short-lived signed URLs.
+ *
+ * Deliberately built on the *caller's* session rather than a service-role key.
+ * Storage RLS policies scope objects by the org prefix, so a compromised
+ * request cannot reach another tenant's files even if an application-level
+ * permission check were bypassed. Holding a service-role key here would defeat
+ * that: it bypasses every storage policy, and it would have to sit in the
+ * environment of a process that also serves user requests.
  */
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createSupabaseServer } from '@/core/auth/supabase-server'
 
 export interface StorageAdapter {
   upload(key: string, file: Buffer | Uint8Array, contentType: string): Promise<void>
@@ -12,21 +21,11 @@ export interface StorageAdapter {
   exists(key: string): Promise<boolean>
 }
 
-const BUCKET = 'employee-documents'
+export const BUCKET = 'employee-documents'
 const DEFAULT_SIGNED_URL_EXPIRY = 60 // seconds
 
-/**
- * Supabase Storage implementation against a private bucket.
- */
 export class SupabaseStorageAdapter implements StorageAdapter {
-  private client
-
-  constructor() {
-    this.client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!
-    )
-  }
+  constructor(private readonly client: SupabaseClient) {}
 
   async upload(
     key: string,
@@ -64,7 +63,6 @@ export class SupabaseStorageAdapter implements StorageAdapter {
   }
 
   async exists(key: string): Promise<boolean> {
-    // List the exact path to check existence
     const parts = key.split('/')
     const fileName = parts.pop()!
     const folder = parts.join('/')
@@ -79,7 +77,36 @@ export class SupabaseStorageAdapter implements StorageAdapter {
 }
 
 /**
- * Build a storage key following the org/{orgId}/employee/{employeeId}/{uuid} convention.
+ * Storage scoped to the current request's user. Storage RLS applies.
+ * This is what feature code uses.
+ */
+export async function getStorage(): Promise<StorageAdapter> {
+  const client = await createSupabaseServer()
+  return new SupabaseStorageAdapter(client)
+}
+
+/**
+ * Storage without a user session, for background jobs and cleanup sweeps that
+ * legitimately run outside a request. Requires SUPABASE_SECRET_KEY, which is
+ * optional — if it is absent, this throws rather than silently degrading, and
+ * nothing in the request path calls it.
+ */
+export function getStorageUnscoped(): StorageAdapter {
+  const secret = process.env.SUPABASE_SECRET_KEY
+  if (!secret) {
+    throw new Error(
+      'SUPABASE_SECRET_KEY is not configured. It is only needed for background ' +
+        'jobs; request-path code should use getStorage() instead.'
+    )
+  }
+  return new SupabaseStorageAdapter(
+    createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, secret)
+  )
+}
+
+/**
+ * Build a storage key following the org/{orgId}/employee/{employeeId}/{uuid}
+ * convention. The org prefix is what the storage RLS policy matches on.
  */
 export function buildStorageKey(
   orgId: string,
@@ -87,14 +114,4 @@ export function buildStorageKey(
   fileId: string
 ): string {
   return `org/${orgId}/employee/${employeeId}/${fileId}`
-}
-
-// Singleton instance
-let storageInstance: StorageAdapter | null = null
-
-export function getStorage(): StorageAdapter {
-  if (!storageInstance) {
-    storageInstance = new SupabaseStorageAdapter()
-  }
-  return storageInstance
 }
