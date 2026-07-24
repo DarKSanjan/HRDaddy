@@ -39,12 +39,30 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }, ref) => {
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      loading = false,
+      children,
+      disabled,
+      type,
+      ...props
+    },
+    ref
+  ) => {
     const Comp = asChild ? Slot : 'button'
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        // A <button> inside a <form> defaults to type="submit". That made the
+        // wizard's Back button submit the step and advance forward instead of
+        // going back. Defaulting to "button" means submitting is opt-in, which
+        // is the safer direction to fail in.
+        type={asChild ? undefined : (type ?? 'button')}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
         {...props}
