@@ -17,8 +17,12 @@ export const attendanceModule = defineModule({
 
   permissions: [
     { key: 'attendance.clock', description: 'Clock in and out', defaultRoles: ALL_ROLES },
-    { key: 'attendance.view_all', description: 'View all attendance records', defaultRoles: ADMIN_AND_MANAGER },
+    { key: 'attendance.view_own', description: 'View own attendance records', defaultRoles: ALL_ROLES },
+    { key: 'attendance.view_team', description: 'View team attendance', defaultRoles: ADMIN_AND_MANAGER },
+    { key: 'attendance.view_all', description: 'View all attendance records', defaultRoles: ADMIN_ROLES },
     { key: 'attendance.correct', description: 'Correct attendance entries', defaultRoles: ADMIN_ROLES },
+    { key: 'attendance.manual_add', description: 'Add manual attendance entries', defaultRoles: ADMIN_ROLES },
+    { key: 'attendance.export', description: 'Export attendance data', defaultRoles: ADMIN_AND_MANAGER },
   ],
 
   nav: [
