@@ -39,9 +39,9 @@ export const CPF_RATES_2026_01_01: CpfRateFixture = {
       bands: [
         { ageBand: '55_AND_BELOW', employerRate: 0.04, employeeRate: 0.05, totalRate: 0.09, graduatedK: 0.15 },
         { ageBand: 'ABOVE_55_TO_60', employerRate: 0.04, employeeRate: 0.05, totalRate: 0.09, graduatedK: 0.15 },
-        { ageBand: 'ABOVE_60_TO_65', employerRate: 0.04, employeeRate: 0.05, totalRate: 0.09, graduatedK: 0.15 },
-        { ageBand: 'ABOVE_65_TO_70', employerRate: 0.04, employeeRate: 0.05, totalRate: 0.09, graduatedK: 0.15 },
-        { ageBand: 'ABOVE_70', employerRate: 0.04, employeeRate: 0.05, totalRate: 0.09, graduatedK: 0.15 },
+        { ageBand: 'ABOVE_60_TO_65', employerRate: 0.035, employeeRate: 0.05, totalRate: 0.085, graduatedK: 0.15 },
+        { ageBand: 'ABOVE_65_TO_70', employerRate: 0.035, employeeRate: 0.05, totalRate: 0.085, graduatedK: 0.15 },
+        { ageBand: 'ABOVE_70', employerRate: 0.035, employeeRate: 0.05, totalRate: 0.085, graduatedK: 0.15 },
       ],
     },
 
@@ -52,11 +52,11 @@ export const CPF_RATES_2026_01_01: CpfRateFixture = {
       tableNumber: 3,
       description: 'SPR 2nd year (Graduated employer, Graduated employee)',
       bands: [
-        { ageBand: '55_AND_BELOW', employerRate: 0.09, employeeRate: 0.10, totalRate: 0.19, graduatedK: 0.3 },
-        { ageBand: 'ABOVE_55_TO_60', employerRate: 0.09, employeeRate: 0.075, totalRate: 0.165, graduatedK: 0.225 },
-        { ageBand: 'ABOVE_60_TO_65', employerRate: 0.09, employeeRate: 0.05, totalRate: 0.14, graduatedK: 0.15 },
-        { ageBand: 'ABOVE_65_TO_70', employerRate: 0.09, employeeRate: 0.05, totalRate: 0.14, graduatedK: 0.15 },
-        { ageBand: 'ABOVE_70', employerRate: 0.09, employeeRate: 0.05, totalRate: 0.14, graduatedK: 0.15 },
+        { ageBand: '55_AND_BELOW', employerRate: 0.09, employeeRate: 0.15, totalRate: 0.24, graduatedK: 0.45 },
+        { ageBand: 'ABOVE_55_TO_60', employerRate: 0.06, employeeRate: 0.125, totalRate: 0.185, graduatedK: 0.375 },
+        { ageBand: 'ABOVE_60_TO_65', employerRate: 0.035, employeeRate: 0.075, totalRate: 0.11, graduatedK: 0.225 },
+        { ageBand: 'ABOVE_65_TO_70', employerRate: 0.035, employeeRate: 0.05, totalRate: 0.085, graduatedK: 0.15 },
+        { ageBand: 'ABOVE_70', employerRate: 0.035, employeeRate: 0.05, totalRate: 0.085, graduatedK: 0.15 },
       ],
     },
 
@@ -82,9 +82,9 @@ export const CPF_RATES_2026_01_01: CpfRateFixture = {
       tableNumber: 5,
       description: 'SPR 2nd year (Full employer, Graduated employee)',
       bands: [
-        { ageBand: '55_AND_BELOW', employerRate: 0.17, employeeRate: 0.10, totalRate: 0.27, graduatedK: 0.3 },
-        { ageBand: 'ABOVE_55_TO_60', employerRate: 0.16, employeeRate: 0.075, totalRate: 0.235, graduatedK: 0.225 },
-        { ageBand: 'ABOVE_60_TO_65', employerRate: 0.125, employeeRate: 0.05, totalRate: 0.175, graduatedK: 0.15 },
+        { ageBand: '55_AND_BELOW', employerRate: 0.17, employeeRate: 0.15, totalRate: 0.32, graduatedK: 0.45 },
+        { ageBand: 'ABOVE_55_TO_60', employerRate: 0.16, employeeRate: 0.125, totalRate: 0.285, graduatedK: 0.375 },
+        { ageBand: 'ABOVE_60_TO_65', employerRate: 0.125, employeeRate: 0.075, totalRate: 0.2, graduatedK: 0.225 },
         { ageBand: 'ABOVE_65_TO_70', employerRate: 0.09, employeeRate: 0.05, totalRate: 0.14, graduatedK: 0.15 },
         { ageBand: 'ABOVE_70', employerRate: 0.075, employeeRate: 0.05, totalRate: 0.125, graduatedK: 0.15 },
       ],

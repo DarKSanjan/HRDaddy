@@ -115,23 +115,27 @@ export function getCpfTable(
 }
 
 /**
- * Determine which PR year the employee is in.
- * Year 1 = from PR start date to the end of the same calendar year.
- * Year 2 = the following calendar year.
- * Year 3+ = from the second calendar year onward.
+ * Which year of SPR status the employee is in at the pay-period date.
  *
- * Actually, CPF defines PR year based on the calendar year:
- * - Year 1: the calendar year in which PR status began
- * - Year 2: the next calendar year
- * - Year 3+: from the third calendar year onward
+ * Counted from the anniversary of obtaining PR, not by calendar year. The
+ * calendar-year reading puts someone granted PR in December into "year 2" a
+ * month later, which moves them onto materially higher rates roughly eleven
+ * months early.
+ *
+ *   year 1: PR date up to the first anniversary
+ *   year 2: first anniversary up to the second
+ *   year 3+: thereafter, full rates (Table 1)
  */
 function getPrYear(prStartDate: Date, payPeriodDate: Date): number {
-  const prStartYear = prStartDate.getFullYear()
-  const payYear = payPeriodDate.getFullYear()
+  let completed = payPeriodDate.getFullYear() - prStartDate.getFullYear()
+  const beforeAnniversary =
+    payPeriodDate.getMonth() < prStartDate.getMonth() ||
+    (payPeriodDate.getMonth() === prStartDate.getMonth() &&
+      payPeriodDate.getDate() < prStartDate.getDate())
+  if (beforeAnniversary) completed -= 1
 
-  const diff = payYear - prStartYear
-  if (diff <= 0) return 1
-  if (diff === 1) return 2
+  if (completed <= 0) return 1
+  if (completed === 1) return 2
   return 3
 }
 

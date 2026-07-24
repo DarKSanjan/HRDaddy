@@ -362,12 +362,12 @@ describe('computeCpf - PR Arrangements', () => {
       prStartDate: makeDate(2025, 3, 1),
       prArrangement: 'GRADUATED_GRADUATED',
     }))
-    // Table 3, age <=55: employer 9%, employee 10%, total 19%
-    // total = round(0.19 * 5000) = 950
-    // employee = floor(0.10 * 5000) = 500
-    // employer = 950 - 500 = 450
-    expect(result.totalCents).toBe(95_000)
-    expect(result.employeeCents).toBe(50_000)
+    // Table 3, age <=55: employer 9%, employee 15%, total 24%
+    // total = round(0.24 * 5000) = 1200
+    // employee = floor(0.15 * 5000) = 750
+    // employer = 1200 - 750 = 450
+    expect(result.totalCents).toBe(120_000)
+    expect(result.employeeCents).toBe(75_000)
     expect(result.employerCents).toBe(45_000)
   })
 
@@ -394,12 +394,12 @@ describe('computeCpf - PR Arrangements', () => {
       prStartDate: makeDate(2025, 3, 1),
       prArrangement: 'FULL_GRADUATED',
     }))
-    // Table 5, age <=55: employer 17%, employee 10%, total 27%
-    // total = round(0.27 * 5000) = 1350
-    // employee = floor(0.10 * 5000) = 500
-    // employer = 1350 - 500 = 850
-    expect(result.totalCents).toBe(135_000)
-    expect(result.employeeCents).toBe(50_000)
+    // Table 5, age <=55: employer 17%, employee 15%, total 32%
+    // total = round(0.32 * 5000) = 1600
+    // employee = floor(0.15 * 5000) = 750
+    // employer = 1600 - 750 = 850
+    expect(result.totalCents).toBe(160_000)
+    expect(result.employeeCents).toBe(75_000)
     expect(result.employerCents).toBe(85_000)
   })
 
