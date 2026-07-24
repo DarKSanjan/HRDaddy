@@ -1,0 +1,26 @@
+// HR Daddy - Attendance schema
+
+model AttendanceRecord {
+  id               String           @id @default(cuid())
+  orgId            String           @map("org_id")
+  employeeId       String           @map("employee_id")
+  date             DateTime
+  clockIn          DateTime         @map("clock_in")
+  clockOut         DateTime?        @map("clock_out")
+  durationMinutes  Int?             @map("duration_minutes")
+  type             AttendanceType   @default(OFFICE)
+  status           AttendanceStatus @default(OPEN)
+  correctedById    String?          @map("corrected_by_id")
+  correctionReason String?          @map("correction_reason")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  correctedBy  Employee?    @relation("AttendanceCorrector", fields: [correctedById], references: [id])
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([date])
+  @@map("attendance_records")
+}

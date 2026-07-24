@@ -1,39 +1,99 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
-const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/api/health']
+/**
+ * Explicit static-asset prefix allowlist.
+ * Never match on the presence of a dot — that's a vulnerability.
+ */
+const STATIC_PREFIXES = ['/_next/', '/favicon.ico', '/robots.txt', '/sitemap.xml']
 
-export function proxy(request: NextRequest) {
+/**
+ * Unauthenticated entry points. A signed-in visitor is bounced away from these.
+ */
+const AUTH_PAGES = ['/sign-in', '/sign-up']
+
+/**
+ * Auth protocol endpoints. Reachable signed-in or signed-out, and NEVER
+ * redirected — the email-confirmation and OAuth exchanges land here already
+ * holding a session, so bouncing them breaks the flow before the handler runs.
+ */
+const AUTH_FLOW_PATHS = ['/auth/callback', '/auth/confirm', '/auth/sign-out']
+
+function matches(pathname: string, paths: string[]): boolean {
+  return paths.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
+
+function isStaticAsset(pathname: string): boolean {
+  return STATIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+}
+
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const sessionCookie = request.cookies.get('hrdaddy_session')
 
-  // Allow public paths
-  const isPublicPath = PUBLIC_PATHS.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
-  )
-
-  // Allow static files and Next.js internals
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api/') ||
-    pathname.includes('.') // static files
-  ) {
+  // Static assets bypass entirely — matched by explicit prefix, never by dot.
+  if (isStaticAsset(pathname)) {
     return NextResponse.next()
   }
 
-  // If no session and trying to access protected route, redirect to sign-in
-  if (!sessionCookie && !isPublicPath) {
+  return await updateSession(request)
+}
+
+/**
+ * Refreshes the Supabase session via cookie handling.
+ * Redirects to /sign-in for protected routes when no session exists.
+ */
+async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  let supabaseResponse = NextResponse.next({
+    request,
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Auth protocol endpoints pass through untouched in both directions.
+  if (matches(pathname, AUTH_FLOW_PATHS)) {
+    return supabaseResponse
+  }
+
+  // No session on a protected route → sign in, remembering where they were.
+  if (!user && !matches(pathname, AUTH_PAGES)) {
     const signInUrl = new URL('/sign-in', request.url)
     signInUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(signInUrl)
   }
 
-  // If has session and trying to access auth pages, redirect to home
-  if (sessionCookie && isPublicPath) {
+  // Already signed in and asking for sign-in/sign-up → send them onward.
+  if (user && matches(pathname, AUTH_PAGES)) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  return NextResponse.next()
+  return supabaseResponse
 }
 
 export const config = {

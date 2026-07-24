@@ -1,0 +1,93 @@
+// HR Daddy - Organisation schema
+// Organisation, OrganisationSettings, OrganisationModule, OrgSetupProgress
+
+model Organisation {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  settings    OrganisationSettings?
+  memberships OrganisationMembership[]
+  invitations Invitation[]
+  modules     OrganisationModule[]
+
+  employees       Employee[]
+  departments     Department[]
+  jobTitles       JobTitle[]
+  workLocations   WorkLocation[]
+  employmentTypes EmploymentType[]
+
+  leaveTypes    LeaveType[]
+  leavePolicies LeavePolicy[]
+  leaveBalances LeaveBalance[]
+  leaveRequests LeaveRequest[]
+
+  attendanceRecords AttendanceRecord[]
+
+  onboardingTemplates OnboardingTemplate[]
+  employeeOnboardings EmployeeOnboarding[]
+
+  documentCategories DocumentCategory[]
+  employeeDocuments  EmployeeDocument[]
+
+  payrollPeriods PayrollPeriod[]
+  payrollRecords PayrollRecord[]
+
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  onboardingTasks  EmployeeOnboardingTask[]
+  payrollLineItems PayrollLineItem[]
+
+  @@map("organisations")
+}
+
+model OrganisationSettings {
+  id                String  @id @default(cuid())
+  orgId             String  @unique @map("org_id")
+  timezone          String  @default("UTC")
+  currency          String  @default("USD")
+  dateFormat        String  @default("YYYY-MM-DD") @map("date_format")
+  workingDays       Json    @default("[1,2,3,4,5]") @map("working_days")
+  workingHoursStart String  @default("09:00") @map("working_hours_start")
+  workingHoursEnd   String  @default("17:00") @map("working_hours_end")
+  leaveYearStart    String  @default("01-01") @map("leave_year_start")
+  brandPrimaryColor String? @map("brand_primary_color")
+  brandLogoUrl      String? @map("brand_logo_url")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("organisation_settings")
+}
+
+model OrganisationModule {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  moduleId  String   @map("module_id")
+  enabled   Boolean  @default(true)
+  settings  Json     @default("{}")
+  enabledAt DateTime @default(now()) @map("enabled_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, moduleId])
+  @@index([orgId])
+  @@map("organisation_modules")
+}
+
+model OrgSetupProgress {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  step      Int
+  data      Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("org_setup_progress")
+}

@@ -1,0 +1,120 @@
+// HR Daddy - Employees schema
+// Employee, Department, JobTitle, WorkLocation, EmploymentType
+
+model Employee {
+  id               String           @id @default(cuid())
+  orgId            String           @map("org_id")
+  userId           String?          @map("user_id")
+  firstName        String           @map("first_name")
+  lastName         String           @map("last_name")
+  workEmail        String           @map("work_email")
+  personalEmail    String?          @map("personal_email")
+  phone            String?
+  /// @sensitive
+  dateOfBirth      DateTime?        @map("date_of_birth")
+  gender           String?
+  /// @sensitive
+  nationalId       String?          @map("national_id")
+  address          String?
+  employmentStatus EmploymentStatus @default(DRAFT) @map("employment_status")
+  startDate        DateTime?        @map("start_date")
+  endDate          DateTime?        @map("end_date")
+  departmentId     String?          @map("department_id")
+  jobTitleId       String?          @map("job_title_id")
+  locationId       String?          @map("location_id")
+  employmentTypeId String?          @map("employment_type_id")
+  managerId        String?          @map("manager_id")
+
+  compensationAmountCents Int?    @map("compensation_amount_cents")
+  compensationCurrency    String? @map("compensation_currency")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organisation   Organisation    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  department     Department?     @relation("EmployeeDepartment", fields: [departmentId], references: [id])
+  jobTitle       JobTitle?       @relation(fields: [jobTitleId], references: [id])
+  workLocation   WorkLocation?   @relation(fields: [locationId], references: [id])
+  employmentType EmploymentType? @relation(fields: [employmentTypeId], references: [id])
+  manager        Employee?       @relation("EmployeeManager", fields: [managerId], references: [id])
+
+  directReports Employee[] @relation("EmployeeManager")
+
+  managedDepartments Department[] @relation("DepartmentManager")
+
+  leaveBalances  LeaveBalance[]
+  leaveRequests  LeaveRequest[]
+  reviewedLeaves LeaveRequest[] @relation("LeaveReviewer")
+
+  attendanceRecords    AttendanceRecord[]
+  correctedAttendances AttendanceRecord[] @relation("AttendanceCorrector")
+
+  onboardings EmployeeOnboarding[]
+
+  documents         EmployeeDocument[] @relation("EmployeeDocuments")
+  uploadedDocuments EmployeeDocument[] @relation("DocumentUploader")
+
+  payrollRecords PayrollRecord[]
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([departmentId])
+  @@index([managerId])
+  @@map("employees")
+}
+
+model Department {
+  id         String   @id @default(cuid())
+  orgId      String   @map("org_id")
+  name       String
+  managerId  String?  @map("manager_id")
+  isArchived Boolean  @default(false) @map("is_archived")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  manager      Employee?    @relation("DepartmentManager", fields: [managerId], references: [id])
+  employees    Employee[]   @relation("EmployeeDepartment")
+
+  @@index([orgId])
+  @@map("departments")
+}
+
+model JobTitle {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@index([orgId])
+  @@map("job_titles")
+}
+
+model WorkLocation {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  name      String
+  address   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@index([orgId])
+  @@map("work_locations")
+}
+
+model EmploymentType {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@index([orgId])
+  @@map("employment_types")
+}

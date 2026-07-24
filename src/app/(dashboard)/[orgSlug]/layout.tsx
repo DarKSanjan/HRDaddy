@@ -1,5 +1,4 @@
-import { redirect } from 'next/navigation'
-import { verifySession, getOrgBySlug, getOrgMembership } from '@/lib/dal'
+import { verifySession, getOrgContext } from '@/core/auth'
 import { Sidebar } from '@/components/sidebar'
 import { Header } from '@/components/header'
 
@@ -13,15 +12,7 @@ export default async function OrgDashboardLayout({
   const session = await verifySession()
   const { orgSlug } = await params
 
-  const org = await getOrgBySlug(orgSlug)
-  if (!org) {
-    redirect('/sign-in')
-  }
-
-  const membership = await getOrgMembership(session.userId, org.id)
-  if (!membership || !membership.isActive) {
-    redirect('/sign-in')
-  }
+  const { org, membership } = await getOrgContext(orgSlug)
 
   return (
     <div className="flex h-screen overflow-hidden">

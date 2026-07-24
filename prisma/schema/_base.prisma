@@ -1,0 +1,93 @@
+// HR Daddy - Base schema
+// Generator, datasource, and shared enums
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// Shared Enums
+// ─────────────────────────────────────────────
+
+enum OrgRole {
+  OWNER
+  HR_ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum EmploymentStatus {
+  DRAFT
+  INVITED
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+  ARCHIVED
+}
+
+enum LeaveRequestStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  WITHDRAWN
+}
+
+enum AttendanceType {
+  OFFICE
+  REMOTE
+}
+
+enum AttendanceStatus {
+  OPEN
+  CLOSED
+  MISSING_CLOCK_OUT
+  CORRECTED
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum OnboardingAssigneeType {
+  EMPLOYEE
+  MANAGER
+  HR
+}
+
+enum OnboardingTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  WAIVED
+}
+
+enum PayrollPeriodStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  PUBLISHED
+  PAID
+  ARCHIVED
+}
+
+enum PayrollLineItemType {
+  EARNING
+  ALLOWANCE
+  DEDUCTION
+}

@@ -1,0 +1,75 @@
+// HR Daddy - Onboarding schema
+
+model OnboardingTemplate {
+  id          String   @id @default(cuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?
+  isArchived  Boolean  @default(false) @map("is_archived")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organisation Organisation             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tasks        OnboardingTemplateTask[]
+  onboardings  EmployeeOnboarding[]
+
+  @@index([orgId])
+  @@map("onboarding_templates")
+}
+
+model OnboardingTemplateTask {
+  id           String                 @id @default(cuid())
+  templateId   String                 @map("template_id")
+  title        String
+  description  String?
+  assigneeType OnboardingAssigneeType @map("assignee_type")
+  dueInDays    Int                    @map("due_in_days")
+  sortOrder    Int                    @map("sort_order")
+
+  template OnboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@map("onboarding_template_tasks")
+}
+
+model EmployeeOnboarding {
+  id          String           @id @default(cuid())
+  orgId       String           @map("org_id")
+  employeeId  String           @map("employee_id")
+  templateId  String           @map("template_id")
+  status      OnboardingStatus @default(NOT_STARTED)
+  startedAt   DateTime?        @map("started_at")
+  completedAt DateTime?        @map("completed_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  organisation Organisation             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee     Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  template     OnboardingTemplate       @relation(fields: [templateId], references: [id])
+  tasks        EmployeeOnboardingTask[]
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@map("employee_onboardings")
+}
+
+model EmployeeOnboardingTask {
+  id           String                 @id @default(cuid())
+  onboardingId String                 @map("onboarding_id")
+  orgId        String                 @map("org_id")
+  title        String
+  description  String?
+  assigneeType OnboardingAssigneeType @map("assignee_type")
+  assigneeId   String?                @map("assignee_id")
+  dueDate      DateTime?              @map("due_date")
+  status       OnboardingTaskStatus   @default(PENDING)
+  completedAt  DateTime?              @map("completed_at")
+  notes        String?
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  onboarding   EmployeeOnboarding @relation(fields: [onboardingId], references: [id], onDelete: Cascade)
+  organisation Organisation       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([onboardingId])
+  @@index([orgId])
+  @@map("employee_onboarding_tasks")
+}

@@ -1,0 +1,85 @@
+// HR Daddy - Leave schema
+
+model LeaveType {
+  id                 String   @id @default(cuid())
+  orgId              String   @map("org_id")
+  name               String
+  color              String   @default("#3B82F6")
+  requiresApproval   Boolean  @default(true) @map("requires_approval")
+  requiresDocument   Boolean  @default(false) @map("requires_document")
+  maxConsecutiveDays Int?     @map("max_consecutive_days")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  organisation Organisation   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  policies     LeavePolicy[]
+  balances     LeaveBalance[]
+  requests     LeaveRequest[]
+
+  @@index([orgId])
+  @@map("leave_types")
+}
+
+model LeavePolicy {
+  id               String   @id @default(cuid())
+  orgId            String   @map("org_id")
+  leaveTypeId      String   @map("leave_type_id")
+  defaultAllowance Decimal  @map("default_allowance") @db.Decimal(5, 2)
+  carryOverLimit   Decimal  @default(0) @map("carry_over_limit") @db.Decimal(5, 2)
+  accrualEnabled   Boolean  @default(false) @map("accrual_enabled")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("leave_policies")
+}
+
+model LeaveBalance {
+  id          String   @id @default(cuid())
+  orgId       String   @map("org_id")
+  employeeId  String   @map("employee_id")
+  leaveTypeId String   @map("leave_type_id")
+  year        Int
+  allowance   Decimal  @db.Decimal(5, 2)
+  used        Decimal  @default(0) @db.Decimal(5, 2)
+  pending     Decimal  @default(0) @db.Decimal(5, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([orgId])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  id            String             @id @default(cuid())
+  orgId         String             @map("org_id")
+  employeeId    String             @map("employee_id")
+  leaveTypeId   String             @map("leave_type_id")
+  startDate     DateTime           @map("start_date")
+  endDate       DateTime           @map("end_date")
+  isHalfDay     Boolean            @default(false) @map("is_half_day")
+  halfDayPeriod String?            @map("half_day_period")
+  totalDays     Decimal            @map("total_days") @db.Decimal(4, 1)
+  reason        String?
+  status        LeaveRequestStatus @default(DRAFT)
+  reviewedById  String?            @map("reviewed_by_id")
+  reviewedAt    DateTime?          @map("reviewed_at")
+  reviewNote    String?            @map("review_note")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  reviewedBy   Employee?    @relation("LeaveReviewer", fields: [reviewedById], references: [id])
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@map("leave_requests")
+}

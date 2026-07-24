@@ -1,0 +1,40 @@
+// HR Daddy - Documents schema
+
+model DocumentCategory {
+  id          String   @id @default(cuid())
+  orgId       String   @map("org_id")
+  name        String
+  isSensitive Boolean  @default(false) @map("is_sensitive")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organisation Organisation       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  documents    EmployeeDocument[]
+
+  @@index([orgId])
+  @@map("document_categories")
+}
+
+model EmployeeDocument {
+  id           String    @id @default(cuid())
+  orgId        String    @map("org_id")
+  employeeId   String    @map("employee_id")
+  categoryId   String    @map("category_id")
+  fileName     String    @map("file_name")
+  fileKey      String    @map("file_key")
+  fileSize     Int       @map("file_size")
+  mimeType     String    @map("mime_type")
+  expiresAt    DateTime? @map("expires_at")
+  isArchived   Boolean   @default(false) @map("is_archived")
+  uploadedById String    @map("uploaded_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  organisation Organisation     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee     Employee         @relation("EmployeeDocuments", fields: [employeeId], references: [id], onDelete: Cascade)
+  category     DocumentCategory @relation(fields: [categoryId], references: [id])
+  uploadedBy   Employee         @relation("DocumentUploader", fields: [uploadedById], references: [id])
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@map("employee_documents")
+}
