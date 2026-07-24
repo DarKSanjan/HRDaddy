@@ -20,6 +20,8 @@ export const documentsModule = defineModule({
     { key: 'document.view_all', description: 'View all employee documents', defaultRoles: ADMIN_ROLES },
     { key: 'document.view_own', description: 'View own documents', defaultRoles: ALL_ROLES },
     { key: 'document.category.manage', description: 'Manage document categories', defaultRoles: ADMIN_ROLES },
+    { key: 'document.archive', description: 'Archive documents', defaultRoles: ADMIN_ROLES },
+    { key: 'document.delete', description: 'Delete archived documents', defaultRoles: ADMIN_ROLES, sensitive: true },
   ],
 
   nav: [
