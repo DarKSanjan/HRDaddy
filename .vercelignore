@@ -1,0 +1,11 @@
+# Never upload local secrets — Vercel env vars are configured in the project,
+# not shipped with the source.
+.env
+.env.*
+!.env.example
+
+.next
+node_modules
+e2e
+playwright-report
+test-results

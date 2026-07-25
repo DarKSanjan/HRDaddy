@@ -16,7 +16,8 @@
     "db:studio": "prisma studio",
     "test:db": "set -a && . ./.env && set +a && RUN_DB_TESTS=1 vitest run",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "npx tsx prisma/seed.ts"
+    "db:seed": "npx tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
