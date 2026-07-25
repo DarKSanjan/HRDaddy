@@ -7,6 +7,13 @@ import type { OrgRole } from '@prisma/client'
 // Import event handlers so they register on module import
 import './events'
 
+import {
+  OverdueOnboardingWidget,
+} from '@/core/dashboard/widgets/stat-widgets'
+import {
+  EmployeeOnboardingWidget,
+} from '@/core/dashboard/widgets/employee-widgets'
+
 const ALL_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER', 'EMPLOYEE']
 const ADMIN_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN']
 const ADMIN_AND_MANAGER: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER']
@@ -29,5 +36,26 @@ export const onboardingModule = defineModule({
 
   nav: [
     { label: 'Onboarding', href: '/onboarding', icon: 'ClipboardCheck', permission: 'onboarding.complete_task' },
+  ],
+
+  widgets: [
+    {
+      id: 'overdue-onboarding',
+      title: 'Overdue Onboarding',
+      permission: 'onboarding.view_all',
+      roles: ['owner'],
+      size: 'sm',
+      priority: 50,
+      component: OverdueOnboardingWidget,
+    },
+    {
+      id: 'employee-onboarding',
+      title: 'Onboarding Progress',
+      permission: 'onboarding.complete_task',
+      roles: ['employee'],
+      size: 'md',
+      priority: 30,
+      component: EmployeeOnboardingWidget,
+    },
   ],
 })

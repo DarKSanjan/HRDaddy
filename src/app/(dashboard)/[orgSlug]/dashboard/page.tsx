@@ -9,9 +9,7 @@ import { resolveWidgets } from '@/core/dashboard'
 import { resolveDashboardContext } from '@/core/dashboard/context'
 import { DashboardGrid, WidgetShell } from '@/core/dashboard/grid'
 
-// Side-effect import: populates the widget registry
-import '@/core/dashboard/register-widgets'
-// Side-effect import: populates the module registry
+// Side-effect import: populates the module registry (including widgets)
 import '@/modules/register'
 
 export const dynamic = 'force-dynamic'

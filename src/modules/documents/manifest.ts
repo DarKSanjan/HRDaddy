@@ -4,6 +4,13 @@
 import { defineModule } from '@/core/modules'
 import type { OrgRole } from '@prisma/client'
 
+import {
+  ExpiringDocumentsWidget,
+} from '@/core/dashboard/widgets/stat-widgets'
+import {
+  EmployeeExpiringDocsWidget,
+} from '@/core/dashboard/widgets/employee-widgets'
+
 const ALL_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER', 'EMPLOYEE']
 const ADMIN_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN']
 
@@ -26,5 +33,26 @@ export const documentsModule = defineModule({
 
   nav: [
     { label: 'Documents', href: '/documents', icon: 'FileText', permission: 'document.view_own' },
+  ],
+
+  widgets: [
+    {
+      id: 'expiring-documents',
+      title: 'Expiring Documents',
+      permission: 'document.view_all',
+      roles: ['owner'],
+      size: 'sm',
+      priority: 60,
+      component: ExpiringDocumentsWidget,
+    },
+    {
+      id: 'employee-expiring-docs',
+      title: 'Expiring Documents',
+      permission: 'document.view_own',
+      roles: ['employee'],
+      size: 'sm',
+      priority: 40,
+      component: EmployeeExpiringDocsWidget,
+    },
   ],
 })

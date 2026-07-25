@@ -1,10 +1,21 @@
 /**
  * Employees module manifest — the core module, always enabled.
  * Carries the employee/department permission keys ported from the old permissions file.
- * Routes and UI are M3.
  */
 import { defineModule } from '@/core/modules'
 import type { OrgRole } from '@prisma/client'
+
+import {
+  ActiveEmployeesWidget,
+} from '@/core/dashboard/widgets/stat-widgets'
+import {
+  HeadcountOverTimeWidget,
+  HeadcountByDepartmentWidget,
+} from '@/core/dashboard/widgets/chart-widgets'
+import {
+  UpcomingEventsWidget,
+  RecentActivityWidget,
+} from '@/core/dashboard/widgets/list-widgets'
 
 const ALL_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER', 'EMPLOYEE']
 const ADMIN_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN']
@@ -20,8 +31,6 @@ export const employeesModule = defineModule({
   permissionNamespaces: ['employee', 'department'],
 
   permissions: [
-    // Organisation
-
     // Employees
     { key: 'employee.view_all', description: 'View all employees', defaultRoles: ADMIN_ROLES },
     { key: 'employee.view_own', description: 'View own employee profile', defaultRoles: ALL_ROLES },
@@ -33,8 +42,6 @@ export const employeesModule = defineModule({
     // Departments
     { key: 'department.view', description: 'View departments', defaultRoles: [...ADMIN_AND_MANAGER, 'EMPLOYEE'] },
     { key: 'department.manage', description: 'Create/edit departments', defaultRoles: ADMIN_ROLES },
-
-    // Notifications & Audit (shared core)
   ],
 
   nav: [
@@ -42,5 +49,49 @@ export const employeesModule = defineModule({
     { label: 'Departments', href: '/departments', icon: 'Building2', permission: 'department.view' },
   ],
 
-  // TODO(M3) settings, widgets, events, seed, onEnable, onDisable
+  widgets: [
+    {
+      id: 'active-employees',
+      title: 'Active Employees',
+      roles: ['owner', 'manager'],
+      size: 'sm',
+      priority: 10,
+      component: ActiveEmployeesWidget,
+    },
+    {
+      id: 'headcount-over-time',
+      title: 'Headcount Over Time',
+      permission: 'employee.view_all',
+      roles: ['owner'],
+      size: 'md',
+      priority: 100,
+      component: HeadcountOverTimeWidget,
+    },
+    {
+      id: 'headcount-by-department',
+      title: 'Headcount by Department',
+      permission: 'employee.view_all',
+      roles: ['owner'],
+      size: 'md',
+      priority: 110,
+      component: HeadcountByDepartmentWidget,
+    },
+    {
+      id: 'upcoming-events',
+      title: 'Upcoming',
+      roles: ['owner', 'manager', 'employee'],
+      size: 'md',
+      priority: 200,
+      component: UpcomingEventsWidget,
+    },
+    {
+      id: 'recent-activity',
+      title: 'Recent Activity',
+      permission: 'employee.view_all',
+      roles: ['owner'],
+      size: 'md',
+      priority: 210,
+      component: RecentActivityWidget,
+    },
+  ],
 })

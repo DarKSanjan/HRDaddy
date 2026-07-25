@@ -18,7 +18,56 @@ export class RlsScopeError extends Error {
   }
 }
 
+/**
+ * RLS requires the claims to be installed on the same connection as the query,
+ * so every scoped read costs an interactive transaction — each one holding a
+ * connection for its whole duration.
+ *
+ * The dashboard fans out roughly a dozen widget queries at once. All of them
+ * tried to open a transaction simultaneously and failed with "unable to start a
+ * transaction in the given time", because a connection pooler caps concurrent
+ * connections no matter how large connection_limit is set. Raising the limit
+ * does not help; the fix is to stop asking for more connections than exist.
+ */
+const TX_OPTIONS = { maxWait: 15_000, timeout: 20_000 } as const
+
+/**
+ * Ceiling on concurrent transactions, comfortably under the pooler's own limit.
+ * Work queues rather than failing, which is the right trade for a dashboard:
+ * widgets stream in slightly staggered instead of half of them erroring.
+ */
+const MAX_CONCURRENT_TX = 6
+
+let active = 0
+const waiting: Array<() => void> = []
+
+async function acquire(): Promise<void> {
+  if (active < MAX_CONCURRENT_TX) {
+    active++
+    return
+  }
+  await new Promise<void>((resolve) => waiting.push(resolve))
+  active++
+}
+
+function release(): void {
+  active--
+  waiting.shift()?.()
+}
+
 export async function dbAs<T>(
+  userId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>
+): Promise<T> {
+  await acquire()
+  try {
+    return await runScoped(userId, fn)
+  } finally {
+    release()
+  }
+}
+
+async function runScoped<T>(
   userId: string,
   fn: (tx: Prisma.TransactionClient) => Promise<T>
 ): Promise<T> {
@@ -46,5 +95,5 @@ export async function dbAs<T>(
     }
 
     return fn(tx)
-  })
+  }, TX_OPTIONS)
 }

@@ -11,7 +11,8 @@ import { CHART_COLORS } from './palette'
 export interface SparklineProps {
   data: number[]
   height?: number
-  width?: number | string
+  /** Recharts 3 narrows this to a number or a percentage string literal. */
+  width?: number | `${number}%`
   colorIndex?: number
   /** Whether positive slope is green and negative is red */
   statusColored?: boolean

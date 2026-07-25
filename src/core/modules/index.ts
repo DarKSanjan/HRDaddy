@@ -23,8 +23,12 @@ export interface NavEntry {
 
 export interface WidgetDef {
   id: string
+  title: string
   permission?: string
-  component?: unknown // React component, typed loosely to avoid circular deps
+  roles: ('owner' | 'manager' | 'employee')[]
+  size: 'sm' | 'md' | 'lg'
+  priority: number
+  component: unknown // React component, typed loosely to avoid circular deps
 }
 
 export type EventHandler = (payload: unknown, ctx: ModuleContext) => Promise<void>

@@ -4,6 +4,18 @@
 import { defineModule } from '@/core/modules'
 import type { OrgRole } from '@prisma/client'
 
+import {
+  OnLeaveTodayWidget,
+  PendingLeaveWidget,
+} from '@/core/dashboard/widgets/stat-widgets'
+import {
+  LeaveUsageByTypeWidget,
+} from '@/core/dashboard/widgets/chart-widgets'
+import {
+  EmployeeLeaveBalanceWidget,
+  EmployeePendingRequestsWidget,
+} from '@/core/dashboard/widgets/employee-widgets'
+
 const ALL_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER', 'EMPLOYEE']
 const ADMIN_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN']
 const ADMIN_AND_MANAGER: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER']
@@ -30,5 +42,53 @@ export const leaveModule = defineModule({
     { label: 'Leave', href: '/leave', icon: 'CalendarDays', permission: 'leave.request.create' },
     { label: 'Leave Approvals', href: '/leave/approvals', icon: 'ClipboardCheck', permission: 'leave.request.approve' },
     { label: 'Team Calendar', href: '/leave/calendar', icon: 'Calendar', permission: 'leave.calendar.view_team' },
+  ],
+
+  widgets: [
+    {
+      id: 'on-leave-today',
+      title: 'On Leave Today',
+      permission: 'leave.balance.view_all',
+      roles: ['owner', 'manager'],
+      size: 'sm',
+      priority: 30,
+      component: OnLeaveTodayWidget,
+    },
+    {
+      id: 'pending-leave',
+      title: 'Pending Leave',
+      permission: 'leave.request.approve',
+      roles: ['owner', 'manager'],
+      size: 'sm',
+      priority: 40,
+      component: PendingLeaveWidget,
+    },
+    {
+      id: 'leave-usage-by-type',
+      title: 'Leave Usage by Type',
+      permission: 'leave.balance.view_all',
+      roles: ['owner'],
+      size: 'md',
+      priority: 130,
+      component: LeaveUsageByTypeWidget,
+    },
+    {
+      id: 'employee-leave-balance',
+      title: 'Leave Balances',
+      permission: 'leave.balance.view_own',
+      roles: ['employee'],
+      size: 'md',
+      priority: 10,
+      component: EmployeeLeaveBalanceWidget,
+    },
+    {
+      id: 'employee-pending-requests',
+      title: 'Pending Requests',
+      permission: 'leave.request.create',
+      roles: ['employee'],
+      size: 'sm',
+      priority: 20,
+      component: EmployeePendingRequestsWidget,
+    },
   ],
 })

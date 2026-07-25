@@ -4,6 +4,10 @@
 import { defineModule } from '@/core/modules'
 import type { OrgRole } from '@prisma/client'
 
+import {
+  PayrollStatusWidget,
+} from '@/core/dashboard/widgets/list-widgets'
+
 const ALL_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER', 'EMPLOYEE']
 const ADMIN_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN']
 
@@ -23,5 +27,17 @@ export const payrollModule = defineModule({
 
   nav: [
     { label: 'Payroll', href: '/payroll', icon: 'DollarSign', permission: 'payroll.view_own' },
+  ],
+
+  widgets: [
+    {
+      id: 'payroll-status',
+      title: 'Payroll Status',
+      permission: 'payroll.process',
+      roles: ['owner'],
+      size: 'sm',
+      priority: 55,
+      component: PayrollStatusWidget,
+    },
   ],
 })
