@@ -102,27 +102,35 @@ async function ensureAuthUserViaSql(
   const userId = crypto.randomUUID()
   const now = new Date().toISOString()
 
-  // Hash password using bcrypt format that Supabase GoTrueAuth expects
-  const hashedPassword = await hashPasswordForGoTrue(password)
-
+  // Hash with Postgres bcrypt rather than in JS. GoTrue verifies against
+  // crypt()/gen_salt('bf'), and a hand-rolled hash produces an account that
+  // exists but can never sign in.
+  //
+  // The empty strings below are not padding: GoTrue reads these columns as
+  // NOT NULL text, and a NULL in any of them makes it fail the entire query
+  // with "Database error querying schema" — which reads like a config fault
+  // rather than a bad row.
   await db.$executeRaw`
     INSERT INTO auth.users (
       id, instance_id, email, encrypted_password, email_confirmed_at,
       raw_user_meta_data, raw_app_meta_data,
-      created_at, updated_at, confirmation_token, aud, role
+      created_at, updated_at, aud, role,
+      confirmation_token, recovery_token, email_change,
+      email_change_token_new, email_change_token_current,
+      phone_change, phone_change_token, reauthentication_token
     ) VALUES (
       ${userId}::uuid,
       '00000000-0000-0000-0000-000000000000'::uuid,
       ${email},
-      ${hashedPassword},
+      crypt(${password}, gen_salt('bf')),
       ${now}::timestamptz,
       ${JSON.stringify({ name })}::jsonb,
       ${JSON.stringify({ provider: 'email', providers: ['email'] })}::jsonb,
       ${now}::timestamptz,
       ${now}::timestamptz,
-      '',
       'authenticated',
-      'authenticated'
+      'authenticated',
+      '', '', '', '', '', '', '', ''
     )
   `
 
