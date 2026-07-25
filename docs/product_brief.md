@@ -1,16 +1,62 @@
-You are the principal product architect, senior software engineer, product designer, security engineer, QA lead and technical project manager for a product called HR Daddy.
+# HR Daddy — Product Brief
 
-Your mission is to design, plan, build, test and refine a professional, secure and extensible HR management platform for small and medium-sized businesses.
+> **Implementation Status (as of 2026-07-26):** V1 is fully implemented. The planning sections below were written before implementation; the following reflects the actual system as built.
 
-However, you must not begin major feature implementation immediately.
+## Actual Implementation Summary
 
-The first and most important stage of this project is to create an exceptionally strong product, domain and technical foundation. Before building production features, you must understand the system, identify its actors and workflows, model its data, define permissions, document edge cases, produce diagrams and establish clear architectural boundaries.
+### Data Layer
 
-The quality of the planning must be high enough that another capable engineering team could implement HR Daddy from the documentation without repeatedly asking basic product or architecture questions.
+- **Authentication:** Supabase Auth (`@supabase/ssr` + `@supabase/supabase-js`)
+- **Database:** PostgreSQL via Prisma ORM v7, multi-file schema (`prisma/schema/*.prisma`)
+- **Tenant Isolation:** Postgres Row-Level Security enforced via `dbAs()` — a scoped transaction wrapper that installs JWT claims and switches the Postgres session role to `authenticated` in a single round trip. `dbAdmin` (RLS bypass) is restricted to `src/core/**` by ESLint boundary rule.
 
-Do not create shallow documentation merely to satisfy this instruction. Think critically, identify contradictions, challenge weak assumptions and resolve important design problems before implementation.
+### Modules Built (7 feature modules)
 
-You may ask me questions when a decision is genuinely blocking or would fundamentally alter the product. Otherwise, make a sensible assumption, clearly record it and continue.
+| # | Module | Path | Required | Dependencies |
+|---|--------|------|----------|--------------|
+| 1 | Employees | `src/modules/employees/` | Yes | — |
+| 2 | Leave | `src/modules/leave/` | No | employees |
+| 3 | Attendance | `src/modules/attendance/` | No | employees |
+| 4 | Onboarding | `src/modules/onboarding/` | No | employees |
+| 5 | Documents | `src/modules/documents/` | No | employees |
+| 6 | Payroll | `src/modules/payroll/` | No | employees |
+| 7 | Dashboards | `src/core/dashboard/` | — | (kernel infra) |
+
+Cross-cutting infrastructure (auth, org-setup, permissions, dashboard kernel, notifications, audit) is provided by `src/core/` and is not registered as a module.
+
+### Modular-Org-Assembly Premise (as implemented)
+
+Each module registers a `ModuleManifest` via `defineModule()` in `src/core/modules/index.ts`:
+
+- **Permission namespaces** — the registry rejects cross-namespace permission keys and detects duplicates across modules at import time.
+- **Dependency validation** — `enableModule()` verifies all `dependsOn` are satisfied before toggling.
+- **Dynamic nav resolution** — `resolveNav(role, enabledModules)` filters sidebar entries by permission and enabled state.
+- **Widget assembly** — `resolveWidgets(role, enabledModules)` composes the dashboard from whichever modules are active.
+- **Route guarding** — `moduleGuard(moduleId, enabledModules)` returns 404 for routes belonging to disabled modules.
+- **Lifecycle hooks** — `onEnable`, `onDisable`, `seed` run when modules are toggled.
+
+An organisation that has not enabled a module sees no nav entry, no dashboard widget, and receives a 404 on any attempt to access that module's routes. Disabling a module never deletes data.
+
+### Technical Stack (actual)
+
+- Next.js 16.2 (App Router, Server Components, Server Actions)
+- React 19, TypeScript
+- Tailwind CSS v4 with `@theme inline` consuming CSS custom property tokens
+- Radix UI primitives, lucide-react icons
+- Prisma 7.9, PostgreSQL, Supabase
+- Recharts 3 for dashboard charts
+- Zod v4 for validation
+- date-fns 4 + @date-fns/tz for timezone-aware date maths
+- Vitest for unit/integration tests, Playwright for E2E
+- Docker Compose for self-hosted deployment
+
+---
+
+## Original Planning Brief
+
+> The content below is the original planning brief that guided implementation. It is retained for historical context.
+
+---
 
 1. Product overview
 

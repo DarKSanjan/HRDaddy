@@ -295,6 +295,80 @@ This document identifies and analyses 20 security threats to HR Daddy, covering 
 
 ---
 
+## THREAT-021: RLS Policies Without Explicit GRANTs (Found & Fixed)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Asset** | Multi-tenant data isolation via Postgres RLS |
+| **Threat** | RLS policies were enabled on all tables but the `authenticated` role had no GRANT statements, causing all queries through `dbAs()` to fail with "permission denied for table" |
+| **Attack Path** | 1. `dbAs()` switches session role to `authenticated`. 2. RLS policies are evaluated but the role has zero grants. 3. Every query fails — this is a denial-of-service to the entire application, not a data leak. |
+| **Likelihood** | High — this was the default state before the explicit GRANT block was added in migration 00001 |
+| **Impact** | Medium — fails closed (deny-all), not open. No data leaks, but the application is non-functional. |
+| **Mitigation** | 1. Migration 00001 adds explicit `GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated`. 2. `ALTER DEFAULT PRIVILEGES` ensures future tables are automatically granted. 3. Audit log has UPDATE/DELETE revoked (append-only enforcement). |
+| **Verification** | 1. Integration test: query through `dbAs()` succeeds for owned rows. 2. Integration test: UPDATE on `audit_logs` through `dbAs()` fails with permission denied. |
+| **Status** | Fixed in `prisma/migrations/00001_rls_policies/migration.sql` |
+
+---
+
+## THREAT-022: organisation_memberships Self-Referencing Policy Recursion (Found & Fixed)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Asset** | RLS policy evaluation on the `organisation_memberships` table |
+| **Threat** | A tenant_isolation policy on `organisation_memberships` that checks `org_id IN (SELECT org_id FROM organisation_memberships WHERE user_id = auth.uid())` creates infinite recursion — Postgres detects this and raises "infinite recursion detected in policy for relation" |
+| **Attack Path** | 1. Any query touching `organisation_memberships` triggers the policy. 2. The policy SELECTs from the same table it guards. 3. That SELECT triggers the same policy again. 4. Postgres detects infinite recursion and aborts. |
+| **Likelihood** | High — standard policy pattern doesn't work on self-referencing tables |
+| **Impact** | Medium — fails closed (error, no data leak), but all org-membership queries break |
+| **Mitigation** | 1. `user_org_ids()` function declared as `SECURITY DEFINER` — runs as the function owner (superuser), exempt from RLS. 2. Function performs the membership lookup without triggering the policy. 3. All policies reference `user_org_ids()` rather than directly querying `organisation_memberships`. 4. Function access restricted: `REVOKE ALL FROM public; GRANT EXECUTE TO authenticated`. |
+| **Verification** | 1. Query `organisation_memberships` through `dbAs()` — returns own org's memberships without recursion error. 2. Verify function is SECURITY DEFINER in pg_proc. |
+| **Status** | Fixed in `prisma/migrations/00001_rls_policies/migration.sql` |
+
+---
+
+## THREAT-023: camelCase/snake_case Column Mismatch in RLS Policies (Found & Fixed)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Asset** | Effectiveness of RLS policies |
+| **Threat** | Prisma model fields use camelCase (`orgId`) but `@@map` maps them to snake_case Postgres columns (`org_id`). If RLS policies reference the wrong casing, the policy silently evaluates to false (no matching column → NULL → deny all), making the application non-functional rather than insecure — but a partial mismatch on a boolean-condition column could theoretically no-op a policy |
+| **Attack Path** | 1. Policy written with `orgId` (camelCase). 2. Postgres has no column named `orgId` — the actual column is `org_id`. 3. Policy evaluates to NULL for every row → denies all. |
+| **Likelihood** | High — Prisma generates camelCase by default; manual SQL must use the mapped names |
+| **Impact** | Low-to-Medium — fails closed in practice. Worst case: a compound policy condition where one clause silently no-ops could widen access. |
+| **Mitigation** | 1. All migration SQL explicitly uses snake_case column names matching `@@map` declarations. 2. Integration tests verify that `dbAs()` queries return expected rows (would fail if policies are silently denying). 3. PR review checklist item: verify RLS SQL uses Postgres column names, not Prisma field names. |
+| **Verification** | 1. `SELECT * FROM information_schema.columns WHERE table_name = 'employees' AND column_name = 'org_id'` — confirms column exists. 2. Query through `dbAs()` returns correct rows for the tenant. |
+| **Status** | Fixed — all policies use snake_case throughout |
+
+---
+
+## THREAT-024: activity-tab.tsx Privileged Audit Read via Client-Supplied Props (Found & Fixed)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Asset** | Audit log confidentiality |
+| **Threat** | The `ActivityTab` component accepted `employeeId` and `orgSlug` as client-supplied props and passed them directly to `fetchEmployeeActivity()`. A malicious client could forge these props to read audit entries for any employee in any organisation. |
+| **Attack Path** | 1. Attacker inspects the component's props interface. 2. Attacker crafts a request to `fetchEmployeeActivity` with a victim's `employeeId` and their `orgSlug`. 3. The server action returns audit log entries for the victim without verifying the caller's relationship to that data. |
+| **Likelihood** | Medium — requires knowledge of the action's parameters and a valid session |
+| **Impact** | High — audit logs contain sensitive operational history (who changed what, when) |
+| **Mitigation** | 1. `fetchEmployeeActivity()` now calls `getOrgContext(orgSlug)` which validates the caller's membership in the org via session. 2. `requirePermission(org.id, 'audit.view')` enforces that only OWNER/HR_ADMIN roles can access audit data. 3. The query runs through `dbAs(userId, ...)` ensuring RLS scoping — even if the permission check were bypassed, the database would only return rows visible to the authenticated user's org. |
+| **Verification** | 1. Call `fetchEmployeeActivity` with another org's slug → returns auth error. 2. Call as EMPLOYEE role → returns permission denied. 3. Call as HR_ADMIN for own org → returns correct audit entries. |
+| **Status** | Fixed — server action now derives identity from session, not props |
+
+---
+
+## THREAT-025: Plaintext Database Password Exposure (Open Item)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Asset** | Database credentials |
+| **Threat** | The database connection password was pasted in plaintext during an early development session and is visible in repository/session history. The credential has not been rotated. |
+| **Attack Path** | 1. Attacker gains access to session history, terminal scrollback, or CI logs from the early session. 2. Attacker uses the credential to connect directly to the database, bypassing all application-layer and RLS protections (connects as the database owner role). |
+| **Likelihood** | Low — requires access to developer workstation or CI history |
+| **Impact** | Critical — full database access bypassing all isolation |
+| **Mitigation** | 1. **Outstanding: rotate the database password.** This requires infrastructure access not available in this context. 2. Ensure `.env` and `.env.local` are in `.gitignore` (confirmed). 3. Use a secrets manager in production (not yet implemented). |
+| **Verification** | 1. Confirm old credential no longer authenticates after rotation. 2. Verify `.env*` files are not committed. |
+| **Status** | **OPEN — credential rotation required** |
+
+---
 
 ## Risk Summary Matrix
 
@@ -320,6 +394,11 @@ This document identifies and analyses 20 security threats to HR Daddy, covering 
 | THREAT-018 | Accidental Production Seed Data | Medium | Critical | **Critical** |
 | THREAT-019 | Broken Access Control in Exports | Medium | High | **High** |
 | THREAT-020 | Background Job Tenant Confusion | Medium | High | **High** |
+| THREAT-021 | RLS Policies Without Explicit GRANTs | High | Medium | **High** |
+| THREAT-022 | organisation_memberships Policy Recursion | High | Medium | **High** |
+| THREAT-023 | camelCase/snake_case Column Mismatch | High | Low-Medium | **Medium** |
+| THREAT-024 | activity-tab Privileged Audit Read | Medium | High | **High** |
+| THREAT-025 | Plaintext Database Password Exposure | Low | Critical | **High** |
 
 ---
 
@@ -389,3 +468,4 @@ Based on risk level and implementation dependency:
 | Date | Change | Author |
 |------|--------|--------|
 | Initial | Complete V1 threat model (20 threats) | HR Daddy Architecture |
+| 2026-07-26 | Added THREAT-021 through THREAT-025: defects found during implementation review (4 fixed, 1 open) | M9 Docs Reconciliation |
