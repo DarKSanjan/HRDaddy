@@ -18,7 +18,11 @@ const AUTH_PAGES = ['/sign-in', '/sign-up']
  * redirected — the email-confirmation and OAuth exchanges land here already
  * holding a session, so bouncing them breaks the flow before the handler runs.
  */
-const AUTH_FLOW_PATHS = ['/auth/callback', '/auth/confirm', '/auth/sign-out']
+const AUTH_FLOW_PATHS = [
+  '/auth/callback',
+  '/auth/confirm',
+  '/api/auth/sign-out',
+]
 
 function matches(pathname: string, paths: string[]): boolean {
   return paths.some((p) => pathname === p || pathname.startsWith(`${p}/`))
