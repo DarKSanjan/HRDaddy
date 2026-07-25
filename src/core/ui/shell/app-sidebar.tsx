@@ -129,6 +129,7 @@ export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0
                   href={href}
                   className={cn(
                     'relative flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] transition-colors',
+                    'min-h-[36px] touch-target',
                     isActive
                       ? 'bg-accent-50 font-semibold text-accent-700'
                       : 'font-medium text-text-muted hover:bg-surface-hover hover:text-text',
@@ -166,6 +167,7 @@ export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0
             href={`/${orgSlug}${settingsEntry.href}`}
             className={cn(
               'flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text',
+              'min-h-[36px] touch-target',
               pathname.startsWith(`/${orgSlug}${settingsEntry.href}`) && 'bg-accent-50 text-accent-700',
               collapsed && 'justify-center px-0'
             )}
@@ -181,6 +183,7 @@ export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0
           onClick={toggleCollapse}
           className={cn(
             'flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] text-text-subtle transition-colors hover:bg-surface-hover hover:text-text-muted',
+            'min-h-[36px] touch-target',
             collapsed && 'justify-center px-0'
           )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}

@@ -86,7 +86,7 @@ function MobileNavInner({
                       <Link
                         href={href}
                         className={cn(
-                          'flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-[14px] font-medium transition-colors',
+                          'flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-[14px] font-medium transition-colors min-h-[44px]',
                           isActive
                             ? 'bg-accent-50 text-accent-700'
                             : 'text-text-muted hover:bg-surface-hover hover:text-text'

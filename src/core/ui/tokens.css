@@ -11,7 +11,7 @@
   --brand-indigo: #6758FF;
   --brand-purple: #8A1FFF;
 
-  /* Accent scale — org-overridable via --accent-500 */
+  /* Accent scale — org-overridable via brandPrimaryColor in OrganisationSettings */
   --accent-50: #F0EFFF;
   --accent-100: #E4E1FF;
   --accent-200: #CDC7FF;
@@ -82,6 +82,19 @@
   --text-muted: #9B9BA6;
   --text-subtle: #6E6E7A;
 
+  /* Accent scale — Dark */
+  --accent-50: #1A1730;
+  --accent-100: #221E3D;
+  --accent-200: #2E2856;
+  --accent-300: #453D80;
+  --accent-400: #6455B8;
+  --accent-500: #7B6EFF;
+  --accent-600: #9B8FFF;
+  --accent-700: #B5ABFF;
+  --accent-800: #D0C9FF;
+  --accent-900: #E8E4FF;
+  --accent-950: #F5F3FF;
+
   /* Status — Dark */
   --success: #22C55E;
   --warning: #F59E0B;
@@ -102,6 +115,19 @@
     --text: #F5F5F7;
     --text-muted: #9B9BA6;
     --text-subtle: #6E6E7A;
+
+    /* Accent scale — Dark */
+    --accent-50: #1A1730;
+    --accent-100: #221E3D;
+    --accent-200: #2E2856;
+    --accent-300: #453D80;
+    --accent-400: #6455B8;
+    --accent-500: #7B6EFF;
+    --accent-600: #9B8FFF;
+    --accent-700: #B5ABFF;
+    --accent-800: #D0C9FF;
+    --accent-900: #E8E4FF;
+    --accent-950: #F5F3FF;
 
     --success: #22C55E;
     --warning: #F59E0B;

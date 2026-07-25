@@ -37,6 +37,7 @@ export const employeesModule = defineModule({
     { key: 'employee.view_team', description: 'View team members', defaultRoles: ADMIN_AND_MANAGER },
     { key: 'employee.create', description: 'Create employees', defaultRoles: ADMIN_ROLES },
     { key: 'employee.edit', description: 'Edit employee records', defaultRoles: ADMIN_ROLES },
+    { key: 'employee.edit_own', description: 'Edit own contact/emergency info', defaultRoles: ALL_ROLES },
     { key: 'employee.archive', description: 'Archive employees', defaultRoles: ADMIN_ROLES },
 
     // Departments
@@ -46,7 +47,6 @@ export const employeesModule = defineModule({
 
   nav: [
     { label: 'Employees', href: '/employees', icon: 'Users', permission: 'employee.view_own' },
-    { label: 'Departments', href: '/departments', icon: 'Building2', permission: 'department.view' },
   ],
 
   widgets: [

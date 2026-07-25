@@ -68,6 +68,14 @@ body {
   outline-offset: 2px;
 }
 
+/* Touch-friendly targets for coarse pointers */
+@media (pointer: coarse) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 /* Tabular figures for numeric content */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
