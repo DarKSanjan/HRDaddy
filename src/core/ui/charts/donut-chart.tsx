@@ -40,8 +40,8 @@ export function DonutChart({
   labelValue,
 }: DonutChartProps) {
   return (
-    <div className="relative">
-      <ResponsiveContainer width="100%" height={height}>
+    <div className="relative" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={data}
@@ -53,6 +53,7 @@ export function DonutChart({
             dataKey="value"
             nameKey="name"
             strokeWidth={0}
+            isAnimationActive={false}
           >
             {data.map((entry, i) => (
               <Cell
@@ -72,9 +73,11 @@ export function DonutChart({
           />
           {showLegend && (
             <Legend
-              wrapperStyle={{ fontSize: 11, color: 'var(--text-muted)' }}
               iconType="circle"
               iconSize={8}
+              formatter={(value: string) => (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{value}</span>
+              )}
             />
           )}
         </PieChart>

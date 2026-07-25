@@ -82,9 +82,11 @@ export function LineChart({
         />
         {shouldShowLegend && (
           <Legend
-            wrapperStyle={{ fontSize: 11, color: 'var(--text-muted)' }}
             iconType="circle"
             iconSize={8}
+            formatter={(value: string) => (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{value}</span>
+            )}
           />
         )}
         {series.map((s, i) => (
@@ -97,6 +99,7 @@ export function LineChart({
             strokeWidth={2}
             dot={{ r: 4, fill: CHART_COLORS[s.colorIndex ?? i] }}
             activeDot={{ r: 5 }}
+            isAnimationActive={false}
           />
         ))}
       </RechartsLineChart>
