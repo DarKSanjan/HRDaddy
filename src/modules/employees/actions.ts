@@ -712,3 +712,35 @@ export async function deleteEmploymentType(orgSlug: string, employmentTypeId: st
   revalidatePath(`/${orgSlug}/settings/organisation`)
   return { success: true }
 }
+
+// ─────────────────────────────────────────────
+// Employee activity (audit log) — server action
+// Derives user/org from session, checks audit.view permission.
+// ─────────────────────────────────────────────
+
+export async function fetchEmployeeActivity(
+  orgSlug: string,
+  employeeId: string,
+  page = 1,
+  pageSize = 20
+): Promise<ActionResult & { data?: { entries: unknown[]; total: number } }> {
+  const { org } = await getOrgContext(orgSlug)
+  const { userId } = await requirePermission(org.id, 'audit.view')
+
+  const result = await dbAs(userId, async (tx) => {
+    const [entries, total] = await Promise.all([
+      tx.auditLog.findMany({
+        where: { orgId: org.id, targetType: 'employee', targetId: employeeId },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      tx.auditLog.count({
+        where: { orgId: org.id, targetType: 'employee', targetId: employeeId },
+      }),
+    ])
+    return { entries, total }
+  })
+
+  return { success: true, data: result }
+}

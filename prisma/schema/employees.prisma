@@ -61,6 +61,7 @@ model Employee {
   payrollRecords PayrollRecord[]
 
   @@index([orgId])
+  @@index([orgId, employmentStatus])
   @@index([userId])
   @@index([departmentId])
   @@index([managerId])

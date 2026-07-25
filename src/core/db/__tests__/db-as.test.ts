@@ -59,13 +59,14 @@ describe('dbAs', () => {
 
     expect(result).toBe('result')
 
-    const claimsAt = callOrder.findIndex((s) => s.includes('request.jwt.claims'))
-    const roleAt = callOrder.findIndex((s) => s.includes("set_config('role'"))
+    // The single combined statement must appear before the user query
+    const setupAt = callOrder.findIndex(
+      (s) => s.includes('request.jwt.claims') && s.includes("set_config('role'")
+    )
     const queryAt = callOrder.indexOf('user_query')
 
-    expect(claimsAt).toBeGreaterThanOrEqual(0)
-    expect(roleAt).toBeGreaterThan(claimsAt)
-    expect(queryAt).toBeGreaterThan(roleAt)
+    expect(setupAt).toBeGreaterThanOrEqual(0)
+    expect(queryAt).toBeGreaterThan(setupAt)
   })
 
   it('carries the user id into the JWT claims', async () => {
@@ -97,5 +98,18 @@ describe('dbAs', () => {
 
     await expect(dbAs('test-user-id', callback)).rejects.toThrow(RlsScopeError)
     expect(callback).not.toHaveBeenCalled()
+  })
+
+  it('collapses setup into a single round trip', async () => {
+    const { dbAs } = await import('@/core/db/client')
+
+    await dbAs('test-user-id', async () => 'ok')
+
+    // Before the user callback, there should be exactly ONE setup statement
+    // that contains both set_config calls and current_user
+    const setupStatements = callOrder.filter(
+      (s) => s.includes('set_config') && s.includes('current_user')
+    )
+    expect(setupStatements.length).toBe(1)
   })
 })

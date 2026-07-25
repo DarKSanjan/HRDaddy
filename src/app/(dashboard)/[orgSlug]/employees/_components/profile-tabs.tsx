@@ -12,9 +12,7 @@ interface ProfileTabsProps {
   employee: EmployeeProfile
   orgSlug: string
   activeTab: string
-  viewerUserId: string
   viewerRole: OrgRole
-  orgId: string
 }
 
 const TABS = [
@@ -29,9 +27,7 @@ export function ProfileTabs({
   employee,
   orgSlug,
   activeTab,
-  viewerUserId,
   viewerRole,
-  orgId,
 }: ProfileTabsProps) {
   const router = useRouter()
 
@@ -86,8 +82,7 @@ export function ProfileTabs({
         {activeTab === 'activity' && (
           <ActivityTab
             employeeId={employee.id}
-            orgId={orgId}
-            viewerUserId={viewerUserId}
+            orgSlug={orgSlug}
           />
         )}
       </div>

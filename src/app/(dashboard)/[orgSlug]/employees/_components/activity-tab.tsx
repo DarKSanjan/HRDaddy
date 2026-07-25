@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/core/ui'
-import { getEmployeeActivity } from '@/modules/employees/queries'
+import { fetchEmployeeActivity } from '@/modules/employees/actions'
 import { Clock } from 'lucide-react'
 
 interface ActivityTabProps {
   employeeId: string
-  orgId: string
-  viewerUserId: string
+  orgSlug: string
 }
 
 interface AuditEntry {
@@ -21,7 +20,7 @@ interface AuditEntry {
   after: unknown
 }
 
-export function ActivityTab({ employeeId, orgId, viewerUserId }: ActivityTabProps) {
+export function ActivityTab({ employeeId, orgSlug }: ActivityTabProps) {
   const [entries, setEntries] = useState<AuditEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
@@ -31,10 +30,10 @@ export function ActivityTab({ employeeId, orgId, viewerUserId }: ActivityTabProp
 
     async function load() {
       try {
-        const result = await getEmployeeActivity(viewerUserId, orgId, employeeId)
-        if (!cancelled) {
-          setEntries(result.entries as unknown as AuditEntry[])
-          setTotal(result.total)
+        const result = await fetchEmployeeActivity(orgSlug, employeeId)
+        if (!cancelled && result.success && result.data) {
+          setEntries(result.data.entries as unknown as AuditEntry[])
+          setTotal(result.data.total)
         }
       } catch {
         // silently fail — user may not have audit access
@@ -45,7 +44,7 @@ export function ActivityTab({ employeeId, orgId, viewerUserId }: ActivityTabProp
 
     load()
     return () => { cancelled = true }
-  }, [employeeId, orgId, viewerUserId])
+  }, [employeeId, orgSlug])
 
   if (loading) {
     return (

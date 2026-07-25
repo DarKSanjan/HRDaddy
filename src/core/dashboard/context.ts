@@ -21,18 +21,19 @@ export async function resolveDashboardContext(
   userId: string,
   role: string
 ): Promise<DashboardContext> {
-  // Resolve org timezone
-  const orgSettings = await dbAdmin.organisationSettings.findUnique({
-    where: { orgId },
-    select: { timezone: true },
-  })
-  const orgTimezone = orgSettings?.timezone ?? 'UTC'
+  // Parallelize the two independent lookups
+  const [orgSettings, employee] = await Promise.all([
+    dbAdmin.organisationSettings.findUnique({
+      where: { orgId },
+      select: { timezone: true },
+    }),
+    dbAdmin.employee.findFirst({
+      where: { orgId, userId, employmentStatus: 'ACTIVE' },
+      select: { id: true },
+    }),
+  ])
 
-  // Resolve employee context for the viewer
-  const employee = await dbAdmin.employee.findFirst({
-    where: { orgId, userId, employmentStatus: 'ACTIVE' },
-    select: { id: true },
-  })
+  const orgTimezone = orgSettings?.timezone ?? 'UTC'
 
   // For managers, get their direct reports
   let managedEmployeeIds: string[] | undefined

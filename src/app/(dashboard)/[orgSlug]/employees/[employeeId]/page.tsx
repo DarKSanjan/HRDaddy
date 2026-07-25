@@ -53,9 +53,7 @@ export default async function EmployeeProfilePage({
         employee={employee}
         orgSlug={orgSlug}
         activeTab={activeTab}
-        viewerUserId={session.userId}
         viewerRole={membership.role}
-        orgId={org.id}
       />
     </div>
   )

@@ -86,6 +86,7 @@ model LeaveRequest {
   reviewedBy   Employee?    @relation("LeaveReviewer", fields: [reviewedById], references: [id])
 
   @@index([orgId])
+  @@index([orgId, status])
   @@index([employeeId])
   @@map("leave_requests")
 }

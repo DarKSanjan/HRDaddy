@@ -20,6 +20,7 @@ model AttendanceRecord {
   correctedBy  Employee?    @relation("AttendanceCorrector", fields: [correctedById], references: [id])
 
   @@index([orgId])
+  @@index([orgId, date])
   @@index([employeeId])
   @@index([date])
   @@map("attendance_records")

@@ -34,55 +34,51 @@ export async function getHeadcountOverTime(
   timezone: string
 ): Promise<HeadcountMonth[]> {
   const now = new TZDate(Date.now(), timezone)
+  const monthStart = format(startOfMonth(subMonths(now, 11)), 'yyyy-MM-dd')
+  const monthEnd = format(endOfMonth(now), 'yyyy-MM-dd')
 
   return dbAs(userId, async (tx) => {
-    const months: HeadcountMonth[] = []
+    // Single query: generate_series + lateral aggregates for all 12 months
+    const result = await tx.$queryRaw<
+      { month_start: Date; active: bigint; joiners: bigint; leavers: bigint }[]
+    >`
+      WITH months AS (
+        SELECT generate_series(
+          ${monthStart}::date,
+          ${monthEnd}::date,
+          '1 month'::interval
+        )::date AS month_start
+      )
+      SELECT
+        m.month_start,
+        (SELECT COUNT(*)::bigint FROM employees
+          WHERE org_id = ${orgId}
+            AND employment_status IN ('ACTIVE', 'SUSPENDED')
+            AND (start_date IS NULL OR start_date::date <= (m.month_start + INTERVAL '1 month' - INTERVAL '1 day')::date)
+            AND (end_date IS NULL OR end_date::date > (m.month_start + INTERVAL '1 month' - INTERVAL '1 day')::date)
+        ) AS active,
+        (SELECT COUNT(*)::bigint FROM employees
+          WHERE org_id = ${orgId}
+            AND start_date IS NOT NULL
+            AND start_date::date >= m.month_start
+            AND start_date::date <= (m.month_start + INTERVAL '1 month' - INTERVAL '1 day')::date
+        ) AS joiners,
+        (SELECT COUNT(*)::bigint FROM employees
+          WHERE org_id = ${orgId}
+            AND end_date IS NOT NULL
+            AND end_date::date >= m.month_start
+            AND end_date::date <= (m.month_start + INTERVAL '1 month' - INTERVAL '1 day')::date
+        ) AS leavers
+      FROM months m
+      ORDER BY m.month_start ASC
+    `
 
-    for (let i = 11; i >= 0; i--) {
-      const monthDate = subMonths(now, i)
-      const monthStart = format(startOfMonth(monthDate), 'yyyy-MM-dd')
-      const monthEnd = format(endOfMonth(monthDate), 'yyyy-MM-dd')
-      const monthLabel = format(monthDate, 'MMM')
-
-      // Active count at end of month
-      const [activeResult] = await tx.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(*)::bigint as count
-        FROM employees
-        WHERE org_id = ${orgId}
-          AND employment_status IN ('ACTIVE', 'SUSPENDED')
-          AND (start_date IS NULL OR start_date::date <= ${monthEnd}::date)
-          AND (end_date IS NULL OR end_date::date > ${monthEnd}::date)
-      `
-
-      // Joiners: started this month
-      const [joinersResult] = await tx.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(*)::bigint as count
-        FROM employees
-        WHERE org_id = ${orgId}
-          AND start_date IS NOT NULL
-          AND start_date::date >= ${monthStart}::date
-          AND start_date::date <= ${monthEnd}::date
-      `
-
-      // Leavers: ended this month
-      const [leaversResult] = await tx.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(*)::bigint as count
-        FROM employees
-        WHERE org_id = ${orgId}
-          AND end_date IS NOT NULL
-          AND end_date::date >= ${monthStart}::date
-          AND end_date::date <= ${monthEnd}::date
-      `
-
-      months.push({
-        month: monthLabel,
-        active: Number(activeResult?.count ?? 0),
-        joiners: Number(joinersResult?.count ?? 0),
-        leavers: Number(leaversResult?.count ?? 0),
-      })
-    }
-
-    return months
+    return result.map((r) => ({
+      month: format(new Date(r.month_start), 'MMM'),
+      active: Number(r.active),
+      joiners: Number(r.joiners),
+      leavers: Number(r.leavers),
+    }))
   })
 }
 
@@ -141,9 +137,11 @@ export async function getAttendanceThisWeek(
 
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd })
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+  const weekStartStr = format(weekStart, 'yyyy-MM-dd')
+  const weekEndStr = format(weekEnd, 'yyyy-MM-dd')
 
   return dbAs(userId, async (tx) => {
-    // Total active employees
+    // Total active employees - single query
     const [totalResult] = await tx.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*)::bigint as count
       FROM employees
@@ -152,52 +150,63 @@ export async function getAttendanceThisWeek(
     `
     const totalActive = Number(totalResult?.count ?? 0)
 
-    const result: WeekdayAttendance[] = []
+    // Batch: attendance counts by date and type for the week
+    const attendanceResult = await tx.$queryRaw<
+      { day_date: Date; type: string; count: bigint }[]
+    >`
+      SELECT
+        date::date AS day_date,
+        type,
+        COUNT(DISTINCT employee_id)::bigint AS count
+      FROM attendance_records
+      WHERE org_id = ${orgId}
+        AND date::date >= ${weekStartStr}::date
+        AND date::date <= ${weekEndStr}::date
+        AND status IN ('OPEN', 'CLOSED')
+      GROUP BY date::date, type
+    `
 
+    // Batch: leave counts by date for the week
+    const leaveResult = await tx.$queryRaw<
+      { day_date: Date; count: bigint }[]
+    >`
+      SELECT
+        d.day_date,
+        COUNT(DISTINCT lr.employee_id)::bigint AS count
+      FROM generate_series(${weekStartStr}::date, ${weekEndStr}::date, '1 day'::interval) AS d(day_date)
+      JOIN leave_requests lr
+        ON lr.org_id = ${orgId}
+        AND lr.status = 'APPROVED'
+        AND lr.start_date::date <= d.day_date::date
+        AND lr.end_date::date >= d.day_date::date
+      JOIN employees e ON lr.employee_id = e.id AND e.employment_status = 'ACTIVE'
+      GROUP BY d.day_date
+    `
+
+    // Assemble results
+    const result: WeekdayAttendance[] = []
     for (let i = 0; i < days.length; i++) {
       const dayStr = format(days[i], 'yyyy-MM-dd')
 
-      // Office attendance
-      const [officeResult] = await tx.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(DISTINCT employee_id)::bigint as count
-        FROM attendance_records
-        WHERE org_id = ${orgId}
-          AND date::date = ${dayStr}::date
-          AND status IN ('OPEN', 'CLOSED')
-          AND type = 'OFFICE'
-      `
+      const office = attendanceResult.find(
+        (r) => format(new Date(r.day_date), 'yyyy-MM-dd') === dayStr && r.type === 'OFFICE'
+      )
+      const remote = attendanceResult.find(
+        (r) => format(new Date(r.day_date), 'yyyy-MM-dd') === dayStr && r.type === 'REMOTE'
+      )
+      const leave = leaveResult.find(
+        (r) => format(new Date(r.day_date), 'yyyy-MM-dd') === dayStr
+      )
 
-      // Remote attendance
-      const [remoteResult] = await tx.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(DISTINCT employee_id)::bigint as count
-        FROM attendance_records
-        WHERE org_id = ${orgId}
-          AND date::date = ${dayStr}::date
-          AND status IN ('OPEN', 'CLOSED')
-          AND type = 'REMOTE'
-      `
-
-      // On leave
-      const [leaveResult] = await tx.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(DISTINCT lr.employee_id)::bigint as count
-        FROM leave_requests lr
-        JOIN employees e ON lr.employee_id = e.id
-        WHERE lr.org_id = ${orgId}
-          AND lr.status = 'APPROVED'
-          AND lr.start_date::date <= ${dayStr}::date
-          AND lr.end_date::date >= ${dayStr}::date
-          AND e.employment_status = 'ACTIVE'
-      `
-
-      const present = Number(officeResult?.count ?? 0)
-      const remote = Number(remoteResult?.count ?? 0)
-      const onLeave = Number(leaveResult?.count ?? 0)
-      const absent = Math.max(0, totalActive - present - remote - onLeave)
+      const present = Number(office?.count ?? 0)
+      const remoteCount = Number(remote?.count ?? 0)
+      const onLeave = Number(leave?.count ?? 0)
+      const absent = Math.max(0, totalActive - present - remoteCount - onLeave)
 
       result.push({
         day: dayNames[i],
         present,
-        remote,
+        remote: remoteCount,
         onLeave,
         absent,
       })
