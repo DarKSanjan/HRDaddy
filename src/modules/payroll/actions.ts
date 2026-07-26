@@ -20,7 +20,9 @@ import { revalidatePath } from 'next/cache'
 import { getOrgContext, requirePermission } from '@/core/auth'
 import { writeAudit } from '@/core/audit'
 import { dbAs } from '@/core/db'
-import { computeCpf } from './cpf/calculate'
+import { getComplianceProvider } from './compliance'
+import { MOM_OT_CAP_HOURS } from './compliance/sg'
+import { resolveShift, computeShiftMetrics } from '../attendance/shift-helpers'
 import { momPayslipSchema } from './schemas'
 import type { CpfComputeInput, ResidencyStatus, PrArrangement } from './cpf/types'
 import {
@@ -72,16 +74,52 @@ export async function processPayroll(
       return { error: 'Can only process payroll in DRAFT or REOPENED status.' }
     }
 
-    // Get all active employees with their details
+    // Get org settings for compliance provider and working days
+    const orgSettings = await tx.organisationSettings.findUnique({
+      where: { orgId: org.id },
+    })
+    const countryCode = orgSettings?.countryCode ?? 'SG'
+    const workingDays: number[] = (orgSettings?.workingDays as number[]) ?? [1, 2, 3, 4, 5]
+    const workingHoursStart = orgSettings?.workingHoursStart ?? '09:00'
+    const workingHoursEnd = orgSettings?.workingHoursEnd ?? '17:00'
+    const timezone = (orgSettings?.timezone as string) ?? 'UTC'
+
+    const compliance = getComplianceProvider(countryCode)
+
+    // Get all active employees with their details + shift info
     const employees = await tx.employee.findMany({
       where: { orgId: org.id, employmentStatus: 'ACTIVE' },
       select: {
         id: true,
         dateOfBirth: true,
         compensationAmountCents: true,
+        isWorkman: true,
         residencyStatus: true,
         prStartDate: true,
         prArrangement: true,
+        payType: true,
+        shiftTemplate: {
+          select: {
+            startMinutes: true,
+            endMinutes: true,
+            standardMinutesPerDay: true,
+            overtimeMultiplier: true,
+            restDayMultiplier: true,
+          },
+        },
+        employmentType: {
+          select: {
+            defaultShiftTemplate: {
+              select: {
+                startMinutes: true,
+                endMinutes: true,
+                standardMinutesPerDay: true,
+                overtimeMultiplier: true,
+                restDayMultiplier: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -90,11 +128,140 @@ export async function processPayroll(
       where: { periodId, orgId: org.id },
     })
 
-    // Compute CPF for each employee
+    // Compute payroll for each employee
     for (const emp of employees) {
       if (!emp.compensationAmountCents || !emp.dateOfBirth) continue
 
-      const owCents = emp.compensationAmountCents
+      // Resolve effective shift
+      const shift = resolveShift({
+        employeeShift: emp.shiftTemplate
+          ? {
+              startMinutes: emp.shiftTemplate.startMinutes,
+              endMinutes: emp.shiftTemplate.endMinutes,
+              standardMinutesPerDay: emp.shiftTemplate.standardMinutesPerDay,
+              overtimeMultiplier: Number(emp.shiftTemplate.overtimeMultiplier),
+              restDayMultiplier: Number(emp.shiftTemplate.restDayMultiplier),
+            }
+          : null,
+        employmentTypeShift: emp.employmentType?.defaultShiftTemplate
+          ? {
+              startMinutes: emp.employmentType.defaultShiftTemplate.startMinutes,
+              endMinutes: emp.employmentType.defaultShiftTemplate.endMinutes,
+              standardMinutesPerDay: emp.employmentType.defaultShiftTemplate.standardMinutesPerDay,
+              overtimeMultiplier: Number(emp.employmentType.defaultShiftTemplate.overtimeMultiplier),
+              restDayMultiplier: Number(emp.employmentType.defaultShiftTemplate.restDayMultiplier),
+            }
+          : null,
+        orgWorkingHoursStart: workingHoursStart,
+        orgWorkingHoursEnd: workingHoursEnd,
+      })
+
+      // Get attendance records for this period
+      const attendanceRecords = await tx.attendanceRecord.findMany({
+        where: {
+          orgId: org.id,
+          employeeId: emp.id,
+          date: { gte: period.startDate, lte: period.endDate },
+          status: { in: ['CLOSED', 'CORRECTED'] },
+        },
+        select: {
+          clockIn: true,
+          clockOut: true,
+          durationMinutes: true,
+          date: true,
+        },
+      })
+
+      // Compute gross pay based on pay type
+      let baseCents: number
+      if (emp.payType === 'HOURLY') {
+        // Hourly: sum attendance hours × hourly rate in cents
+        const totalMinutesWorked = attendanceRecords.reduce(
+          (sum, r) => sum + (r.durationMinutes ?? 0), 0
+        )
+        const totalHoursWorked = totalMinutesWorked / 60
+        baseCents = Math.round(totalHoursWorked * emp.compensationAmountCents)
+      } else {
+        // Salaried: flat per-period salary
+        baseCents = emp.compensationAmountCents
+      }
+
+      // Compute overtime for salaried employees
+      let weekdayOtMinutes = 0
+      let restDayOtMinutes = 0
+
+      for (const record of attendanceRecords) {
+        if (!record.clockOut || record.durationMinutes === null) continue
+        const dayOfWeek = record.date.getDay()
+        const metrics = computeShiftMetrics({
+          shift,
+          clockIn: record.clockIn,
+          clockOut: record.clockOut,
+          durationMinutes: record.durationMinutes,
+          dayOfWeek,
+          workingDays,
+          timezone,
+        })
+        if (metrics.isRestDay) {
+          restDayOtMinutes += record.durationMinutes // All rest-day work counts
+        } else {
+          weekdayOtMinutes += metrics.overtimeMinutes
+        }
+      }
+
+      // OT line item(s) for salaried employees
+      let overtimePayCents = 0
+      const lineItems: Array<{ type: 'EARNING' | 'ALLOWANCE' | 'DEDUCTION' | 'OVERTIME'; name: string; amountCents: number }> = []
+
+      lineItems.push({ type: 'EARNING', name: 'Basic Salary', amountCents: baseCents })
+
+      if (emp.payType === 'SALARIED' && (weekdayOtMinutes > 0 || restDayOtMinutes > 0)) {
+        const hourlyRateCents = compliance.hourlyRateFromMonthlyCents(emp.compensationAmountCents)
+
+        // Weekday OT: hourlyRate × overtimeMultiplier × hours
+        if (weekdayOtMinutes > 0) {
+          const weekdayOtHours = weekdayOtMinutes / 60
+          const weekdayOtCents = Math.round(hourlyRateCents * shift.overtimeMultiplier * weekdayOtHours)
+
+          // Check MOM 72-hour cap — flag but don't truncate pay
+          const totalOtHours = (weekdayOtMinutes + restDayOtMinutes) / 60
+          const otCapExceeded = totalOtHours > MOM_OT_CAP_HOURS
+
+          // Gate behind statutory eligibility
+          const isStatutory = compliance.isOvertimeEligible(emp.compensationAmountCents, emp.isWorkman)
+
+          lineItems.push({
+            type: 'OVERTIME',
+            name: isStatutory
+              ? `Overtime Pay (Weekday)${otCapExceeded ? ' [72hr cap exceeded]' : ''}`
+              : 'Overtime Pay (Weekday) [Non-statutory]',
+            amountCents: weekdayOtCents,
+          })
+          overtimePayCents += weekdayOtCents
+        }
+
+        // Rest-day OT: hourlyRate × restDayMultiplier × hours
+        // Note: This is a configurable approximation, not MOM-exact for rest day pay.
+        // MOM uses lump-sum-per-day rules — org should verify manually.
+        if (restDayOtMinutes > 0) {
+          const restDayOtHours = restDayOtMinutes / 60
+          const restDayOtCents = Math.round(hourlyRateCents * shift.restDayMultiplier * restDayOtHours)
+
+          lineItems.push({
+            type: 'OVERTIME',
+            name: 'Overtime Pay (Rest Day) [Verify against MOM rest-day rules]',
+            amountCents: restDayOtCents,
+          })
+          overtimePayCents += restDayOtCents
+        }
+      }
+
+      const grossCents = baseCents + overtimePayCents
+
+      // OT pay classifies as OW when paid within the normal payroll run
+      // (i.e. same period or by 14th of following month). Since we process
+      // and pay within the period, this is OW.
+      const owCents = grossCents
 
       // Get YTD OW for this employee
       const ytdRecords = await tx.payrollRecord.findMany({
@@ -129,12 +296,11 @@ export async function processPayroll(
         ytdTotalCents: ytdOwCents,
       }
 
-      const cpfResult = computeCpf(cpfInput)
+      const cpfResult = compliance.computeStatutoryContribution(cpfInput)
 
-      const grossCents = owCents
       const netCents = grossCents - cpfResult.employeeCents
 
-      await tx.payrollRecord.create({
+      const record = await tx.payrollRecord.create({
         data: {
           orgId: org.id,
           periodId,
@@ -148,6 +314,19 @@ export async function processPayroll(
           isPublished: false,
         },
       })
+
+      // Create line items
+      for (const li of lineItems) {
+        await tx.payrollLineItem.create({
+          data: {
+            recordId: record.id,
+            orgId: org.id,
+            type: li.type,
+            name: li.name,
+            amountCents: li.amountCents,
+          },
+        })
+      }
     }
 
     return { success: true, recordCount: employees.length }
@@ -351,6 +530,9 @@ export async function publishPayroll(
         .filter((li) => li.type === 'EARNING' && li.name !== 'Basic Salary')
         .map((li) => ({ name: li.name, amountCents: li.amountCents }))
 
+      const overtimeItems = record.lineItems.filter((li) => li.type === 'OVERTIME')
+      const overtimePayCents = overtimeItems.reduce((sum, li) => sum + li.amountCents, 0)
+
       const payslipData = {
         employerName: orgData?.name ?? '',
         employeeName: `${record.employee.firstName} ${record.employee.lastName}`,
@@ -361,8 +543,8 @@ export async function publishPayroll(
         allowances,
         additionalPayments,
         deductions,
-        overtimeHours: 0,
-        overtimePayCents: 0,
+        overtimeHours: 0, // TODO M13: derive from attendance once dashboard ships
+        overtimePayCents,
         overtimePeriodStart: null,
         overtimePeriodEnd: null,
         netSalaryCents: record.netAmountCents,

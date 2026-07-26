@@ -56,6 +56,7 @@ export interface EmployeeProfile {
   address?: string | null
   compensationAmountCents?: number | null
   compensationCurrency?: string | null
+  isWorkman?: boolean
 }
 
 // ─────────────────────────────────────────────
@@ -87,6 +88,7 @@ function buildSensitiveSelect(includeSensitive: boolean) {
       address: true,
       compensationAmountCents: true,
       compensationCurrency: true,
+      isWorkman: true,
     }
   }
   return {
@@ -98,6 +100,7 @@ function buildSensitiveSelect(includeSensitive: boolean) {
     address: false,
     compensationAmountCents: false,
     compensationCurrency: false,
+    isWorkman: false,
   }
 }
 
@@ -338,5 +341,50 @@ export async function getEmployeeActivity(
       where: { orgId, targetType: 'employee', targetId: employeeId },
     })
     return { entries, total }
+  })
+}
+
+// ─────────────────────────────────────────────
+// Shift Templates
+// ─────────────────────────────────────────────
+
+export interface ShiftTemplateItem {
+  id: string
+  name: string
+  startMinutes: number
+  endMinutes: number
+  standardMinutesPerDay: number
+  overtimeMultiplier: number
+  restDayMultiplier: number
+  isArchived: boolean
+}
+
+/**
+ * List shift templates for an organisation (active only by default).
+ */
+export async function getShiftTemplates(
+  userId: string,
+  orgId: string,
+  includeArchived = false
+): Promise<ShiftTemplateItem[]> {
+  return dbAs(userId, async (tx) => {
+    const where: Record<string, unknown> = { orgId }
+    if (!includeArchived) where.isArchived = false
+
+    const templates = await tx.shiftTemplate.findMany({
+      where,
+      orderBy: { name: 'asc' },
+    })
+
+    return templates.map((t) => ({
+      id: t.id,
+      name: t.name,
+      startMinutes: t.startMinutes,
+      endMinutes: t.endMinutes,
+      standardMinutesPerDay: t.standardMinutesPerDay,
+      overtimeMultiplier: Number(t.overtimeMultiplier),
+      restDayMultiplier: Number(t.restDayMultiplier),
+      isArchived: t.isArchived,
+    }))
   })
 }

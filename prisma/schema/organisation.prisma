@@ -18,6 +18,7 @@ model Organisation {
   jobTitles       JobTitle[]
   workLocations   WorkLocation[]
   employmentTypes EmploymentType[]
+  shiftTemplates  ShiftTemplate[]
 
   leaveTypes    LeaveType[]
   leavePolicies LeavePolicy[]
@@ -56,6 +57,7 @@ model OrganisationSettings {
   leaveYearStart    String  @default("01-01") @map("leave_year_start")
   brandPrimaryColor String? @map("brand_primary_color")
   brandLogoUrl      String? @map("brand_logo_url")
+  countryCode       String  @default("SG") @map("country_code")
 
   organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
 

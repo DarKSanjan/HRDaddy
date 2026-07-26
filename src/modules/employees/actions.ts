@@ -31,6 +31,9 @@ import {
   createJobTitleSchema,
   createWorkLocationSchema,
   createEmploymentTypeSchema,
+  createShiftTemplateSchema,
+  updateShiftTemplateSchema,
+  archiveShiftTemplateSchema,
 } from './schemas'
 import { validateTransition, requiresReassignment, requiresReason } from './lifecycle'
 import { wouldCreateCycle } from './reporting-lines'
@@ -65,6 +68,7 @@ export async function createEmployee(
       ? Number(raw.compensationAmountCents)
       : undefined,
     inviteToPortal: raw.inviteToPortal === 'true',
+    isWorkman: raw.isWorkman === 'true',
   })
 
   if (!parsed.success) {
@@ -125,6 +129,9 @@ export async function createEmployee(
         managerId: input.managerId || null,
         compensationAmountCents: input.compensationAmountCents ?? null,
         compensationCurrency: input.compensationCurrency || null,
+        payType: input.payType ?? 'SALARIED',
+        isWorkman: input.isWorkman ?? false,
+        shiftTemplateId: input.shiftTemplateId || null,
         employmentStatus: 'DRAFT',
       },
     })
@@ -159,6 +166,7 @@ export async function updateEmployee(
     compensationAmountCents: raw.compensationAmountCents
       ? Number(raw.compensationAmountCents)
       : undefined,
+    isWorkman: raw.isWorkman === 'true' ? true : raw.isWorkman === 'false' ? false : undefined,
   })
 
   if (!parsed.success) {
@@ -213,6 +221,9 @@ export async function updateEmployee(
   if (input.employmentTypeId !== undefined) updateData.employmentTypeId = input.employmentTypeId || null
   if (input.compensationAmountCents !== undefined) updateData.compensationAmountCents = input.compensationAmountCents ?? null
   if (input.compensationCurrency !== undefined) updateData.compensationCurrency = input.compensationCurrency || null
+  if (input.payType !== undefined) updateData.payType = input.payType
+  if (input.isWorkman !== undefined) updateData.isWorkman = input.isWorkman
+  if (input.shiftTemplateId !== undefined) updateData.shiftTemplateId = input.shiftTemplateId || null
 
   await dbAs(userId, async (tx) => {
     return tx.employee.update({
@@ -683,7 +694,13 @@ export async function createEmploymentType(
   }
 
   const et = await dbAs(userId, async (tx) => {
-    return tx.employmentType.create({ data: { orgId: org.id, name: parsed.data.name } })
+    return tx.employmentType.create({
+      data: {
+        orgId: org.id,
+        name: parsed.data.name,
+        defaultShiftTemplateId: parsed.data.defaultShiftTemplateId || null,
+      },
+    })
   })
 
   await writeAudit({
@@ -803,4 +820,144 @@ export async function bulkArchiveEmployees(
 
   revalidatePath(`/${orgSlug}/employees`)
   return { success: true, data: result }
+}
+
+// ─────────────────────────────────────────────
+// Shift Template CRUD
+// ─────────────────────────────────────────────
+
+export async function createShiftTemplate(
+  orgSlug: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const { org } = await getOrgContext(orgSlug)
+  const { userId } = await requirePermission(org.id, 'department.manage')
+
+  const raw = Object.fromEntries(formData.entries())
+  const parsed = createShiftTemplateSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {}
+    for (const issue of parsed.error.issues) {
+      fieldErrors[issue.path.join('.')] = issue.message
+    }
+    return { success: false, fieldErrors }
+  }
+
+  const st = await dbAs(userId, async (tx) => {
+    return tx.shiftTemplate.create({
+      data: {
+        orgId: org.id,
+        name: parsed.data.name,
+        startMinutes: parsed.data.startMinutes,
+        endMinutes: parsed.data.endMinutes,
+        standardMinutesPerDay: parsed.data.standardMinutesPerDay,
+        overtimeMultiplier: parsed.data.overtimeMultiplier ?? 1.5,
+        restDayMultiplier: parsed.data.restDayMultiplier ?? 2.0,
+      },
+    })
+  })
+
+  await writeAudit({
+    orgId: org.id,
+    actorId: userId,
+    action: 'shift_template.created',
+    targetType: 'shift_template',
+    targetId: st.id,
+    after: { name: parsed.data.name },
+  })
+
+  revalidatePath(`/${orgSlug}/settings`)
+  revalidatePath(`/${orgSlug}/employees`)
+  return { success: true, data: { id: st.id } }
+}
+
+export async function updateShiftTemplate(
+  orgSlug: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const { org } = await getOrgContext(orgSlug)
+  const { userId } = await requirePermission(org.id, 'department.manage')
+
+  const raw = Object.fromEntries(formData.entries())
+  const parsed = updateShiftTemplateSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {}
+    for (const issue of parsed.error.issues) {
+      fieldErrors[issue.path.join('.')] = issue.message
+    }
+    return { success: false, fieldErrors }
+  }
+
+  const { shiftTemplateId, ...input } = parsed.data
+
+  await dbAs(userId, async (tx) => {
+    const existing = await tx.shiftTemplate.findFirst({
+      where: { id: shiftTemplateId, orgId: org.id },
+    })
+    if (!existing) throw new Error('Shift template not found')
+
+    const updateData: Record<string, unknown> = {}
+    if (input.name !== undefined) updateData.name = input.name
+    if (input.startMinutes !== undefined) updateData.startMinutes = input.startMinutes
+    if (input.endMinutes !== undefined) updateData.endMinutes = input.endMinutes
+    if (input.standardMinutesPerDay !== undefined) updateData.standardMinutesPerDay = input.standardMinutesPerDay
+    if (input.overtimeMultiplier !== undefined) updateData.overtimeMultiplier = input.overtimeMultiplier
+    if (input.restDayMultiplier !== undefined) updateData.restDayMultiplier = input.restDayMultiplier
+
+    return tx.shiftTemplate.update({
+      where: { id: shiftTemplateId },
+      data: updateData,
+    })
+  })
+
+  await writeAudit({
+    orgId: org.id,
+    actorId: userId,
+    action: 'shift_template.updated',
+    targetType: 'shift_template',
+    targetId: shiftTemplateId,
+    after: input,
+  })
+
+  revalidatePath(`/${orgSlug}/settings`)
+  revalidatePath(`/${orgSlug}/employees`)
+  return { success: true }
+}
+
+export async function archiveShiftTemplate(
+  orgSlug: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const { org } = await getOrgContext(orgSlug)
+  const { userId } = await requirePermission(org.id, 'department.manage')
+
+  const raw = Object.fromEntries(formData.entries())
+  const parsed = archiveShiftTemplateSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    return { success: false, error: 'Invalid shift template ID.' }
+  }
+
+  const { shiftTemplateId } = parsed.data
+
+  await dbAs(userId, async (tx) => {
+    await tx.shiftTemplate.update({
+      where: { id: shiftTemplateId },
+      data: { isArchived: true },
+    })
+  })
+
+  await writeAudit({
+    orgId: org.id,
+    actorId: userId,
+    action: 'shift_template.archived',
+    targetType: 'shift_template',
+    targetId: shiftTemplateId,
+  })
+
+  revalidatePath(`/${orgSlug}/settings`)
+  revalidatePath(`/${orgSlug}/employees`)
+  return { success: true }
 }

@@ -35,6 +35,7 @@ interface EmployeeFormProps {
     managerId?: string | null
     compensationAmountCents?: number | null
     compensationCurrency?: string | null
+    isWorkman?: boolean
   }
   managers?: { id: string; firstName: string; lastName: string }[]
   mode?: 'create' | 'edit'
@@ -338,6 +339,29 @@ export function EmployeeForm({
               />
             </FormField>
           </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="hidden"
+              name="isWorkman"
+              value="false"
+            />
+            <input
+              type="checkbox"
+              name="isWorkman"
+              value="true"
+              defaultChecked={defaultValues?.isWorkman ?? false}
+              className="rounded border-border"
+            />
+            <div>
+              <div className="text-[13px] font-medium text-text">
+                Workman (manual/production role)
+              </div>
+              <div className="text-[12px] text-text-muted">
+                MOM Part IV applies a higher statutory overtime threshold ($4,500/mo) for workmen vs non-workmen ($2,600/mo).
+              </div>
+            </div>
+          </label>
         </CardContent>
       </Card>
 

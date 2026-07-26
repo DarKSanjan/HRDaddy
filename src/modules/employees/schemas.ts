@@ -26,6 +26,9 @@ export const createEmployeeSchema = z.object({
   managerId: z.string().optional().or(z.literal('')),
   compensationAmountCents: z.number().int().min(0).optional(),
   compensationCurrency: z.string().length(3).optional().or(z.literal('')),
+  payType: z.enum(['SALARIED', 'HOURLY']).optional(),
+  isWorkman: z.boolean().optional(),
+  shiftTemplateId: z.string().optional().or(z.literal('')),
   inviteToPortal: z.boolean().optional(),
 })
 
@@ -77,10 +80,32 @@ export const updateWorkLocationSchema = createWorkLocationSchema.partial().exten
 
 export const createEmploymentTypeSchema = z.object({
   name: z.string().min(1, 'Employment type name is required').max(100),
+  defaultShiftTemplateId: z.string().optional().or(z.literal('')),
 })
 
 export const updateEmploymentTypeSchema = createEmploymentTypeSchema.extend({
   employmentTypeId: z.string().min(1, 'Invalid employment type ID'),
+})
+
+// ─────────────────────────────────────────────
+// Shift Template schemas
+// ─────────────────────────────────────────────
+
+export const createShiftTemplateSchema = z.object({
+  name: z.string().min(1, 'Shift template name is required').max(100),
+  startMinutes: z.coerce.number().int().min(0).max(1439),
+  endMinutes: z.coerce.number().int().min(0).max(1439),
+  standardMinutesPerDay: z.coerce.number().int().min(1).max(1440),
+  overtimeMultiplier: z.coerce.number().min(1.0).max(9.99).optional(),
+  restDayMultiplier: z.coerce.number().min(1.0).max(9.99).optional(),
+})
+
+export const updateShiftTemplateSchema = createShiftTemplateSchema.partial().extend({
+  shiftTemplateId: z.string().min(1, 'Invalid shift template ID'),
+})
+
+export const archiveShiftTemplateSchema = z.object({
+  shiftTemplateId: z.string().min(1, 'Invalid shift template ID'),
 })
 
 // ─────────────────────────────────────────────

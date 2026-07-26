@@ -28,6 +28,10 @@ model Employee {
   compensationAmountCents Int?    @map("compensation_amount_cents")
   compensationCurrency    String? @map("compensation_currency")
 
+  payType         PayType          @default(SALARIED) @map("pay_type")
+  isWorkman       Boolean          @default(false) @map("is_workman")
+  shiftTemplateId String?          @map("shift_template_id")
+
   residencyStatus ResidencyStatus? @map("residency_status")
   prStartDate     DateTime?        @map("pr_start_date")
   prArrangement   PrArrangement?   @map("pr_arrangement")
@@ -41,6 +45,7 @@ model Employee {
   workLocation   WorkLocation?   @relation(fields: [locationId], references: [id])
   employmentType EmploymentType? @relation(fields: [employmentTypeId], references: [id])
   manager        Employee?       @relation("EmployeeManager", fields: [managerId], references: [id])
+  shiftTemplate  ShiftTemplate?  @relation(fields: [shiftTemplateId], references: [id])
 
   directReports Employee[] @relation("EmployeeManager")
 
@@ -112,14 +117,36 @@ model WorkLocation {
 }
 
 model EmploymentType {
-  id        String   @id @default(cuid())
-  orgId     String   @map("org_id")
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
+  id                     String   @id @default(cuid())
+  orgId                  String   @map("org_id")
+  name                   String
+  defaultShiftTemplateId String?  @map("default_shift_template_id")
+  createdAt              DateTime @default(now()) @map("created_at")
 
-  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  employees    Employee[]
+  organisation         Organisation   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  defaultShiftTemplate ShiftTemplate? @relation(fields: [defaultShiftTemplateId], references: [id])
+  employees            Employee[]
 
   @@index([orgId])
   @@map("employment_types")
+}
+
+model ShiftTemplate {
+  id                    String   @id @default(cuid())
+  orgId                 String   @map("org_id")
+  name                  String
+  startMinutes          Int      @map("start_minutes")
+  endMinutes            Int      @map("end_minutes")
+  standardMinutesPerDay Int      @map("standard_minutes_per_day")
+  overtimeMultiplier    Decimal  @default(1.5) @db.Decimal(3, 2) @map("overtime_multiplier")
+  restDayMultiplier     Decimal  @default(2.0) @db.Decimal(3, 2) @map("rest_day_multiplier")
+  isArchived            Boolean  @default(false) @map("is_archived")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  organisation    Organisation     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employmentTypes EmploymentType[]
+  employees       Employee[]
+
+  @@index([orgId])
+  @@map("shift_templates")
 }

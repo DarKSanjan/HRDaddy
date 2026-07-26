@@ -102,4 +102,10 @@ enum PayrollLineItemType {
   EARNING
   ALLOWANCE
   DEDUCTION
+  OVERTIME
+}
+
+enum PayType {
+  SALARIED
+  HOURLY
 }
