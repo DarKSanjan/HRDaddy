@@ -7,6 +7,9 @@ import {
   getOrgAttendanceOverview,
 } from '@/modules/attendance/queries'
 import { TeamAttendanceTable } from './_components/team-attendance-table'
+import { AttendanceHeadcountDonut } from './_components/attendance-headcount-donut'
+import { LateArrivalsBar } from './_components/late-arrivals-bar'
+import { OvertimeHoursBar } from './_components/overtime-hours-bar'
 import { Users } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -63,6 +66,19 @@ export default async function TeamAttendancePage({
         <h1 className="text-[20px] font-bold text-text">{scopeLabel} Attendance</h1>
       </div>
 
+      {/* Dashboard charts */}
+      {overview.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <AttendanceHeadcountDonut
+            employees={overview}
+            totalEmployees={overview.length}
+          />
+          <LateArrivalsBar employees={overview} />
+          <OvertimeHoursBar employees={overview} />
+        </div>
+      )}
+
+      {/* Table */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -80,7 +96,7 @@ export default async function TeamAttendancePage({
               </p>
             </div>
           ) : (
-            <TeamAttendanceTable employees={overview} />
+            <TeamAttendanceTable employees={overview} orgSlug={orgSlug} />
           )}
         </CardContent>
       </Card>

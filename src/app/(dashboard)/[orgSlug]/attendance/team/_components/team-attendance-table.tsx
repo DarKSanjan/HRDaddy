@@ -3,12 +3,14 @@
 import { Badge } from '@/core/ui'
 import type { EmployeeAttendanceOverview } from '@/modules/attendance/queries'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 type SortField = 'name' | 'daysPresent' | 'totalHoursWorked' | 'lateCount' | 'undertimeCount' | 'overtimeCount'
 type SortOrder = 'asc' | 'desc'
 
 interface TeamAttendanceTableProps {
   employees: EmployeeAttendanceOverview[]
+  orgSlug: string
 }
 
 function SortIndicator({ active, order }: { active: boolean; order: SortOrder }) {
@@ -16,9 +18,10 @@ function SortIndicator({ active, order }: { active: boolean; order: SortOrder })
   return <span className="ml-0.5">{order === 'asc' ? '↑' : '↓'}</span>
 }
 
-export function TeamAttendanceTable({ employees }: TeamAttendanceTableProps) {
+export function TeamAttendanceTable({ employees, orgSlug }: TeamAttendanceTableProps) {
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
+  const router = useRouter()
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -94,7 +97,11 @@ export function TeamAttendanceTable({ employees }: TeamAttendanceTableProps) {
         </thead>
         <tbody>
           {sorted.map((emp) => (
-            <tr key={emp.employeeId} className="border-b border-border last:border-b-0 hover:bg-surface-hover transition-colors">
+            <tr
+              key={emp.employeeId}
+              className="border-b border-border last:border-b-0 hover:bg-surface-hover transition-colors cursor-pointer"
+              onClick={() => router.push(`/${orgSlug}/employees/${emp.employeeId}`)}
+            >
               <td className="px-3 py-2 font-medium text-text">
                 {emp.firstName} {emp.lastName}
               </td>
