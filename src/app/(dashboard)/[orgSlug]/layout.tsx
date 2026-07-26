@@ -1,3 +1,15 @@
+// Registration barrel — populates the module/permission registries as an
+// import-time side effect. This layout wraps every org route, so importing
+// it here (rather than relying on one page, e.g. dashboard, to pull it in)
+// guarantees the registry is populated before ANY child route renders,
+// regardless of which route a fresh Lambda instance happens to serve first.
+// Previously only dashboard/page.tsx imported this, so a cold instance whose
+// first request was /employees or /employees/org-chart saw an empty
+// manifests/permissions registry — moduleGuard() and hasPermission() both
+// read from it, and both fail closed (notFound()) on empty, which is why
+// those routes intermittently 404'd while dashboard never did.
+import '@/modules/register'
+
 import { verifySession, getOrgContext } from '@/core/auth'
 import { resolveNav } from '@/core/modules'
 import { AppShell } from '@/core/ui/shell'
