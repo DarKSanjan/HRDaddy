@@ -16,6 +16,8 @@ import {
   PanelLeftOpen,
   ChevronRight,
   GitBranch,
+  DollarSign,
+  ClipboardCheck,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -35,6 +37,8 @@ const iconMap: Record<string, LucideIcon> = {
   Settings,
   CreditCard,
   GitBranch,
+  DollarSign,
+  ClipboardCheck,
 }
 
 /**
@@ -109,8 +113,9 @@ function NavItemWithChildren({ entry, orgSlug, pathname, collapsed }: NavItemPro
   // Parent is the actual page only if the section is active but no child claims it
   const parentIsLeaf = sectionActive && !childActive
 
-  // In expanded mode: auto-expand when section is active
-  const expanded = sectionActive
+  // In expanded mode: manual toggle (null = follow URL-based auto-expand)
+  const [manualOpen, setManualOpen] = React.useState<boolean | null>(null)
+  const expanded = manualOpen ?? sectionActive
 
   // In collapsed mode: show flyout on hover
   const [flyoutVisible, setFlyoutVisible] = React.useState(false)
@@ -211,51 +216,62 @@ function NavItemWithChildren({ entry, orgSlug, pathname, collapsed }: NavItemPro
   // Expanded mode: inline sub-list
   return (
     <li>
-      <Link
-        href={`/${orgSlug}${entry.href}`}
-        className={cn(
-          'relative flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] transition-colors',
-          'min-h-[36px] touch-target',
-          parentIsLeaf
-            ? 'bg-accent-50 font-semibold text-accent-700'
-            : childActive
-              ? 'font-semibold text-text'
-              : 'font-medium text-text-muted hover:bg-surface-hover hover:text-text'
-        )}
-        aria-current={parentIsLeaf ? 'page' : undefined}
-      >
-        {/* Active rail for leaf, subdued rail for section-open */}
-        {parentIsLeaf && (
-          <span
-            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-500"
-            aria-hidden="true"
-          />
-        )}
-        {childActive && (
-          <span
-            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-200"
-            aria-hidden="true"
-          />
-        )}
-        <NavIcon name={entry.icon} className="h-4 w-4 shrink-0" />
-        <span className="truncate">{entry.label}</span>
-        {entry.badge && (
-          <span className="ml-auto rounded-full bg-accent-50 px-1.5 py-0.5 text-[10px] font-medium text-accent-700 tabular-nums">
-            {entry.badge}
-          </span>
-        )}
+      <div className="relative flex items-center">
+        <Link
+          href={`/${orgSlug}${entry.href}`}
+          className={cn(
+            'relative flex flex-1 items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] transition-colors',
+            'min-h-[36px] touch-target',
+            // Leave space for the chevron button when children exist
+            entry.children && entry.children.length > 0 && 'pr-8',
+            parentIsLeaf
+              ? 'bg-accent-50 font-semibold text-accent-700'
+              : childActive
+                ? 'font-semibold text-text'
+                : 'font-medium text-text-muted hover:bg-surface-hover hover:text-text'
+          )}
+          aria-current={parentIsLeaf ? 'page' : undefined}
+        >
+          {/* Active rail for leaf, subdued rail for section-open */}
+          {parentIsLeaf && (
+            <span
+              className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-500"
+              aria-hidden="true"
+            />
+          )}
+          {childActive && (
+            <span
+              className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-200"
+              aria-hidden="true"
+            />
+          )}
+          <NavIcon name={entry.icon} className="h-4 w-4 shrink-0" />
+          <span className="truncate">{entry.label}</span>
+          {entry.badge && (
+            <span className="ml-auto rounded-full bg-accent-50 px-1.5 py-0.5 text-[10px] font-medium text-accent-700 tabular-nums">
+              {entry.badge}
+            </span>
+          )}
+        </Link>
         {entry.children && entry.children.length > 0 && (
-          <ChevronRight
-            className={cn(
-              'ml-auto h-3 w-3 shrink-0 text-text-subtle transition-transform duration-150',
-              expanded && 'rotate-90'
-            )}
-            aria-hidden="true"
-          />
+          <button
+            type="button"
+            onClick={() => setManualOpen(!expanded)}
+            className="absolute right-1.5 flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-text-subtle hover:bg-surface-hover hover:text-text transition-colors"
+            aria-label={expanded ? `Collapse ${entry.label}` : `Expand ${entry.label}`}
+          >
+            <ChevronRight
+              className={cn(
+                'h-3 w-3 shrink-0 transition-transform duration-150',
+                expanded && 'rotate-90'
+              )}
+              aria-hidden="true"
+            />
+          </button>
         )}
-      </Link>
+      </div>
 
-      {/* Children sub-list, auto-expanded when section is active */}
+      {/* Children sub-list */}
       {expanded && entry.children && entry.children.length > 0 && (
         <ul className="mt-0.5 ml-[22px] space-y-0.5 border-l border-border pl-2.5">
           {entry.children.map((child) => {
