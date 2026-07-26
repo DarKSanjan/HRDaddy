@@ -64,7 +64,7 @@ describe('AppSidebar', () => {
   })
 
   it('renders Settings in footer', () => {
-    render(<AppSidebar orgSlug="acme" orgName="Acme Inc" navEntries={mockNav} />)
+    render(<AppSidebar orgSlug="acme" orgName="Acme Inc" navEntries={mockNav} canManageSettings />)
     // Settings is in the footer section
     const links = screen.getAllByText('Settings')
     expect(links.length).toBeGreaterThanOrEqual(1)

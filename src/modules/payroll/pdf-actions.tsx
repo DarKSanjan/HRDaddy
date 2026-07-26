@@ -12,7 +12,7 @@ import { dbAs } from '@/core/db'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { PayslipDocument } from './pdf/payslip-document'
-import type { PayslipPdfData, PayslipEmployeeData } from './pdf/types'
+import type { PayslipPdfData, PayslipEmployeeData, PayrollSummaryData } from './pdf/types'
 
 export interface PdfActionResult {
   success: boolean
@@ -49,6 +49,8 @@ export async function downloadPeriodPdf(
             lastName: true,
             jobTitle: { select: { name: true } },
             department: { select: { name: true } },
+            bankName: true,
+            bankAccountNumber: true,
           },
         },
         lineItems: { select: { id: true, type: true, name: true, amountCents: true } },
@@ -72,6 +74,10 @@ export async function downloadPeriodPdf(
     lastName: r.employee.lastName,
     jobTitle: r.employee.jobTitle?.name ?? null,
     department: r.employee.department?.name ?? null,
+    bankName: r.employee.bankName ?? null,
+    bankAccountLast4: r.employee.bankAccountNumber
+      ? `•••• ${r.employee.bankAccountNumber.slice(-4)}`
+      : null,
     grossAmountCents: r.grossAmountCents,
     netAmountCents: r.netAmountCents,
     cpfEmployeeCents: r.cpfEmployeeCents,
@@ -88,6 +94,19 @@ export async function downloadPeriodPdf(
     return { success: false, error: 'No payroll records for this period' }
   }
 
+  // Compute summary for the period cover page (Section 4)
+  const summary: PayrollSummaryData = {
+    totalEmployees: employees.length,
+    totalGrossCents: employees.reduce((sum, e) => sum + e.grossAmountCents, 0),
+    totalCpfEmployeeCents: employees.reduce((sum, e) => sum + (e.cpfEmployeeCents ?? 0), 0),
+    totalCpfEmployerCents: employees.reduce((sum, e) => sum + (e.cpfEmployerCents ?? 0), 0),
+    totalNetCents: employees.reduce((sum, e) => sum + e.netAmountCents, 0),
+    employeeBreakdown: employees.map((e) => ({
+      name: `${e.firstName} ${e.lastName}`,
+      netCents: e.netAmountCents,
+    })),
+  }
+
   const pdfData: PayslipPdfData = {
     orgName: org.name,
     logoUrl: branding.logoSignedUrl,
@@ -95,6 +114,7 @@ export async function downloadPeriodPdf(
     periodStart: result.period.startDate,
     periodEnd: result.period.endDate,
     employees,
+    summary,
   }
 
   const buffer = await renderToBuffer(<PayslipDocument data={pdfData} />)
@@ -138,6 +158,8 @@ export async function downloadEmployeePdf(
             lastName: true,
             jobTitle: { select: { name: true } },
             department: { select: { name: true } },
+            bankName: true,
+            bankAccountNumber: true,
           },
         },
         lineItems: { select: { id: true, type: true, name: true, amountCents: true } },
@@ -170,6 +192,10 @@ export async function downloadEmployeePdf(
     lastName: record.employee.lastName,
     jobTitle: record.employee.jobTitle?.name ?? null,
     department: record.employee.department?.name ?? null,
+    bankName: record.employee.bankName ?? null,
+    bankAccountLast4: record.employee.bankAccountNumber
+      ? `•••• ${record.employee.bankAccountNumber.slice(-4)}`
+      : null,
     grossAmountCents: record.grossAmountCents,
     netAmountCents: record.netAmountCents,
     cpfEmployeeCents: record.cpfEmployeeCents,

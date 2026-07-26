@@ -242,6 +242,13 @@ function OrgChartFlowInner({ nodes, orgSlug }: OrgChartFlowProps) {
 
   return (
     <div className="h-[calc(100vh-180px)] min-h-[500px] w-full rounded-[var(--radius-md)] border border-border bg-surface">
+      {/* Fix z-index stacking so hover popovers render above sibling nodes */}
+      <style>{`
+        .react-flow__node:hover,
+        .react-flow__node:focus-within {
+          z-index: 1000 !important;
+        }
+      `}</style>
       <ReactFlow
         nodes={layoutedNodes}
         edges={layoutedEdges}

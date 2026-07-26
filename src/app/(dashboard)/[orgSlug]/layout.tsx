@@ -12,6 +12,7 @@ import '@/modules/register'
 
 import { verifySession, getOrgContext } from '@/core/auth'
 import { resolveNav } from '@/core/modules'
+import { hasPermission } from '@/core/permissions'
 import { AppShell } from '@/core/ui/shell'
 import { getOrgBranding } from '@/core/org/queries'
 import { getUserNotifications } from '@/core/notifications/queries'
@@ -30,6 +31,9 @@ export default async function OrgDashboardLayout({
 
   // Resolve nav from module registry — no hardcoded navigation
   const navEntries = resolveNav(membership.role, enabledModules)
+
+  // Compute Settings visibility (same permission all settings sub-pages require)
+  const canManageSettings = hasPermission(membership.role, enabledModules, 'department.manage')
 
   // Fetch org logo, notifications, and storage in parallel (independent queries)
   const [branding, { notifications, unreadCount }, storageUsedBytes] = await Promise.all([
@@ -50,6 +54,7 @@ export default async function OrgDashboardLayout({
       unreadCount={unreadCount}
       storageUsedBytes={storageUsedBytes}
       storageLimitBytes={FREE_PLAN_STORAGE_LIMIT_BYTES}
+      canManageSettings={canManageSettings}
     >
       {children}
     </AppShell>

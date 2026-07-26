@@ -45,6 +45,8 @@ interface EmployeeFormProps {
     isWorkman?: boolean
     shiftTemplateId?: string | null
     payType?: string | null
+    bankName?: string | null
+    bankAccountNumber?: string | null
   }
   managers?: { id: string; firstName: string; lastName: string }[]
   mode?: 'create' | 'edit'
@@ -396,6 +398,25 @@ export function EmployeeForm({
                 placeholder="USD"
                 maxLength={3}
                 defaultValue={defaultValues?.compensationCurrency ?? ''}
+              />
+            </FormField>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Bank Name" htmlFor="bankName">
+              <Input
+                id="bankName"
+                name="bankName"
+                placeholder="DBS, OCBC, UOB..."
+                defaultValue={defaultValues?.bankName ?? ''}
+              />
+            </FormField>
+            <FormField label="Bank Account Number" htmlFor="bankAccountNumber">
+              <Input
+                id="bankAccountNumber"
+                name="bankAccountNumber"
+                placeholder="Account number"
+                defaultValue={defaultValues?.bankAccountNumber ?? ''}
               />
             </FormField>
           </div>

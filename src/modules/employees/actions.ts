@@ -132,6 +132,8 @@ export async function createEmployee(
         payType: input.payType ?? 'SALARIED',
         isWorkman: input.isWorkman ?? false,
         shiftTemplateId: input.shiftTemplateId || null,
+        bankName: input.bankName || null,
+        bankAccountNumber: input.bankAccountNumber || null,
         employmentStatus: 'DRAFT',
       },
     })
@@ -224,6 +226,8 @@ export async function updateEmployee(
   if (input.payType !== undefined) updateData.payType = input.payType
   if (input.isWorkman !== undefined) updateData.isWorkman = input.isWorkman
   if (input.shiftTemplateId !== undefined) updateData.shiftTemplateId = input.shiftTemplateId || null
+  if (input.bankName !== undefined) updateData.bankName = input.bankName || null
+  if (input.bankAccountNumber !== undefined) updateData.bankAccountNumber = input.bankAccountNumber || null
 
   await dbAs(userId, async (tx) => {
     return tx.employee.update({

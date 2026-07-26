@@ -59,6 +59,8 @@ export interface EmployeeProfile {
   compensationAmountCents?: number | null
   compensationCurrency?: string | null
   isWorkman?: boolean
+  bankName?: string | null
+  bankAccountNumber?: string | null
 }
 
 // ─────────────────────────────────────────────
@@ -91,6 +93,8 @@ function buildSensitiveSelect(includeSensitive: boolean) {
       compensationAmountCents: true,
       compensationCurrency: true,
       isWorkman: true,
+      bankName: true,
+      bankAccountNumber: true,
     }
   }
   return {
@@ -103,6 +107,8 @@ function buildSensitiveSelect(includeSensitive: boolean) {
     compensationAmountCents: false,
     compensationCurrency: false,
     isWorkman: false,
+    bankName: false,
+    bankAccountNumber: false,
   }
 }
 

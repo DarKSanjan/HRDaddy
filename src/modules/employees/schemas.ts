@@ -29,6 +29,8 @@ export const createEmployeeSchema = z.object({
   payType: z.enum(['SALARIED', 'HOURLY']).optional(),
   isWorkman: z.boolean().optional(),
   shiftTemplateId: z.string().optional().or(z.literal('')),
+  bankName: z.string().max(100).optional().or(z.literal('')),
+  bankAccountNumber: z.string().max(50).optional().or(z.literal('')),
   inviteToPortal: z.boolean().optional(),
 })
 

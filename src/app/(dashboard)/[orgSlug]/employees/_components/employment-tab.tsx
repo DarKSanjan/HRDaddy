@@ -242,6 +242,25 @@ export function EmploymentTab({
                 </FormField>
               </div>
 
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Bank Name" htmlFor="bankName">
+                  <Input
+                    id="bankName"
+                    name="bankName"
+                    placeholder="DBS, OCBC, UOB..."
+                    defaultValue={employee.bankName ?? ''}
+                  />
+                </FormField>
+                <FormField label="Bank Account Number" htmlFor="bankAccountNumber">
+                  <Input
+                    id="bankAccountNumber"
+                    name="bankAccountNumber"
+                    placeholder="Account number"
+                    defaultValue={employee.bankAccountNumber ?? ''}
+                  />
+                </FormField>
+              </div>
+
               {!isSimplePayroll && (
               <label className="flex items-center gap-3 cursor-pointer">
                 <input type="hidden" name="isWorkman" value="false" />
@@ -367,6 +386,8 @@ export function EmploymentTab({
                     : undefined
                 }
               />
+              <Field label="Bank Name" value={employee.bankName} />
+              <Field label="Bank Account Number" value={employee.bankAccountNumber} />
               <Field
                 label="Workman (MOM Part IV)"
                 value={employee.isWorkman ? 'Yes' : 'No'}

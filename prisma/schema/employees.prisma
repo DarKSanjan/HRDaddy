@@ -16,6 +16,10 @@ model Employee {
   /// @sensitive
   nationalId       String?          @map("national_id")
   address          String?
+  /// @sensitive
+  bankName          String? @map("bank_name")
+  /// @sensitive
+  bankAccountNumber String? @map("bank_account_number")
   employmentStatus EmploymentStatus @default(DRAFT) @map("employment_status")
   startDate        DateTime?        @map("start_date")
   endDate          DateTime?        @map("end_date")

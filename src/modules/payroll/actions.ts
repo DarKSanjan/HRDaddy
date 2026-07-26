@@ -24,6 +24,7 @@ import { getComplianceProvider } from './compliance'
 import { MOM_OT_CAP_HOURS } from './compliance/sg'
 import { resolveShift, computeShiftMetrics } from '../attendance/shift-helpers'
 import { getPayrollComplexity } from './settings'
+import { computeEmployeeBasePay } from './compute'
 import { momPayslipSchema } from './schemas'
 import type { CpfComputeInput, ResidencyStatus, PrArrangement } from './cpf/types'
 import {
@@ -144,8 +145,16 @@ export async function processPayroll(
 
       if (isSimpleMode) {
         // Simple mode: everyone treated as flat salaried
-        baseCents = emp.compensationAmountCents
-        lineItems.push({ type: 'EARNING', name: 'Basic Salary', amountCents: baseCents })
+        const basePayResult = computeEmployeeBasePay({
+          isSimpleMode: true,
+          payType: emp.payType as 'SALARIED' | 'HOURLY',
+          compensationAmountCents: emp.compensationAmountCents,
+          attendanceMinutes: 0,
+        })
+        baseCents = basePayResult.baseCents
+        for (const li of basePayResult.lineItems) {
+          lineItems.push({ type: li.type as 'EARNING', name: li.name, amountCents: li.amountCents })
+        }
       } else {
         // Advanced mode: full shift/OT/hourly computation
 
@@ -190,19 +199,19 @@ export async function processPayroll(
         })
 
         // Compute gross pay based on pay type
-        if (emp.payType === 'HOURLY') {
-          // Hourly: sum attendance hours × hourly rate in cents
-          const totalMinutesWorked = attendanceRecords.reduce(
-            (sum, r) => sum + (r.durationMinutes ?? 0), 0
-          )
-          const totalHoursWorked = totalMinutesWorked / 60
-          baseCents = Math.round(totalHoursWorked * emp.compensationAmountCents)
-        } else {
-          // Salaried: flat per-period salary
-          baseCents = emp.compensationAmountCents
+        const totalMinutesWorked = attendanceRecords.reduce(
+          (sum, r) => sum + (r.durationMinutes ?? 0), 0
+        )
+        const basePayResult = computeEmployeeBasePay({
+          isSimpleMode: false,
+          payType: emp.payType as 'SALARIED' | 'HOURLY',
+          compensationAmountCents: emp.compensationAmountCents,
+          attendanceMinutes: totalMinutesWorked,
+        })
+        baseCents = basePayResult.baseCents
+        for (const li of basePayResult.lineItems) {
+          lineItems.push({ type: li.type as 'EARNING', name: li.name, amountCents: li.amountCents })
         }
-
-        lineItems.push({ type: 'EARNING', name: 'Basic Salary', amountCents: baseCents })
 
         // Compute overtime for salaried employees
         let weekdayOtMinutes = 0

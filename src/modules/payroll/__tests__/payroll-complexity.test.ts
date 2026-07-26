@@ -22,6 +22,7 @@ vi.mock('@/core/db/admin', () => ({
 // eslint-disable-next-line no-restricted-imports -- test mock setup requires direct reference
 import { dbAdmin } from '@/core/db/admin'
 import { getPayrollComplexity, setPayrollComplexity } from '@/core/payroll-settings'
+import { computeEmployeeBasePay } from '@/modules/payroll/compute'
 
 const mockFindUnique = vi.mocked(dbAdmin.organisationModule.findUnique)
 const mockUpsert = vi.mocked(dbAdmin.organisationModule.upsert)
@@ -114,52 +115,17 @@ describe('setPayrollComplexity', () => {
 
 describe('Simple vs Advanced payroll branch logic', () => {
   /**
-   * This test verifies the branching logic conceptually:
-   * - In simple mode: gross = compensationAmountCents, no OT line items
-   * - In advanced mode: gross may include OT based on attendance/shift data
-   *
-   * The actual processPayroll function requires full DB context;
-   * here we test the isolated decision logic.
+   * This test verifies the REAL computeEmployeeBasePay function exported
+   * from compute.ts — the same function processPayroll calls at runtime.
    */
 
-  function computePayrollForEmployee(
-    isSimpleMode: boolean,
-    emp: {
-      compensationAmountCents: number
-      payType: 'SALARIED' | 'HOURLY'
-    },
-    attendanceMinutes: number
-  ): { baseCents: number; lineItems: Array<{ type: string; name: string; amountCents: number }> } {
-    const lineItems: Array<{ type: string; name: string; amountCents: number }> = []
-    let baseCents: number
-
-    if (isSimpleMode) {
-      // Simple mode: flat salary for all, regardless of payType
-      baseCents = emp.compensationAmountCents
-      lineItems.push({ type: 'EARNING', name: 'Basic Salary', amountCents: baseCents })
-    } else {
-      // Advanced mode: branch on payType
-      if (emp.payType === 'HOURLY') {
-        const totalHoursWorked = attendanceMinutes / 60
-        baseCents = Math.round(totalHoursWorked * emp.compensationAmountCents)
-      } else {
-        baseCents = emp.compensationAmountCents
-      }
-      lineItems.push({ type: 'EARNING', name: 'Basic Salary', amountCents: baseCents })
-
-      // In advanced mode, OT would be computed here from shift metrics
-      // For this unit test, we verify the simple mode branch skips it entirely
-    }
-
-    return { baseCents, lineItems }
-  }
-
   it('simple mode: salaried employee gets flat salary, no OT', () => {
-    const result = computePayrollForEmployee(
-      true,
-      { compensationAmountCents: 500_000, payType: 'SALARIED' },
-      10_000 // lots of attendance minutes — should be ignored
-    )
+    const result = computeEmployeeBasePay({
+      isSimpleMode: true,
+      payType: 'SALARIED',
+      compensationAmountCents: 500_000,
+      attendanceMinutes: 10_000, // lots of attendance minutes — should be ignored
+    })
 
     expect(result.baseCents).toBe(500_000)
     expect(result.lineItems).toHaveLength(1)
@@ -169,11 +135,12 @@ describe('Simple vs Advanced payroll branch logic', () => {
   })
 
   it('simple mode: hourly employee ALSO gets flat salary (hourly logic skipped)', () => {
-    const result = computePayrollForEmployee(
-      true,
-      { compensationAmountCents: 2_500, payType: 'HOURLY' }, // $25/hr as cents
-      9600 // 160 hours
-    )
+    const result = computeEmployeeBasePay({
+      isSimpleMode: true,
+      payType: 'HOURLY',
+      compensationAmountCents: 2_500, // $25/hr as cents
+      attendanceMinutes: 9600, // 160 hours
+    })
 
     // In simple mode, hourly employee is treated as flat salary
     expect(result.baseCents).toBe(2_500) // flat amount, NOT 160h × 2500
@@ -182,11 +149,12 @@ describe('Simple vs Advanced payroll branch logic', () => {
   })
 
   it('advanced mode: hourly employee computes based on attendance', () => {
-    const result = computePayrollForEmployee(
-      false,
-      { compensationAmountCents: 2_500, payType: 'HOURLY' },
-      9600 // 160 hours in minutes
-    )
+    const result = computeEmployeeBasePay({
+      isSimpleMode: false,
+      payType: 'HOURLY',
+      compensationAmountCents: 2_500,
+      attendanceMinutes: 9600, // 160 hours in minutes
+    })
 
     // 160h × 2500 cents/hr = 400_000
     expect(result.baseCents).toBe(400_000)
@@ -195,25 +163,34 @@ describe('Simple vs Advanced payroll branch logic', () => {
   })
 
   it('advanced mode: salaried employee uses flat compensation', () => {
-    const result = computePayrollForEmployee(
-      false,
-      { compensationAmountCents: 500_000, payType: 'SALARIED' },
-      9600 // attendance doesn't affect base for salaried
-    )
+    const result = computeEmployeeBasePay({
+      isSimpleMode: false,
+      payType: 'SALARIED',
+      compensationAmountCents: 500_000,
+      attendanceMinutes: 9600, // attendance doesn't affect base for salaried
+    })
 
     expect(result.baseCents).toBe(500_000)
     expect(result.lineItems).toHaveLength(1)
   })
 
   it('round-trip: toggling back to advanced restores OT-eligible behavior', () => {
-    const emp = { compensationAmountCents: 500_000, payType: 'SALARIED' as const }
-
     // First: simple mode
-    const simple = computePayrollForEmployee(true, emp, 9600)
+    const simple = computeEmployeeBasePay({
+      isSimpleMode: true,
+      payType: 'SALARIED',
+      compensationAmountCents: 500_000,
+      attendanceMinutes: 9600,
+    })
     expect(simple.lineItems.filter((li) => li.type === 'OVERTIME')).toHaveLength(0)
 
     // Then: switch to advanced mode
-    const advanced = computePayrollForEmployee(false, emp, 9600)
+    const advanced = computeEmployeeBasePay({
+      isSimpleMode: false,
+      payType: 'SALARIED',
+      compensationAmountCents: 500_000,
+      attendanceMinutes: 9600,
+    })
     expect(advanced.baseCents).toBe(500_000)
     // In advanced mode, OT line items CAN be generated (tested separately in the full integration)
     // The key point: no data was lost, same employee data produces correct results in both modes

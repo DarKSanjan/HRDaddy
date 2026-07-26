@@ -20,6 +20,7 @@ interface AppShellProps {
   breadcrumbs?: BreadcrumbItem[]
   storageUsedBytes?: number
   storageLimitBytes?: number
+  canManageSettings?: boolean
   children: React.ReactNode
 }
 
@@ -35,6 +36,7 @@ function AppShell({
   breadcrumbs = [],
   storageUsedBytes,
   storageLimitBytes,
+  canManageSettings,
   children,
 }: AppShellProps) {
   const [cmdOpen, setCmdOpen] = React.useState(false)
@@ -59,6 +61,7 @@ function AppShell({
           navEntries={navEntries}
           storageUsedBytes={storageUsedBytes}
           storageLimitBytes={storageLimitBytes}
+          canManageSettings={canManageSettings}
         />
       </div>
 

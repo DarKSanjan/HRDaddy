@@ -63,6 +63,7 @@ interface AppSidebarProps {
   version?: string
   storageUsedBytes?: number
   storageLimitBytes?: number
+  canManageSettings?: boolean
 }
 
 // ─────────────────────────────────────────────
@@ -389,7 +390,7 @@ function StorageBar({ usedBytes, limitBytes, collapsed }: { usedBytes: number; l
 // Main sidebar
 // ─────────────────────────────────────────────
 
-export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0.1.0', storageUsedBytes, storageLimitBytes }: AppSidebarProps) {
+export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0.1.0', storageUsedBytes, storageLimitBytes, canManageSettings }: AppSidebarProps) {
   const pathname = usePathname()
   const collapsed = React.useSyncExternalStore(subscribeToStorage, getCollapsedSnapshot, getServerSnapshot)
 
@@ -400,9 +401,8 @@ export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0
     window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }))
   }
 
-  // Settings entry (always at bottom)
+  // Filter out any nav entry labelled 'Settings' from main nav (no longer needed)
   const mainNav = navEntries.filter((e) => e.label !== 'Settings')
-  const settingsEntry = navEntries.find((e) => e.label === 'Settings')
 
   return (
     <aside
@@ -463,13 +463,13 @@ export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0
       {/* Footer */}
       <div className="border-t border-border px-2 py-2 space-y-0.5">
         {/* Settings */}
-        {settingsEntry && (
+        {canManageSettings && (
           <Link
-            href={`/${orgSlug}${settingsEntry.href}`}
+            href={`/${orgSlug}/settings`}
             className={cn(
               'flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text',
               'min-h-[36px] touch-target',
-              pathname.startsWith(`/${orgSlug}${settingsEntry.href}`) && 'bg-accent-50 text-accent-700',
+              pathname.startsWith(`/${orgSlug}/settings`) && 'bg-accent-50 text-accent-700',
               collapsed && 'justify-center px-0'
             )}
             title={collapsed ? 'Settings' : undefined}

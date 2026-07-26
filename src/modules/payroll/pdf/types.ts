@@ -9,6 +9,8 @@ export interface PayslipEmployeeData {
   lastName: string
   jobTitle: string | null
   department: string | null
+  bankName: string | null
+  bankAccountLast4: string | null
   grossAmountCents: number
   netAmountCents: number
   cpfEmployeeCents: number | null
@@ -28,4 +30,14 @@ export interface PayslipPdfData {
   periodStart: Date
   periodEnd: Date
   employees: PayslipEmployeeData[]
+  summary?: PayrollSummaryData
+}
+
+export interface PayrollSummaryData {
+  totalEmployees: number
+  totalGrossCents: number
+  totalCpfEmployeeCents: number
+  totalCpfEmployerCents: number
+  totalNetCents: number
+  employeeBreakdown: Array<{ name: string; netCents: number }>
 }
