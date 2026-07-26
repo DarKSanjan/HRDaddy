@@ -10,6 +10,7 @@ import {
   markAsPaid,
   reopenPayroll,
 } from '@/modules/payroll/actions'
+import { PdfDownloadButton } from '@/modules/payroll/pdf-download-button'
 import { DollarSign, AlertTriangle } from 'lucide-react'
 import { notFound } from 'next/navigation'
 
@@ -166,6 +167,9 @@ export default async function PayrollPeriodPage({
             <Button type="submit" size="md" variant="danger">Reopen</Button>
           </form>
         )}
+        {records.length > 0 && (
+          <PdfDownloadButton orgSlug={orgSlug} periodId={periodId} label="Download All Payslips (PDF)" />
+        )}
       </div>
 
       {/* Records Table */}
@@ -191,7 +195,8 @@ export default async function PayrollPeriodPage({
                     <th className="pb-2 pr-4 font-medium text-right">CPF (Employee)</th>
                     <th className="pb-2 pr-4 font-medium text-right">CPF (Employer)</th>
                     <th className="pb-2 pr-4 font-medium text-right">CPF Total</th>
-                    <th className="pb-2 font-medium text-right">Net</th>
+                    <th className="pb-2 pr-4 font-medium text-right">Net</th>
+                    <th className="pb-2 font-medium text-right">PDF</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -204,7 +209,10 @@ export default async function PayrollPeriodPage({
                       <td className="py-3 pr-4 text-right">{formatCurrency(r.cpfEmployeeCents ?? 0)}</td>
                       <td className="py-3 pr-4 text-right">{formatCurrency(r.cpfEmployerCents ?? 0)}</td>
                       <td className="py-3 pr-4 text-right">{formatCurrency(r.cpfTotalCents ?? 0)}</td>
-                      <td className="py-3 text-right">{formatCurrency(r.netAmountCents)}</td>
+                      <td className="py-3 pr-4 text-right">{formatCurrency(r.netAmountCents)}</td>
+                      <td className="py-3 text-right">
+                        <PdfDownloadButton orgSlug={orgSlug} recordId={r.id} label="PDF" size="sm" variant="ghost" />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

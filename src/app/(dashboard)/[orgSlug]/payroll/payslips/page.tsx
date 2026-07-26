@@ -3,6 +3,7 @@ import { moduleGuard } from '@/core/modules'
 import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { getPayslipsForEmployee } from '@/modules/payroll/queries'
+import { PdfDownloadButton } from '@/modules/payroll/pdf-download-button'
 import { DollarSign, AlertTriangle } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -74,11 +75,14 @@ export default async function PayslipsPage({
                         {ps.periodStart.toLocaleDateString('en-SG')} - {ps.periodEnd.toLocaleDateString('en-SG')}
                       </p>
                     </div>
-                    {ps.publishedAt && (
-                      <p className="text-[11px] text-text-muted">
-                        Published {ps.publishedAt.toLocaleDateString('en-SG')}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {ps.publishedAt && (
+                        <p className="text-[11px] text-text-muted">
+                          Published {ps.publishedAt.toLocaleDateString('en-SG')}
+                        </p>
+                      )}
+                      <PdfDownloadButton orgSlug={orgSlug} recordId={ps.id} />
+                    </div>
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
