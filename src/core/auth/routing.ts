@@ -3,6 +3,7 @@ import 'server-only'
 import { cache } from 'react'
 import { createSupabaseServer } from './supabase-server'
 import { dbAdmin } from '@/core/db/admin'
+import { retryOnce } from './dal'
 
 /**
  * Where a visitor to "/" belongs.
@@ -26,11 +27,15 @@ export const resolveHomeDestination = cache(
 
     if (!user) return { kind: 'sign-in' }
 
-    const membership = await dbAdmin.organisationMembership.findFirst({
-      where: { userId: user.id, isActive: true },
-      orderBy: { createdAt: 'asc' },
-      select: { organisation: { select: { slug: true } } },
-    })
+    const membership = await retryOnce(
+      () =>
+        dbAdmin.organisationMembership.findFirst({
+          where: { userId: user.id, isActive: true },
+          orderBy: { createdAt: 'asc' },
+          select: { organisation: { select: { slug: true } } },
+        }),
+      (result) => !result
+    )
 
     // Signed in but not yet in an organisation — the setup wizard is the only
     // meaningful destination. Sending them to /sign-in instead produced an
