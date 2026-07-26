@@ -134,28 +134,26 @@ export async function listOnboardings(
       ...(status ? { status } : {}),
     }
 
-    const [onboardings, total] = await Promise.all([
-      tx.employeeOnboarding.findMany({
-        where,
-        select: {
-          id: true,
-          status: true,
-          createdAt: true,
-          startedAt: true,
-          completedAt: true,
-          employee: { select: { id: true, firstName: true, lastName: true } },
-          template: { select: { id: true, name: true } },
-          _count: { select: { tasks: true } },
-          tasks: {
-            select: { status: true, dueDate: true },
-          },
+    const onboardings = await tx.employeeOnboarding.findMany({
+      where,
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        startedAt: true,
+        completedAt: true,
+        employee: { select: { id: true, firstName: true, lastName: true } },
+        template: { select: { id: true, name: true } },
+        _count: { select: { tasks: true } },
+        tasks: {
+          select: { status: true, dueDate: true },
         },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      tx.employeeOnboarding.count({ where }),
-    ])
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    })
+    const total = await tx.employeeOnboarding.count({ where })
 
     const now = new Date()
     const mapped = onboardings.map((o) => ({
@@ -233,47 +231,45 @@ export async function getMyOnboardingTasks(
   asAssignee: OnboardingTaskItem[]
 }> {
   return dbAs(userId, async (tx) => {
-    const [asEmployee, asAssignee] = await Promise.all([
-      tx.employeeOnboardingTask.findMany({
-        where: {
-          orgId,
-          onboarding: { employeeId },
-          assigneeType: 'EMPLOYEE',
-          status: { in: ['PENDING', 'IN_PROGRESS'] },
-        },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          assigneeType: true,
-          assigneeId: true,
-          dueDate: true,
-          status: true,
-          completedAt: true,
-          notes: true,
-        },
-        orderBy: { dueDate: 'asc' },
-      }),
-      tx.employeeOnboardingTask.findMany({
-        where: {
-          orgId,
-          assigneeId: employeeId,
-          status: { in: ['PENDING', 'IN_PROGRESS'] },
-        },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          assigneeType: true,
-          assigneeId: true,
-          dueDate: true,
-          status: true,
-          completedAt: true,
-          notes: true,
-        },
-        orderBy: { dueDate: 'asc' },
-      }),
-    ])
+    const asEmployee = await tx.employeeOnboardingTask.findMany({
+      where: {
+        orgId,
+        onboarding: { employeeId },
+        assigneeType: 'EMPLOYEE',
+        status: { in: ['PENDING', 'IN_PROGRESS'] },
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        assigneeType: true,
+        assigneeId: true,
+        dueDate: true,
+        status: true,
+        completedAt: true,
+        notes: true,
+      },
+      orderBy: { dueDate: 'asc' },
+    })
+    const asAssignee = await tx.employeeOnboardingTask.findMany({
+      where: {
+        orgId,
+        assigneeId: employeeId,
+        status: { in: ['PENDING', 'IN_PROGRESS'] },
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        assigneeType: true,
+        assigneeId: true,
+        dueDate: true,
+        status: true,
+        completedAt: true,
+        notes: true,
+      },
+      orderBy: { dueDate: 'asc' },
+    })
 
     return {
       asEmployee: asEmployee as unknown as OnboardingTaskItem[],

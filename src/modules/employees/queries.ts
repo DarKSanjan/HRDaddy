@@ -142,28 +142,26 @@ export async function listEmployees(
         : {}),
     }
 
-    const [employees, total] = await Promise.all([
-      tx.employee.findMany({
-        where,
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          workEmail: true,
-          employmentStatus: true,
-          startDate: true,
-          department: { select: { id: true, name: true } },
-          jobTitle: { select: { id: true, name: true } },
-          workLocation: { select: { id: true, name: true } },
-          employmentType: { select: { id: true, name: true } },
-          manager: { select: { id: true, firstName: true, lastName: true } },
-        },
-        orderBy: { [sortBy]: sortOrder },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      tx.employee.count({ where }),
-    ])
+    const employees = await tx.employee.findMany({
+      where,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        workEmail: true,
+        employmentStatus: true,
+        startDate: true,
+        department: { select: { id: true, name: true } },
+        jobTitle: { select: { id: true, name: true } },
+        workLocation: { select: { id: true, name: true } },
+        employmentType: { select: { id: true, name: true } },
+        manager: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { [sortBy]: sortOrder },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    })
+    const total = await tx.employee.count({ where })
 
     return { employees: employees as unknown as EmployeeListItem[], total }
   })
@@ -330,17 +328,15 @@ export async function getEmployeeActivity(
   pageSize = 20
 ) {
   return dbAs(userId, async (tx) => {
-    const [entries, total] = await Promise.all([
-      tx.auditLog.findMany({
-        where: { orgId, targetType: 'employee', targetId: employeeId },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      tx.auditLog.count({
-        where: { orgId, targetType: 'employee', targetId: employeeId },
-      }),
-    ])
+    const entries = await tx.auditLog.findMany({
+      where: { orgId, targetType: 'employee', targetId: employeeId },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    })
+    const total = await tx.auditLog.count({
+      where: { orgId, targetType: 'employee', targetId: employeeId },
+    })
     return { entries, total }
   })
 }

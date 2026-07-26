@@ -728,19 +728,73 @@ export async function fetchEmployeeActivity(
   const { userId } = await requirePermission(org.id, 'audit.view')
 
   const result = await dbAs(userId, async (tx) => {
-    const [entries, total] = await Promise.all([
-      tx.auditLog.findMany({
-        where: { orgId: org.id, targetType: 'employee', targetId: employeeId },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      tx.auditLog.count({
-        where: { orgId: org.id, targetType: 'employee', targetId: employeeId },
-      }),
-    ])
+    const entries = await tx.auditLog.findMany({
+      where: { orgId: org.id, targetType: 'employee', targetId: employeeId },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    })
+    const total = await tx.auditLog.count({
+      where: { orgId: org.id, targetType: 'employee', targetId: employeeId },
+    })
     return { entries, total }
   })
 
+  return { success: true, data: result }
+}
+
+/**
+ * Bulk archive employees. Validates each employee's status transition individually.
+ */
+export async function bulkArchiveEmployees(
+  orgSlug: string,
+  employeeIds: string[]
+): Promise<ActionResult & { data?: { archived: number; skipped: number } }> {
+  if (!employeeIds.length || employeeIds.length > 100) {
+    return { success: false, error: 'Select between 1 and 100 employees' }
+  }
+
+  const { org } = await getOrgContext(orgSlug)
+  const { userId } = await requirePermission(org.id, 'employee.archive')
+
+  const result = await dbAs(userId, async (tx) => {
+    // Fetch current statuses
+    const employees = await tx.employee.findMany({
+      where: { id: { in: employeeIds }, orgId: org.id },
+      select: { id: true, employmentStatus: true, firstName: true, lastName: true },
+    })
+
+    let archived = 0
+    let skipped = 0
+
+    for (const emp of employees) {
+      // Only DEACTIVATED employees can transition to ARCHIVED per lifecycle rules
+      if (emp.employmentStatus !== 'DEACTIVATED') {
+        skipped++
+        continue
+      }
+
+      await tx.employee.update({
+        where: { id: emp.id },
+        data: { employmentStatus: 'ARCHIVED' },
+      })
+      archived++
+    }
+
+    return { archived, skipped }
+  })
+
+  if (result.archived > 0) {
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'employee.bulk_archived',
+      targetType: 'employee',
+      targetId: org.id,
+      after: { count: result.archived, employeeIds },
+    })
+  }
+
+  revalidatePath(`/${orgSlug}/employees`)
   return { success: true, data: result }
 }

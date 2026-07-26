@@ -47,6 +47,7 @@ export const employeesModule = defineModule({
 
   nav: [
     { label: 'Employees', href: '/employees', icon: 'Users', permission: 'employee.view_own' },
+    { label: 'Org Chart', href: '/employees/org-chart', icon: 'GitBranch', permission: 'employee.view_all' },
   ],
 
   widgets: [

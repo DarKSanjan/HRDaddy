@@ -96,18 +96,16 @@ export async function getEmployeeAttendanceHistory(
       date: { gte: startOfMonth, lte: endOfMonth },
     }
 
-    const [records, total] = await Promise.all([
-      tx.attendanceRecord.findMany({
-        where,
-        include: {
-          employee: { select: { firstName: true, lastName: true } },
-        },
-        orderBy: { date: 'desc' },
-        skip: (params.page - 1) * params.pageSize,
-        take: params.pageSize,
-      }),
-      tx.attendanceRecord.count({ where }),
-    ])
+    const records = await tx.attendanceRecord.findMany({
+      where,
+      include: {
+        employee: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { date: 'desc' },
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+    })
+    const total = await tx.attendanceRecord.count({ where })
 
     return {
       records: records.map((r) => ({

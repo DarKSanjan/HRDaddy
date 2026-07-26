@@ -2,8 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { Button } from '@/core/ui'
-import { getChartColor } from '@/core/ui/charts'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
 import type { LeaveRequestStatus } from '@prisma/client'
 
 interface CalendarEntry {
@@ -26,6 +25,8 @@ interface TeamCalendarViewProps {
   orgSlug: string
 }
 
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+
 export function TeamCalendarView({ entries, month, year, orgSlug }: TeamCalendarViewProps) {
   const router = useRouter()
 
@@ -42,114 +43,206 @@ export function TeamCalendarView({ entries, month, year, orgSlug }: TeamCalendar
     router.push(`/${orgSlug}/leave/calendar?month=${newMonth}&year=${newYear}`)
   }
 
-  // Group entries by employee
-  const employeeMap = new Map<string, { name: string; entries: CalendarEntry[] }>()
-  for (const entry of entries) {
-    const key = entry.employeeId
-    if (!employeeMap.has(key)) {
-      employeeMap.set(key, {
-        name: `${entry.employeeFirstName} ${entry.employeeLastName}`,
-        entries: [],
-      })
-    }
-    employeeMap.get(key)!.entries.push(entry)
+  const goToToday = () => {
+    const now = new Date()
+    router.push(`/${orgSlug}/leave/calendar?month=${now.getMonth() + 1}&year=${now.getFullYear()}`)
   }
 
-  // Assign colors by leave type
-  const leaveTypeColors = new Map<string, string>()
-  let colorIndex = 0
-  for (const entry of entries) {
-    if (!leaveTypeColors.has(entry.leaveTypeName)) {
-      leaveTypeColors.set(entry.leaveTypeName, getChartColor(colorIndex))
-      colorIndex++
-    }
-  }
-
+  // Build calendar grid
+  const firstDay = new Date(year, month - 1, 1)
   const daysInMonth = new Date(year, month, 0).getDate()
+  // getDay() is 0=Sunday, we want Monday=0
+  const startDayOfWeek = (firstDay.getDay() + 6) % 7
+
+  // Build the weeks (array of arrays, each inner array is 7 days)
+  const weeks: (number | null)[][] = []
+  let currentWeek: (number | null)[] = []
+
+  // Leading empty cells
+  for (let i = 0; i < startDayOfWeek; i++) {
+    currentWeek.push(null)
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    currentWeek.push(day)
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek)
+      currentWeek = []
+    }
+  }
+
+  // Trailing empty cells
+  if (currentWeek.length > 0) {
+    while (currentWeek.length < 7) {
+      currentWeek.push(null)
+    }
+    weeks.push(currentWeek)
+  }
+
+  // Collect leave type legend data
+  const leaveTypeMap = new Map<string, string>()
+  for (const entry of entries) {
+    if (!leaveTypeMap.has(entry.leaveTypeName)) {
+      leaveTypeMap.set(entry.leaveTypeName, entry.leaveTypeColor || 'var(--accent-500)')
+    }
+  }
+
+  // Build a map of day -> entries for quick lookup
+  const dayEntriesMap = new Map<number, CalendarEntry[]>()
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayDate = new Date(year, month - 1, day)
+    const dayStart = dayDate.getTime()
+    const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999).getTime()
+
+    const matching = entries.filter((e) => {
+      const start = new Date(e.startDate).setHours(0, 0, 0, 0)
+      const end = new Date(e.endDate).setHours(23, 59, 59, 999)
+      return start <= dayEnd && end >= dayStart
+    })
+
+    if (matching.length > 0) {
+      dayEntriesMap.set(day, matching)
+    }
+  }
+
+  const today = new Date()
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month
 
   return (
     <div className="space-y-4">
-      {/* Navigation */}
+      {/* Header with navigation */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)} aria-label="Previous month">
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-[14px] font-medium text-text">
-          {new Date(year, month - 1).toLocaleDateString('en-SG', { month: 'long', year: 'numeric' })}
-        </span>
-        <Button variant="ghost" size="icon" onClick={() => navigateMonth(1)} aria-label="Next month">
-          <ChevronRight className="h-4 w-4" />
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigateMonth(-1)} aria-label="Previous month">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => navigateMonth(1)} aria-label="Next month">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <h2 className="text-[16px] font-semibold text-text">
+            {new Date(year, month - 1).toLocaleDateString('en-SG', { month: 'long', year: 'numeric' })}
+          </h2>
+        </div>
+        <Button variant="secondary" size="sm" onClick={goToToday}>
+          Today
         </Button>
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3">
-        {Array.from(leaveTypeColors.entries()).map(([name, color]) => (
-          <div key={name} className="flex items-center gap-1.5">
-            <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-            <span className="text-[11px] text-text-muted">{name}</span>
+      {leaveTypeMap.size > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {Array.from(leaveTypeMap.entries()).map(([name, color]) => (
+            <div key={name} className="flex items-center gap-1.5">
+              <div
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+              <span className="text-[11px] text-text-muted">{name}</span>
+            </div>
+          ))}
+          <div className="flex items-center gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full border border-border bg-surface opacity-50" />
+            <span className="text-[11px] text-text-muted">Pending</span>
+          </div>
+        </div>
+      )}
+
+      {/* Calendar grid */}
+      <div className="rounded-[var(--radius-md)] border border-border overflow-hidden">
+        {/* Weekday headers */}
+        <div className="grid grid-cols-7 border-b border-border bg-surface-hover">
+          {WEEKDAYS.map((day) => (
+            <div
+              key={day}
+              className="px-2 py-2 text-center text-[12px] font-medium text-text-muted"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Week rows */}
+        {weeks.map((week, weekIndex) => (
+          <div key={weekIndex} className="grid grid-cols-7 border-b border-border last:border-b-0">
+            {week.map((day, dayIndex) => {
+              if (day === null) {
+                return (
+                  <div
+                    key={`empty-${dayIndex}`}
+                    className="min-h-[100px] border-r border-border last:border-r-0 bg-surface-hover/50 p-1"
+                  />
+                )
+              }
+
+              const dayEntries = dayEntriesMap.get(day) ?? []
+              const isToday = isCurrentMonth && today.getDate() === day
+              const isWeekend = dayIndex >= 5
+
+              return (
+                <div
+                  key={day}
+                  className={[
+                    'min-h-[100px] border-r border-border last:border-r-0 p-1 transition-colors',
+                    isWeekend ? 'bg-surface-hover/30' : 'bg-surface',
+                  ].join(' ')}
+                >
+                  {/* Day number */}
+                  <div className="mb-1 flex items-center justify-end">
+                    <span
+                      className={[
+                        'flex h-6 w-6 items-center justify-center rounded-full text-[12px]',
+                        isToday
+                          ? 'bg-accent-500 font-semibold text-white'
+                          : 'font-medium text-text',
+                      ].join(' ')}
+                    >
+                      {day}
+                    </span>
+                  </div>
+
+                  {/* Leave entries for this day */}
+                  <div className="space-y-0.5">
+                    {dayEntries.slice(0, 3).map((entry, entryIndex) => (
+                      <div
+                        key={`${entry.employeeId}-${entry.leaveTypeName}-${entryIndex}`}
+                        className={[
+                          'flex items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5',
+                          entry.status === 'PENDING' ? 'opacity-50' : '',
+                        ].join(' ')}
+                        style={{
+                          backgroundColor: `${entry.leaveTypeColor || 'var(--accent-500)'}15`,
+                        }}
+                        title={`${entry.employeeFirstName} ${entry.employeeLastName} - ${entry.leaveTypeName} (${entry.status})`}
+                      >
+                        <div
+                          className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                          style={{ backgroundColor: entry.leaveTypeColor || 'var(--accent-500)' }}
+                        />
+                        <span className="truncate text-[10px] font-medium text-text">
+                          {entry.employeeFirstName}
+                        </span>
+                      </div>
+                    ))}
+                    {dayEntries.length > 3 && (
+                      <span className="block px-1 text-[10px] text-text-muted">
+                        +{dayEntries.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[800px] text-[11px]">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="sticky left-0 bg-surface px-2 py-1.5 text-left font-medium text-text-muted w-32">
-                Employee
-              </th>
-              {Array.from({ length: daysInMonth }, (_, i) => (
-                <th
-                  key={i}
-                  className="px-0.5 py-1.5 text-center font-medium text-text-muted w-6"
-                >
-                  {i + 1}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from(employeeMap.entries()).map(([empId, { name, entries: empEntries }]) => (
-              <tr key={empId} className="border-b border-border last:border-b-0">
-                <td className="sticky left-0 bg-surface px-2 py-1.5 text-text font-medium truncate max-w-[120px]">
-                  {name}
-                </td>
-                {Array.from({ length: daysInMonth }, (_, i) => {
-                  const day = i + 1
-                  const dayDate = new Date(year, month - 1, day)
-
-                  const matchingEntry = empEntries.find((e) => {
-                    const start = new Date(e.startDate)
-                    const end = new Date(e.endDate)
-                    start.setHours(0, 0, 0, 0)
-                    end.setHours(23, 59, 59, 999)
-                    return dayDate >= start && dayDate <= end
-                  })
-
-                  if (matchingEntry) {
-                    const color = leaveTypeColors.get(matchingEntry.leaveTypeName) ?? 'var(--accent-500)'
-                    const opacity = matchingEntry.status === 'PENDING' ? 0.5 : 1
-                    return (
-                      <td key={i} className="px-0.5 py-1.5">
-                        <div
-                          className="mx-auto h-4 w-4 rounded-sm"
-                          style={{ backgroundColor: color, opacity }}
-                          title={`${matchingEntry.leaveTypeName} (${matchingEntry.status})`}
-                          aria-label={`${name}: ${matchingEntry.leaveTypeName} on day ${day}`}
-                        />
-                      </td>
-                    )
-                  }
-
-                  return <td key={i} className="px-0.5 py-1.5" />
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Empty state if no entries at all */}
+      {entries.length === 0 && (
+        <div className="py-8 text-center">
+          <CalendarIcon className="mx-auto h-8 w-8 text-text-subtle" aria-hidden="true" />
+          <p className="mt-2 text-[13px] text-text-muted">No leave scheduled this month.</p>
+        </div>
+      )}
     </div>
   )
 }

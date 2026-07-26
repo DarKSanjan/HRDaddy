@@ -47,7 +47,7 @@ export async function updateOrgName(
     after: { name: name.trim() },
   })
 
-  revalidatePath(`/${orgSlug}`)
+  revalidatePath(`/${orgSlug}`, 'layout')
   return { success: true }
 }
 
@@ -100,7 +100,7 @@ export async function uploadOrgLogo(
     targetId: org.id,
   })
 
-  revalidatePath(`/${orgSlug}`)
+  revalidatePath(`/${orgSlug}`, 'layout')
   return { success: true }
 }
 
@@ -130,6 +130,6 @@ export async function removeOrgLogo(
     targetId: org.id,
   })
 
-  revalidatePath(`/${orgSlug}`)
+  revalidatePath(`/${orgSlug}`, 'layout')
   return { success: true }
 }

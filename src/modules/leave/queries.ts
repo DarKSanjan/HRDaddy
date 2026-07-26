@@ -150,19 +150,17 @@ export async function listOwnLeaveRequests(
       ...(params.leaveTypeId ? { leaveTypeId: params.leaveTypeId } : {}),
     }
 
-    const [requests, total] = await Promise.all([
-      tx.leaveRequest.findMany({
-        where,
-        include: {
-          leaveType: { select: { name: true, color: true } },
-          employee: { select: { firstName: true, lastName: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (params.page - 1) * params.pageSize,
-        take: params.pageSize,
-      }),
-      tx.leaveRequest.count({ where }),
-    ])
+    const requests = await tx.leaveRequest.findMany({
+      where,
+      include: {
+        leaveType: { select: { name: true, color: true } },
+        employee: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+    })
+    const total = await tx.leaveRequest.count({ where })
 
     return {
       requests: requests.map((r) => ({
@@ -250,19 +248,17 @@ export async function listAllLeaveRequests(
       ...(params.leaveTypeId ? { leaveTypeId: params.leaveTypeId } : {}),
     }
 
-    const [requests, total] = await Promise.all([
-      tx.leaveRequest.findMany({
-        where,
-        include: {
-          leaveType: { select: { name: true, color: true } },
-          employee: { select: { firstName: true, lastName: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (params.page - 1) * params.pageSize,
-        take: params.pageSize,
-      }),
-      tx.leaveRequest.count({ where }),
-    ])
+    const requests = await tx.leaveRequest.findMany({
+      where,
+      include: {
+        leaveType: { select: { name: true, color: true } },
+        employee: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+    })
+    const total = await tx.leaveRequest.count({ where })
 
     return {
       requests: requests.map((r) => ({

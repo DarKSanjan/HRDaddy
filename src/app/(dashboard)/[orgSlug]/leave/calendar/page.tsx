@@ -1,11 +1,10 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Breadcrumb, Card, CardContent } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { getTeamLeaveCalendar } from '@/modules/leave/queries'
 import { leaveCalendarParamsSchema } from '@/modules/leave/schemas'
 import { TeamCalendarView } from '../_components/team-calendar-view'
-import { Calendar } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,28 +52,13 @@ export default async function LeaveCalendarPage({
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>
-            {new Date(validParams.year, validParams.month - 1).toLocaleDateString('en-SG', {
-              month: 'long',
-              year: 'numeric',
-            })}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {entries.length === 0 ? (
-            <div className="py-8 text-center">
-              <Calendar className="mx-auto h-8 w-8 text-text-subtle" aria-hidden="true" />
-              <p className="mt-2 text-[13px] text-text-muted">No leave scheduled this month.</p>
-            </div>
-          ) : (
-            <TeamCalendarView
-              entries={entries}
-              month={validParams.month}
-              year={validParams.year}
-              orgSlug={orgSlug}
-            />
-          )}
+        <CardContent className="pt-6">
+          <TeamCalendarView
+            entries={entries}
+            month={validParams.month}
+            year={validParams.year}
+            orgSlug={orgSlug}
+          />
         </CardContent>
       </Card>
     </div>

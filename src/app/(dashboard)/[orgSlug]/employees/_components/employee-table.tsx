@@ -4,7 +4,8 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge, Avatar, Button } from '@/core/ui'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, Download, ArrowUpDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, ArrowUpDown, Archive } from 'lucide-react'
+import { bulkArchiveEmployees } from '@/modules/employees/actions'
 import type { EmploymentStatus } from '@prisma/client'
 
 interface Employee {
@@ -136,6 +137,21 @@ export function EmployeeTable({
           <Button variant="secondary" size="sm" onClick={handleExport}>
             <Download className="h-3.5 w-3.5" />
             Export CSV
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={async () => {
+              const ids = Array.from(selected)
+              const result = await bulkArchiveEmployees(orgSlug, ids)
+              if (result.success && result.data) {
+                setSelected(new Set())
+                router.refresh()
+              }
+            }}
+          >
+            <Archive className="h-3.5 w-3.5" />
+            Archive
           </Button>
         </div>
       )}

@@ -74,24 +74,22 @@ export async function getPayrollPeriods(
       where.status = params.status
     }
 
-    const [periods, total] = await Promise.all([
-      tx.payrollPeriod.findMany({
-        where,
-        include: {
-          records: {
-            select: {
-              grossAmountCents: true,
-              netAmountCents: true,
-              cpfTotalCents: true,
-            },
+    const periods = await tx.payrollPeriod.findMany({
+      where,
+      include: {
+        records: {
+          select: {
+            grossAmountCents: true,
+            netAmountCents: true,
+            cpfTotalCents: true,
           },
         },
-        orderBy: { startDate: 'desc' },
-        skip: (params.page - 1) * params.pageSize,
-        take: params.pageSize,
-      }),
-      tx.payrollPeriod.count({ where }),
-    ])
+      },
+      orderBy: { startDate: 'desc' },
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+    })
+    const total = await tx.payrollPeriod.count({ where })
 
     const items: PayrollPeriodItem[] = periods.map((p) => ({
       id: p.id,

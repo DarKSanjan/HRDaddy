@@ -18,7 +18,7 @@ Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock })
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
   usePathname: () => '/acme/dashboard',
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }))
 
 // Mock next/link
@@ -26,6 +26,12 @@ vi.mock('next/link', () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: unknown }) => (
     <a href={href} {...props}>{children}</a>
   ),
+}))
+
+// Mock notification actions
+vi.mock('@/core/notifications/actions', () => ({
+  markNotificationRead: vi.fn(async () => ({ success: true })),
+  markAllNotificationsRead: vi.fn(async () => ({ success: true })),
 }))
 
 import { AppSidebar } from '../shell/app-sidebar'
@@ -85,47 +91,32 @@ describe('AppSidebar', () => {
 })
 
 describe('AppHeader', () => {
+  const defaultHeaderProps = {
+    userName: 'John',
+    userEmail: 'john@example.com',
+    orgSlug: 'acme',
+    notifications: [],
+    unreadCount: 0,
+    onSignOut: () => {},
+  }
+
   it('renders command palette trigger', () => {
-    render(
-      <AppHeader
-        userName="John"
-        userEmail="john@example.com"
-        onSignOut={() => {}}
-      />
-    )
+    render(<AppHeader {...defaultHeaderProps} />)
     expect(screen.getByLabelText('Open command palette')).toBeInTheDocument()
   })
 
   it('renders notification bell', () => {
-    render(
-      <AppHeader
-        userName="John"
-        userEmail="john@example.com"
-        onSignOut={() => {}}
-      />
-    )
+    render(<AppHeader {...defaultHeaderProps} />)
     expect(screen.getByLabelText('Notifications')).toBeInTheDocument()
   })
 
   it('renders profile menu button', () => {
-    render(
-      <AppHeader
-        userName="John"
-        userEmail="john@example.com"
-        onSignOut={() => {}}
-      />
-    )
+    render(<AppHeader {...defaultHeaderProps} />)
     expect(screen.getByLabelText('Profile menu')).toBeInTheDocument()
   })
 
   it('shows profile dropdown on click', () => {
-    render(
-      <AppHeader
-        userName="John"
-        userEmail="john@example.com"
-        onSignOut={() => {}}
-      />
-    )
+    render(<AppHeader {...defaultHeaderProps} />)
     fireEvent.click(screen.getByLabelText('Profile menu'))
     expect(screen.getByText('john@example.com')).toBeInTheDocument()
     expect(screen.getByText('Sign out')).toBeInTheDocument()
@@ -134,10 +125,8 @@ describe('AppHeader', () => {
   it('renders breadcrumbs when provided', () => {
     render(
       <AppHeader
-        userName="John"
-        userEmail="john@example.com"
+        {...defaultHeaderProps}
         breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Page' }]}
-        onSignOut={() => {}}
       />
     )
     expect(screen.getByText('Home')).toBeInTheDocument()

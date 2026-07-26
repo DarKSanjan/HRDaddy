@@ -15,6 +15,8 @@ interface AppShellProps {
   userName: string
   userEmail: string
   navEntries: NavEntry[]
+  notifications: { id: string; title: string; message: string; link: string | null; isRead: boolean; createdAt: Date }[]
+  unreadCount: number
   breadcrumbs?: BreadcrumbItem[]
   children: React.ReactNode
 }
@@ -26,6 +28,8 @@ function AppShell({
   userName,
   userEmail,
   navEntries,
+  notifications,
+  unreadCount,
   breadcrumbs = [],
   children,
 }: AppShellProps) {
@@ -57,6 +61,9 @@ function AppShell({
         <AppHeader
           userName={userName}
           userEmail={userEmail}
+          orgSlug={orgSlug}
+          notifications={notifications}
+          unreadCount={unreadCount}
           breadcrumbs={breadcrumbs}
           onSignOut={handleSignOut}
           onCommandPalette={() => setCmdOpen(true)}

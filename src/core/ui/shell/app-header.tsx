@@ -1,13 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { Bell, Search, Moon, Sun, Monitor, LogOut } from 'lucide-react'
+import { Search, Moon, Sun, Monitor, LogOut } from 'lucide-react'
 import { Avatar } from '@/core/ui/avatar'
 import { Breadcrumb, type BreadcrumbItem } from '@/core/ui/breadcrumb'
+import { NotificationPanel } from './notification-panel'
 
 interface AppHeaderProps {
   userName: string
   userEmail: string
+  orgSlug: string
+  notifications: { id: string; title: string; message: string; link: string | null; isRead: boolean; createdAt: Date }[]
+  unreadCount: number
   breadcrumbs?: BreadcrumbItem[]
   onSignOut: () => void
   onCommandPalette?: () => void
@@ -40,6 +44,9 @@ function applyTheme(t: Theme) {
 function AppHeader({
   userName,
   userEmail,
+  orgSlug,
+  notifications,
+  unreadCount,
   breadcrumbs = [],
   onSignOut,
   onCommandPalette,
@@ -110,12 +117,11 @@ function AppHeader({
         </button>
 
         {/* Notifications */}
-        <button
-          className="relative flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
-          aria-label="Notifications"
-        >
-          <Bell className="h-4 w-4" aria-hidden="true" />
-        </button>
+        <NotificationPanel
+          notifications={notifications}
+          unreadCount={unreadCount}
+          orgSlug={orgSlug}
+        />
 
         {/* Profile menu */}
         <div className="relative" ref={menuRef}>

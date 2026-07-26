@@ -88,28 +88,26 @@ export async function listDocuments(
         : {}),
     }
 
-    const [documents, total] = await Promise.all([
-      tx.employeeDocument.findMany({
-        where,
-        select: {
-          id: true,
-          fileName: true,
-          fileSize: true,
-          mimeType: true,
-          expiresAt: true,
-          isArchived: true,
-          createdAt: true,
-          updatedAt: true,
-          employee: { select: { id: true, firstName: true, lastName: true } },
-          category: { select: { id: true, name: true, isSensitive: true } },
-          uploadedBy: { select: { id: true, firstName: true, lastName: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      tx.employeeDocument.count({ where }),
-    ])
+    const documents = await tx.employeeDocument.findMany({
+      where,
+      select: {
+        id: true,
+        fileName: true,
+        fileSize: true,
+        mimeType: true,
+        expiresAt: true,
+        isArchived: true,
+        createdAt: true,
+        updatedAt: true,
+        employee: { select: { id: true, firstName: true, lastName: true } },
+        category: { select: { id: true, name: true, isSensitive: true } },
+        uploadedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    })
+    const total = await tx.employeeDocument.count({ where })
 
     return { documents: documents as unknown as DocumentListItem[], total }
   })
