@@ -34,7 +34,7 @@ export interface OrgContext {
  * stays empty across every attempt, since the underlying data hasn't
  * changed — this only masks transient connection/pooler hiccups.
  */
-async function retryOnce<T>(
+export async function retryOnce<T>(
   read: () => Promise<T>,
   isEmpty: (result: T) => boolean
 ): Promise<T> {

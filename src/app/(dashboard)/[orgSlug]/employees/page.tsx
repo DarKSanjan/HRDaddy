@@ -43,10 +43,29 @@ export default async function EmployeesPage({
   // transaction, and four of those firing at once against this page was the
   // single largest concurrent-transaction load of any route in the app —
   // directly implicated in intermittent connection contention in production.
-  const { employees, total } = await listEmployees(session.userId, org.id, validParams)
-  const departments = await listDepartments(session.userId, org.id)
-  const employmentTypes = await listEmploymentTypes(session.userId, org.id)
-  const locations = await listWorkLocations(session.userId, org.id)
+  //
+  // This route still does more total DB round trips than any other single
+  // page (getOrgContext's 3 reads + these 4 transactions), which measurably
+  // correlates with a higher chance of hitting a transient pooler hiccup on
+  // at least one of them. Retry the whole batch once on any failure rather
+  // than trying to guess which individual call is the flaky one.
+  const fetchEmployeesPageData = () =>
+    Promise.resolve().then(async () => {
+      const { employees, total } = await listEmployees(session.userId, org.id, validParams)
+      const departments = await listDepartments(session.userId, org.id)
+      const employmentTypes = await listEmploymentTypes(session.userId, org.id)
+      const locations = await listWorkLocations(session.userId, org.id)
+      return { employees, total, departments, employmentTypes, locations }
+    })
+
+  let pageData
+  try {
+    pageData = await fetchEmployeesPageData()
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    pageData = await fetchEmployeesPageData()
+  }
+  const { employees, total, departments, employmentTypes, locations } = pageData
 
   const hasFiltersApplied = !!(
     validParams.search ||
