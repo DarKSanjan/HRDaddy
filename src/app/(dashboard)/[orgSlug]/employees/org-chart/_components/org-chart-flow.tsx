@@ -153,7 +153,7 @@ function EmployeeNode({ data, id }: NodeProps<Node<EmployeeNodeData>>) {
         cursor-pointer transition-all select-none
         ${hovered ? 'border-accent-500 shadow-md ring-1 ring-accent-200' : 'border-border hover:border-accent-300'}
       `}
-      style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
+      style={{ width: NODE_WIDTH, height: NODE_HEIGHT, pointerEvents: 'auto' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={handleClick}
