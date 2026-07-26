@@ -40,7 +40,9 @@ const initialState: ActionResult = { success: false }
 
 function ApprovalItem({ request, orgSlug }: { request: LeaveRequest; orgSlug: string }) {
   const [rejectReason, setRejectReason] = useState('')
+  const [approveNote, setApproveNote] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
+  const [showApproveForm, setShowApproveForm] = useState(false)
 
   const [approveState, approveAction, isApproving] = useActionState(
     async (_prev: ActionResult, formData: FormData) => {
@@ -87,15 +89,16 @@ function ApprovalItem({ request, orgSlug }: { request: LeaveRequest; orgSlug: st
         </div>
 
         <div className="flex items-center gap-2">
-          {!showRejectForm && (
+          {!showRejectForm && !showApproveForm && (
             <>
-              <form action={approveAction}>
-                <input type="hidden" name="requestId" value={request.id} />
-                <Button type="submit" size="sm" loading={isApproving}>
-                  <Check className="h-3.5 w-3.5" />
-                  Approve
-                </Button>
-              </form>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setShowApproveForm(true)}
+              >
+                <Check className="h-3.5 w-3.5" />
+                Approve
+              </Button>
               <Button
                 type="button"
                 variant="danger"
@@ -109,6 +112,36 @@ function ApprovalItem({ request, orgSlug }: { request: LeaveRequest; orgSlug: st
           )}
         </div>
       </div>
+
+      {showApproveForm && (
+        <form action={approveAction} className="mt-3 space-y-2">
+          <input type="hidden" name="requestId" value={request.id} />
+          <textarea
+            name="note"
+            value={approveNote}
+            onChange={(e) => setApproveNote(e.target.value)}
+            placeholder="Add a message (optional)"
+            rows={2}
+            className="w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-[13px] text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+          />
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" loading={isApproving}>
+              Confirm Approval
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setShowApproveForm(false)
+                setApproveNote('')
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
 
       {showRejectForm && (
         <form action={rejectAction} className="mt-3 space-y-2">
