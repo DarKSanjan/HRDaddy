@@ -6,7 +6,6 @@ interface Summary {
   daysPresent: number
   totalHours: number
   averageStartTime: string | null
-  averageEndTime: string | null
   lateArrivals: number
 }
 

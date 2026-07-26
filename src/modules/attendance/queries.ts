@@ -374,3 +374,197 @@ export async function getAttendanceWithShiftMetrics(
     return { records: results, total }
   })
 }
+
+// ─────────────────────────────────────────────
+// Team / Org attendance overview (M12 — GAP 2)
+// ─────────────────────────────────────────────
+
+export interface EmployeeAttendanceOverview {
+  employeeId: string
+  firstName: string
+  lastName: string
+  daysPresent: number
+  totalHoursWorked: number
+  lateCount: number
+  undertimeCount: number
+  overtimeCount: number
+}
+
+/**
+ * Shared implementation for team/org attendance overview.
+ * Returns per-employee summary for a given month with shift-aware metrics.
+ */
+async function getAttendanceOverviewImpl(
+  userId: string,
+  orgId: string,
+  employeeFilter: { managerId: string } | null,
+  month: number,
+  year: number
+): Promise<EmployeeAttendanceOverview[]> {
+  const startOfMonth = new Date(year, month - 1, 1)
+  const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999)
+
+  return dbAs(userId, async (tx) => {
+    // Get org settings
+    const orgSettings = await tx.organisationSettings.findUnique({
+      where: { orgId },
+    })
+    const workingDays: number[] = (orgSettings?.workingDays as number[]) ?? [1, 2, 3, 4, 5]
+    const workingHoursStart = orgSettings?.workingHoursStart ?? '09:00'
+    const workingHoursEnd = orgSettings?.workingHoursEnd ?? '17:00'
+    const timezone = (orgSettings?.timezone as string) ?? 'UTC'
+
+    // Get employees (scoped to team or entire org)
+    const employeeWhere = employeeFilter
+      ? { orgId, managerId: employeeFilter.managerId, employmentStatus: 'ACTIVE' as const }
+      : { orgId, employmentStatus: 'ACTIVE' as const }
+
+    const employees = await tx.employee.findMany({
+      where: employeeWhere,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        shiftTemplate: {
+          select: {
+            startMinutes: true,
+            endMinutes: true,
+            standardMinutesPerDay: true,
+            overtimeMultiplier: true,
+            restDayMultiplier: true,
+          },
+        },
+        employmentType: {
+          select: {
+            defaultShiftTemplate: {
+              select: {
+                startMinutes: true,
+                endMinutes: true,
+                standardMinutesPerDay: true,
+                overtimeMultiplier: true,
+                restDayMultiplier: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (employees.length === 0) return []
+
+    // Get all attendance records for these employees in the month
+    const employeeIds = employees.map((e) => e.id)
+    const records = await tx.attendanceRecord.findMany({
+      where: {
+        orgId,
+        employeeId: { in: employeeIds },
+        date: { gte: startOfMonth, lte: endOfMonth },
+        status: { in: ['CLOSED', 'CORRECTED'] },
+      },
+      select: {
+        employeeId: true,
+        clockIn: true,
+        clockOut: true,
+        durationMinutes: true,
+        date: true,
+      },
+    })
+
+    // Group records by employee
+    const recordsByEmployee = new Map<string, typeof records>()
+    for (const r of records) {
+      const existing = recordsByEmployee.get(r.employeeId) ?? []
+      existing.push(r)
+      recordsByEmployee.set(r.employeeId, existing)
+    }
+
+    // Compute per-employee overview
+    const results: EmployeeAttendanceOverview[] = employees.map((emp) => {
+      const empRecords = recordsByEmployee.get(emp.id) ?? []
+
+      const shift = resolveShift({
+        employeeShift: emp.shiftTemplate
+          ? {
+              startMinutes: emp.shiftTemplate.startMinutes,
+              endMinutes: emp.shiftTemplate.endMinutes,
+              standardMinutesPerDay: emp.shiftTemplate.standardMinutesPerDay,
+              overtimeMultiplier: Number(emp.shiftTemplate.overtimeMultiplier),
+              restDayMultiplier: Number(emp.shiftTemplate.restDayMultiplier),
+            }
+          : null,
+        employmentTypeShift: emp.employmentType?.defaultShiftTemplate
+          ? {
+              startMinutes: emp.employmentType.defaultShiftTemplate.startMinutes,
+              endMinutes: emp.employmentType.defaultShiftTemplate.endMinutes,
+              standardMinutesPerDay: emp.employmentType.defaultShiftTemplate.standardMinutesPerDay,
+              overtimeMultiplier: Number(emp.employmentType.defaultShiftTemplate.overtimeMultiplier),
+              restDayMultiplier: Number(emp.employmentType.defaultShiftTemplate.restDayMultiplier),
+            }
+          : null,
+        orgWorkingHoursStart: workingHoursStart,
+        orgWorkingHoursEnd: workingHoursEnd,
+      })
+
+      let lateCount = 0
+      let undertimeCount = 0
+      let overtimeCount = 0
+      let totalMinutes = 0
+
+      for (const r of empRecords) {
+        const metrics = computeShiftMetrics({
+          shift,
+          clockIn: r.clockIn,
+          clockOut: r.clockOut,
+          durationMinutes: r.durationMinutes,
+          dayOfWeek: r.date.getDay(),
+          workingDays,
+          timezone,
+        })
+        totalMinutes += r.durationMinutes ?? 0
+        if (metrics.lateMinutes > 0) lateCount++
+        if (metrics.undertimeMinutes > 0) undertimeCount++
+        if (metrics.overtimeMinutes > 0) overtimeCount++
+      }
+
+      return {
+        employeeId: emp.id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        daysPresent: empRecords.length,
+        totalHoursWorked: Math.round((totalMinutes / 60) * 10) / 10,
+        lateCount,
+        undertimeCount,
+        overtimeCount,
+      }
+    })
+
+    // Sort by last name then first name
+    results.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+    return results
+  })
+}
+
+/**
+ * Get team attendance overview (manager's direct reports only).
+ */
+export async function getTeamAttendanceOverview(
+  userId: string,
+  orgId: string,
+  managerEmployeeId: string,
+  month: number,
+  year: number
+): Promise<EmployeeAttendanceOverview[]> {
+  return getAttendanceOverviewImpl(userId, orgId, { managerId: managerEmployeeId }, month, year)
+}
+
+/**
+ * Get org-wide attendance overview (all employees).
+ */
+export async function getOrgAttendanceOverview(
+  userId: string,
+  orgId: string,
+  month: number,
+  year: number
+): Promise<EmployeeAttendanceOverview[]> {
+  return getAttendanceOverviewImpl(userId, orgId, null, month, year)
+}

@@ -13,6 +13,10 @@ interface AttendanceRecord {
   type: AttendanceType
   status: AttendanceStatus
   correctionReason: string | null
+  lateMinutes: number
+  undertimeMinutes: number
+  overtimeMinutes: number
+  isRestDay: boolean
 }
 
 interface AttendanceHistoryTableProps {
@@ -61,6 +65,7 @@ export function AttendanceHistoryTable({ records, timezone }: AttendanceHistoryT
             <th className="px-3 py-2 text-left font-medium text-text-muted">Clock In</th>
             <th className="px-3 py-2 text-left font-medium text-text-muted">Clock Out</th>
             <th className="px-3 py-2 text-left font-medium text-text-muted">Duration</th>
+            <th className="px-3 py-2 text-left font-medium text-text-muted">Shift Metrics</th>
             <th className="px-3 py-2 text-left font-medium text-text-muted">Type</th>
             <th className="px-3 py-2 text-left font-medium text-text-muted">Status</th>
           </tr>
@@ -69,7 +74,12 @@ export function AttendanceHistoryTable({ records, timezone }: AttendanceHistoryT
           {records.map((record) => (
             <tr key={record.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover transition-colors">
               <td className="px-3 py-2 text-text">
-                {formatDate(record.date, timezone)}
+                <span>{formatDate(record.date, timezone)}</span>
+                {record.isRestDay && (
+                  <Badge variant="neutral" className="ml-1 text-[10px]">
+                    Rest Day
+                  </Badge>
+                )}
               </td>
               <td className="px-3 py-2 text-text-muted">
                 {formatTime(record.clockIn, timezone)}
@@ -79,6 +89,31 @@ export function AttendanceHistoryTable({ records, timezone }: AttendanceHistoryT
               </td>
               <td className="px-3 py-2 text-text-muted">
                 {formatDuration(record.durationMinutes)}
+              </td>
+              <td className="px-3 py-2">
+                <div className="flex flex-wrap gap-1">
+                  {record.lateMinutes > 0 && (
+                    <Badge variant="warning">
+                      Late {record.lateMinutes}m
+                    </Badge>
+                  )}
+                  {record.overtimeMinutes > 0 && (
+                    <Badge variant="info">
+                      OT +{record.overtimeMinutes}m
+                    </Badge>
+                  )}
+                  {record.undertimeMinutes > 0 && (
+                    <Badge variant="danger">
+                      Under {record.undertimeMinutes}m
+                    </Badge>
+                  )}
+                  {record.lateMinutes === 0 && record.overtimeMinutes === 0 && record.undertimeMinutes === 0 && record.status !== 'OPEN' && (
+                    <span className="text-text-muted">—</span>
+                  )}
+                  {record.status === 'OPEN' && (
+                    <span className="text-text-muted italic">In progress</span>
+                  )}
+                </div>
               </td>
               <td className="px-3 py-2">
                 <span className="inline-flex items-center gap-1 text-text-muted">

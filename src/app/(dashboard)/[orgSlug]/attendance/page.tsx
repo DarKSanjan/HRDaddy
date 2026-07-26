@@ -4,10 +4,10 @@ import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
 import { getEmployeeIdForUser, getOrgSettings } from '@/core/employees'
 import {
   getCurrentAttendanceState,
-  getEmployeeAttendanceHistory,
-  getAttendanceSummary,
+  getAttendanceWithShiftMetrics,
 } from '@/modules/attendance/queries'
 import { attendanceListParamsSchema } from '@/modules/attendance/schemas'
+import { TZDate } from '@date-fns/tz'
 import { ClockWidget } from './_components/clock-widget'
 import { AttendanceHistoryTable } from './_components/attendance-history-table'
 import { AttendanceSummaryCards } from './_components/attendance-summary-cards'
@@ -56,13 +56,30 @@ export default async function AttendancePage({
 
   const settings = await getOrgSettings(org.id)
   const timezone = settings?.timezone ?? 'UTC'
-  const workingHoursStart = settings?.workingHoursStart ?? '09:00'
 
-  const [currentState, { records }, summary] = await Promise.all([
+  const [currentState, { records }] = await Promise.all([
     getCurrentAttendanceState(session.userId, org.id, employeeId),
-    getEmployeeAttendanceHistory(session.userId, org.id, employeeId, { ...validParams, month, year }),
-    getAttendanceSummary(session.userId, org.id, employeeId, month, year, workingHoursStart),
+    getAttendanceWithShiftMetrics(session.userId, org.id, employeeId, { ...validParams, month, year }),
   ])
+
+  // Derive shift-aware summary from the metrics records
+  const closedRecords = records.filter((r) => r.status === 'CLOSED' || r.status === 'CORRECTED')
+  const daysPresent = closedRecords.length
+  const totalMinutes = closedRecords.reduce((sum, r) => sum + (r.durationMinutes ?? 0), 0)
+  const totalHours = Math.round((totalMinutes / 60) * 10) / 10
+  const lateArrivals = records.filter((r) => r.lateMinutes > 0).length
+
+  let averageStartTime: string | null = null
+  if (closedRecords.length > 0) {
+    const startMins = closedRecords.map((r) => {
+      const local = new TZDate(r.clockIn.getTime(), timezone)
+      return local.getHours() * 60 + local.getMinutes()
+    })
+    const avgStart = Math.round(startMins.reduce((a, b) => a + b, 0) / startMins.length)
+    averageStartTime = `${String(Math.floor(avgStart / 60)).padStart(2, '0')}:${String(avgStart % 60).padStart(2, '0')}`
+  }
+
+  const summary = { daysPresent, totalHours, averageStartTime, lateArrivals }
 
   return (
     <div className="space-y-6">
