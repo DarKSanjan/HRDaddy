@@ -1,5 +1,11 @@
 'use server'
 
+// Registration barrel side-effect import — this 'use server' file is its own
+// module graph, separate from any page/layout. Without this, requirePermission()
+// throws against an empty registry on a cold instance that hasn't rendered a
+// page which imports the barrel yet -- this is what silently broke saves.
+import '@/modules/register'
+
 /**
  * Employee self-service actions — employees editing their own low-risk
  * personal information (contact details, emergency contact).
