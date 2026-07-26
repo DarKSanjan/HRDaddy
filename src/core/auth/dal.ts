@@ -23,6 +23,31 @@ export interface OrgContext {
 }
 
 /**
+ * Retry a read once on failure or an empty result.
+ *
+ * getOrgContext/requirePermission run on every request and were surfacing as
+ * intermittent 404s in production — a query that should reliably return a
+ * row occasionally came back empty or threw, indistinguishable at the call
+ * site from "genuinely doesn't exist." A single retry after a short delay
+ * absorbs a transient pooler/connection hiccup without masking a real
+ * "not found" (which stays empty on the retry too, since the underlying
+ * data hasn't changed).
+ */
+async function retryOnce<T>(
+  read: () => Promise<T>,
+  isEmpty: (result: T) => boolean
+): Promise<T> {
+  try {
+    const result = await read()
+    if (!isEmpty(result)) return result
+  } catch {
+    // fall through to the retry
+  }
+  await new Promise((resolve) => setTimeout(resolve, 150))
+  return read()
+}
+
+/**
  * Verify the current user session. Cached per request.
  * Redirects to /sign-in when absent.
  */
@@ -37,10 +62,14 @@ export const verifySession = cache(async (): Promise<VerifiedSession> => {
   }
 
   // Look up the application user record
-  const appUser = await dbAdmin.user.findUnique({
-    where: { id: user.id },
-    select: { id: true, email: true, name: true, isActive: true },
-  })
+  const appUser = await retryOnce(
+    () =>
+      dbAdmin.user.findUnique({
+        where: { id: user.id },
+        select: { id: true, email: true, name: true, isActive: true },
+      }),
+    (result) => !result
+  )
 
   if (!appUser || !appUser.isActive) {
     redirect('/sign-in')
@@ -58,31 +87,43 @@ export const getOrgContext = cache(
   async (slug: string): Promise<OrgContext> => {
     const session = await verifySession()
 
-    const org = await dbAdmin.organisation.findUnique({
-      where: { slug },
-      select: { id: true, name: true, slug: true },
-    })
+    const org = await retryOnce(
+      () =>
+        dbAdmin.organisation.findUnique({
+          where: { slug },
+          select: { id: true, name: true, slug: true },
+        }),
+      (result) => !result
+    )
 
     if (!org) {
       notFound()
     }
 
-    const membership = await dbAdmin.organisationMembership.findUnique({
-      where: {
-        userId_orgId: { userId: session.userId, orgId: org.id },
-      },
-      select: { id: true, role: true, isActive: true },
-    })
+    const membership = await retryOnce(
+      () =>
+        dbAdmin.organisationMembership.findUnique({
+          where: {
+            userId_orgId: { userId: session.userId, orgId: org.id },
+          },
+          select: { id: true, role: true, isActive: true },
+        }),
+      (result) => !result
+    )
 
     if (!membership || !membership.isActive) {
       notFound()
     }
 
     // Get enabled modules for this org
-    const orgModules = await dbAdmin.organisationModule.findMany({
-      where: { orgId: org.id, enabled: true },
-      select: { moduleId: true },
-    })
+    const orgModules = await retryOnce(
+      () =>
+        dbAdmin.organisationModule.findMany({
+          where: { orgId: org.id, enabled: true },
+          select: { moduleId: true },
+        }),
+      (result) => result.length === 0
+    )
     const enabledModules = orgModules.map((m) => m.moduleId)
 
     return { org, membership, enabledModules }
@@ -99,22 +140,30 @@ export async function requirePermission(
 ): Promise<{ userId: string; role: OrgRole }> {
   const session = await verifySession()
 
-  const membership = await dbAdmin.organisationMembership.findUnique({
-    where: {
-      userId_orgId: { userId: session.userId, orgId },
-    },
-    select: { role: true, isActive: true },
-  })
+  const membership = await retryOnce(
+    () =>
+      dbAdmin.organisationMembership.findUnique({
+        where: {
+          userId_orgId: { userId: session.userId, orgId },
+        },
+        select: { role: true, isActive: true },
+      }),
+    (result) => !result
+  )
 
   if (!membership || !membership.isActive) {
     throw new PermissionDeniedError(key)
   }
 
   // Get enabled modules for this org
-  const orgModules = await dbAdmin.organisationModule.findMany({
-    where: { orgId, enabled: true },
-    select: { moduleId: true },
-  })
+  const orgModules = await retryOnce(
+    () =>
+      dbAdmin.organisationModule.findMany({
+        where: { orgId, enabled: true },
+        select: { moduleId: true },
+      }),
+    (result) => result.length === 0
+  )
   const enabledModules = orgModules.map((m) => m.moduleId)
 
   if (!hasPermission(membership.role, enabledModules, key)) {
