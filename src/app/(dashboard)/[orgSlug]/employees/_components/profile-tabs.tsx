@@ -21,6 +21,7 @@ interface ProfileTabsProps {
   locations?: { id: string; name: string }[]
   employmentTypes?: { id: string; name: string }[]
   managers?: { id: string; firstName: string; lastName: string }[]
+  shiftTemplates?: { id: string; name: string }[]
   documentsEnabled: boolean
   leaveEnabled: boolean
 }
@@ -44,6 +45,7 @@ export function ProfileTabs({
   locations,
   employmentTypes,
   managers,
+  shiftTemplates,
   documentsEnabled,
   leaveEnabled,
 }: ProfileTabsProps) {
@@ -99,6 +101,7 @@ export function ProfileTabs({
             locations={locations}
             employmentTypes={employmentTypes}
             managers={managers}
+            shiftTemplates={shiftTemplates}
           />
         )}
         {activeTab === 'documents' && documentsEnabled && (

@@ -47,6 +47,8 @@ export interface EmployeeProfile {
   employmentType: { id: string; name: string } | null
   manager: { id: string; firstName: string; lastName: string } | null
   directReports: { id: string; firstName: string; lastName: string }[]
+  shiftTemplate: { id: string; name: string } | null
+  payType: string
   // Sensitive fields — only populated when viewer has access
   personalEmail?: string | null
   phone?: string | null
@@ -211,6 +213,8 @@ export async function getEmployeeProfile(
         employmentType: { select: { id: true, name: true } },
         manager: { select: { id: true, firstName: true, lastName: true } },
         directReports: { select: { id: true, firstName: true, lastName: true } },
+        shiftTemplate: { select: { id: true, name: true } },
+        payType: true,
         ...buildSensitiveSelect(includeSensitive),
       },
     })
@@ -256,12 +260,15 @@ export async function getEmployeeForEdit(
         locationId: true,
         employmentTypeId: true,
         managerId: true,
+        shiftTemplateId: true,
+        payType: true,
         department: { select: { id: true, name: true } },
         jobTitle: { select: { id: true, name: true } },
         workLocation: { select: { id: true, name: true } },
         employmentType: { select: { id: true, name: true } },
         manager: { select: { id: true, firstName: true, lastName: true } },
         directReports: { select: { id: true, firstName: true, lastName: true } },
+        shiftTemplate: { select: { id: true, name: true } },
       },
     })
 
@@ -313,7 +320,7 @@ export async function listEmploymentTypes(userId: string, orgId: string) {
   return dbAs(userId, async (tx) => {
     return tx.employmentType.findMany({
       where: { orgId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, defaultShiftTemplateId: true },
       orderBy: { name: 'asc' },
     })
   })

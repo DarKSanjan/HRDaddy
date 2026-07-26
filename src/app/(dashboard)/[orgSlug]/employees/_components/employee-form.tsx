@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useState, useActionState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Input, FormField, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
 import { createEmployee, updateEmployee, type ActionResult } from '@/modules/employees/actions'
@@ -10,12 +10,19 @@ interface Option {
   name: string
 }
 
+interface EmploymentTypeOption {
+  id: string
+  name: string
+  defaultShiftTemplateId: string | null
+}
+
 interface EmployeeFormProps {
   orgSlug: string
   departments: Option[]
   jobTitles: Option[]
   locations: Option[]
-  employmentTypes: Option[]
+  employmentTypes: EmploymentTypeOption[]
+  shiftTemplates?: Option[]
   defaultValues?: {
     employeeId?: string
     firstName?: string
@@ -36,6 +43,8 @@ interface EmployeeFormProps {
     compensationAmountCents?: number | null
     compensationCurrency?: string | null
     isWorkman?: boolean
+    shiftTemplateId?: string | null
+    payType?: string | null
   }
   managers?: { id: string; firstName: string; lastName: string }[]
   mode?: 'create' | 'edit'
@@ -49,11 +58,24 @@ export function EmployeeForm({
   jobTitles,
   locations,
   employmentTypes,
+  shiftTemplates = [],
   defaultValues,
   managers = [],
   mode = 'create',
 }: EmployeeFormProps) {
   const router = useRouter()
+  const [shiftTemplateId, setShiftTemplateId] = useState(defaultValues?.shiftTemplateId ?? '')
+  const [payType, setPayType] = useState(defaultValues?.payType ?? 'SALARIED')
+
+  const handleEmploymentTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value
+    if (selectedId) {
+      const et = employmentTypes.find((t) => t.id === selectedId)
+      if (et?.defaultShiftTemplateId) {
+        setShiftTemplateId(et.defaultShiftTemplateId)
+      }
+    }
+  }
 
   const action = async (_prev: ActionResult, formData: FormData): Promise<ActionResult> => {
     const result = mode === 'create'
@@ -262,6 +284,7 @@ export function EmployeeForm({
                 name="employmentTypeId"
                 defaultValue={defaultValues?.employmentTypeId ?? ''}
                 className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
+                onChange={handleEmploymentTypeChange}
               >
                 <option value="">Not specified</option>
                 {employmentTypes.map((t) => (
@@ -302,6 +325,37 @@ export function EmployeeForm({
                     {m.firstName} {m.lastName}
                   </option>
                 ))}
+              </select>
+            </FormField>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Shift Template" htmlFor="shiftTemplateId">
+              <select
+                id="shiftTemplateId"
+                name="shiftTemplateId"
+                value={shiftTemplateId}
+                onChange={(e) => setShiftTemplateId(e.target.value)}
+                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
+              >
+                <option value="">No shift template</option>
+                {shiftTemplates.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Pay Type" htmlFor="payType">
+              <select
+                id="payType"
+                name="payType"
+                value={payType}
+                onChange={(e) => setPayType(e.target.value)}
+                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
+              >
+                <option value="SALARIED">Salaried</option>
+                <option value="HOURLY">Hourly</option>
               </select>
             </FormField>
           </div>

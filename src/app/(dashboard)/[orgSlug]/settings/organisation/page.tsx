@@ -6,6 +6,7 @@ import {
   listJobTitles,
   listWorkLocations,
   listEmploymentTypes,
+  getShiftTemplates,
 } from '@/modules/employees/queries'
 import { OrgStructurePanel } from './_components/org-structure-panel'
 
@@ -23,11 +24,12 @@ export default async function OrgSettingsPage({
   moduleGuard('employees', enabledModules)
   await requirePermission(org.id, 'department.manage')
 
-  const [departments, jobTitles, locations, employmentTypes] = await Promise.all([
+  const [departments, jobTitles, locations, employmentTypes, shiftTemplates] = await Promise.all([
     listDepartments(session.userId, org.id),
     listJobTitles(session.userId, org.id),
     listWorkLocations(session.userId, org.id),
     listEmploymentTypes(session.userId, org.id),
+    getShiftTemplates(session.userId, org.id),
   ])
 
   return (
@@ -50,6 +52,7 @@ export default async function OrgSettingsPage({
         jobTitles={jobTitles}
         locations={locations}
         employmentTypes={employmentTypes}
+        shiftTemplates={shiftTemplates}
       />
     </div>
   )

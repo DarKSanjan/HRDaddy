@@ -9,6 +9,7 @@ import {
   listWorkLocations,
   listEmploymentTypes,
   listEmployees,
+  getShiftTemplates,
 } from '@/modules/employees/queries'
 import { notFound } from 'next/navigation'
 import { ProfileHeader } from '../_components/profile-header'
@@ -52,14 +53,16 @@ export default async function EmployeeProfilePage({
   let locations: { id: string; name: string }[] = []
   let employmentTypes: { id: string; name: string }[] = []
   let managers: { id: string; firstName: string; lastName: string }[] = []
+  let shiftTemplates: { id: string; name: string }[] = []
 
   if (canEdit) {
-    const [depts, jts, locs, ets, empList] = await Promise.all([
+    const [depts, jts, locs, ets, empList, shifts] = await Promise.all([
       listDepartments(session.userId, org.id),
       listJobTitles(session.userId, org.id),
       listWorkLocations(session.userId, org.id),
       listEmploymentTypes(session.userId, org.id),
       listEmployees(session.userId, org.id, { pageSize: 200 }),
+      getShiftTemplates(session.userId, org.id),
     ])
     departments = depts.map((d) => ({ id: d.id, name: d.name }))
     jobTitles = jts.map((j) => ({ id: j.id, name: j.name }))
@@ -70,6 +73,7 @@ export default async function EmployeeProfilePage({
       firstName: e.firstName,
       lastName: e.lastName,
     }))
+    shiftTemplates = shifts.map((s) => ({ id: s.id, name: s.name }))
   }
 
   return (
@@ -98,6 +102,7 @@ export default async function EmployeeProfilePage({
         locations={locations}
         employmentTypes={employmentTypes}
         managers={managers}
+        shiftTemplates={shiftTemplates}
         documentsEnabled={documentsEnabled}
         leaveEnabled={leaveEnabled}
       />

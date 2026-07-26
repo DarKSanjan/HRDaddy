@@ -1,7 +1,7 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { Breadcrumb } from '@/core/ui'
-import { listDepartments, listJobTitles, listWorkLocations, listEmploymentTypes } from '@/modules/employees/queries'
+import { listDepartments, listJobTitles, listWorkLocations, listEmploymentTypes, getShiftTemplates } from '@/modules/employees/queries'
 import { EmployeeForm } from '../_components/employee-form'
 
 export const dynamic = 'force-dynamic'
@@ -19,11 +19,12 @@ export default async function NewEmployeePage({
   await requirePermission(org.id, 'employee.create')
 
   // Fetch org structure for form selects
-  const [departments, jobTitles, locations, employmentTypes] = await Promise.all([
+  const [departments, jobTitles, locations, employmentTypes, shiftTemplates] = await Promise.all([
     listDepartments(session.userId, org.id),
     listJobTitles(session.userId, org.id),
     listWorkLocations(session.userId, org.id),
     listEmploymentTypes(session.userId, org.id),
+    getShiftTemplates(session.userId, org.id),
   ])
 
   return (
@@ -43,6 +44,7 @@ export default async function NewEmployeePage({
         jobTitles={jobTitles}
         locations={locations}
         employmentTypes={employmentTypes}
+        shiftTemplates={shiftTemplates}
       />
     </div>
   )

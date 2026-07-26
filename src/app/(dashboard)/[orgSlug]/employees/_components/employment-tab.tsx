@@ -19,6 +19,7 @@ interface EmploymentTabProps {
   locations?: { id: string; name: string }[]
   employmentTypes?: { id: string; name: string }[]
   managers?: { id: string; firstName: string; lastName: string }[]
+  shiftTemplates?: { id: string; name: string }[]
 }
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
@@ -42,6 +43,11 @@ function formatCurrency(cents: number | null | undefined, currency: string | nul
   }).format(amount)
 }
 
+function formatPayType(payType: string | null | undefined): string {
+  if (!payType) return '—'
+  return payType === 'HOURLY' ? 'Hourly' : 'Salaried'
+}
+
 const ADMIN_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN']
 const initialState: ActionResult = { success: false }
 
@@ -55,6 +61,7 @@ export function EmploymentTab({
   locations = [],
   employmentTypes = [],
   managers = [],
+  shiftTemplates = [],
 }: EmploymentTabProps) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -172,6 +179,30 @@ export function EmploymentTab({
                   ))}
                 </select>
               </FormField>
+              <FormField label="Shift Template" htmlFor="shiftTemplateId">
+                <select
+                  id="shiftTemplateId"
+                  name="shiftTemplateId"
+                  defaultValue={employee.shiftTemplate?.id ?? ''}
+                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
+                >
+                  <option value="">No shift template</option>
+                  {shiftTemplates.map((st) => (
+                    <option key={st.id} value={st.id}>{st.name}</option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Pay Type" htmlFor="payType">
+                <select
+                  id="payType"
+                  name="payType"
+                  defaultValue={employee.payType ?? 'SALARIED'}
+                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
+                >
+                  <option value="SALARIED">Salaried</option>
+                  <option value="HOURLY">Hourly</option>
+                </select>
+              </FormField>
             </div>
           </CardContent>
         </Card>
@@ -266,6 +297,8 @@ export function EmploymentTab({
               label="End Date"
               value={employee.endDate ? new Date(employee.endDate).toLocaleDateString() : null}
             />
+            <Field label="Shift Template" value={employee.shiftTemplate?.name} />
+            <Field label="Pay Type" value={formatPayType(employee.payType)} />
           </dl>
         </CardContent>
       </Card>
