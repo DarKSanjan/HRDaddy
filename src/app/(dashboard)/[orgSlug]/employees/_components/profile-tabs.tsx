@@ -24,6 +24,7 @@ interface ProfileTabsProps {
   shiftTemplates?: { id: string; name: string }[]
   documentsEnabled: boolean
   leaveEnabled: boolean
+  isSimplePayroll?: boolean
 }
 
 const TABS = [
@@ -48,6 +49,7 @@ export function ProfileTabs({
   shiftTemplates,
   documentsEnabled,
   leaveEnabled,
+  isSimplePayroll,
 }: ProfileTabsProps) {
   const router = useRouter()
 
@@ -102,6 +104,7 @@ export function ProfileTabs({
             employmentTypes={employmentTypes}
             managers={managers}
             shiftTemplates={shiftTemplates}
+            isSimplePayroll={isSimplePayroll}
           />
         )}
         {activeTab === 'documents' && documentsEnabled && (

@@ -9,6 +9,7 @@ import {
   getShiftTemplates,
 } from '@/modules/employees/queries'
 import { OrgStructurePanel } from './_components/org-structure-panel'
+import { SettingsNav } from '../_components/settings-nav'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +41,8 @@ export default async function OrgSettingsPage({
           { label: 'Organisation' },
         ]}
       />
+
+      <SettingsNav orgSlug={orgSlug} enabledModules={enabledModules} />
 
       <h1 className="text-[20px] font-bold text-text">Organisation Structure</h1>
       <p className="text-[13px] text-text-muted">

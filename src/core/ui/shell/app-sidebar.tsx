@@ -61,6 +61,8 @@ interface AppSidebarProps {
   orgLogo?: string | null
   navEntries: NavEntry[]
   version?: string
+  storageUsedBytes?: number
+  storageLimitBytes?: number
 }
 
 // ─────────────────────────────────────────────
@@ -339,10 +341,55 @@ function NavItemSimple({ entry, orgSlug, pathname, collapsed }: NavItemProps) {
 }
 
 // ─────────────────────────────────────────────
+// Storage usage bar
+// ─────────────────────────────────────────────
+
+function formatStorageSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
+
+function StorageBar({ usedBytes, limitBytes, collapsed }: { usedBytes: number; limitBytes: number; collapsed: boolean }) {
+  const percentage = Math.min((usedBytes / limitBytes) * 100, 100)
+
+  if (collapsed) {
+    // In collapsed mode, show a tiny vertical bar indicator
+    return (
+      <div className="flex justify-center px-2 py-1" title={`${formatStorageSize(usedBytes)} of ${formatStorageSize(limitBytes)} used`}>
+        <div className="h-6 w-1.5 rounded-full bg-surface-hover overflow-hidden">
+          <div
+            className="w-full rounded-full bg-accent-500 transition-all"
+            style={{ height: `${percentage}%`, marginTop: `${100 - percentage}%` }}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-2.5 py-1.5">
+      <div className="h-1.5 w-full rounded-full bg-surface-hover overflow-hidden">
+        <div
+          className={cn(
+            'h-full rounded-full transition-all',
+            percentage > 90 ? 'bg-danger' : percentage > 70 ? 'bg-warning' : 'bg-accent-500'
+          )}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+      <p className="mt-1 text-[10px] text-text-subtle">
+        {formatStorageSize(usedBytes)} of {formatStorageSize(limitBytes)} used
+      </p>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
 // Main sidebar
 // ─────────────────────────────────────────────
 
-export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0.1.0' }: AppSidebarProps) {
+export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0.1.0', storageUsedBytes, storageLimitBytes }: AppSidebarProps) {
   const pathname = usePathname()
   const collapsed = React.useSyncExternalStore(subscribeToStorage, getCollapsedSnapshot, getServerSnapshot)
 
@@ -449,6 +496,15 @@ export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0
           )}
           {!collapsed && <span>Collapse</span>}
         </button>
+
+        {/* Storage usage bar */}
+        {storageUsedBytes !== undefined && storageLimitBytes !== undefined && (
+          <StorageBar
+            usedBytes={storageUsedBytes}
+            limitBytes={storageLimitBytes}
+            collapsed={collapsed}
+          />
+        )}
 
         {/* HR Daddy brand mark */}
         <div className={cn(

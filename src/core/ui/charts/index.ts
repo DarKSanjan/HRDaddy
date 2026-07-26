@@ -6,6 +6,9 @@
 // Palette and utilities
 export { CHART_COLORS, STATUS_COLORS, getChartColor, formatChartNumber } from './palette'
 
+// Tooltip
+export { ChartTooltipContent } from './chart-tooltip'
+
 // Charts
 export { LineChart, type LineChartProps, type LineChartSeries } from './line-chart'
 export { AreaChart, type AreaChartProps, type AreaChartSeries } from './area-chart'

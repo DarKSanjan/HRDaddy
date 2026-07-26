@@ -1,12 +1,11 @@
 'use client'
 
 /**
- * Document Explorer — file-explorer style UI with breadcrumb navigation.
- * Renders folder/file entries with icons and click-to-navigate.
+ * Document Explorer — icon-grid style UI with breadcrumb navigation.
+ * Renders folder/file entries as tiles in a responsive grid.
  */
 import { useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Card, CardContent } from '@/core/ui'
 import { Folder, FileText, Download, ChevronRight } from 'lucide-react'
 import type { ExplorerEntry } from '@/modules/documents/explorer-queries'
 
@@ -70,86 +69,97 @@ export function DocumentExplorer({ orgSlug, entries, breadcrumbs, basePath }: Do
 
       {/* Explorer grid */}
       {entries.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Folder className="h-10 w-10 text-text-subtle" aria-hidden="true" />
-            <p className="mt-3 text-[13px] text-text-muted">
-              This folder is empty.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center rounded-[var(--radius-md)] border border-border bg-surface py-16">
+          <Folder className="h-10 w-10 text-text-subtle" aria-hidden="true" />
+          <p className="mt-3 text-[13px] text-text-muted">
+            This folder is empty.
+          </p>
+        </div>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="divide-y divide-border">
-              {entries.map((entry) => {
-                if (entry.type === 'folder') {
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => navigateTo(`${basePath}/${entry.id}`)}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-hover"
-                    >
-                      <Folder className="h-5 w-5 text-accent-600 shrink-0" aria-hidden="true" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-medium text-text truncate">
-                          {entry.name}
-                        </p>
-                        {'meta' in entry && entry.meta && (
-                          <p className="text-[11px] text-text-muted">{entry.meta}</p>
-                        )}
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-text-subtle shrink-0" aria-hidden="true" />
-                    </button>
-                  )
-                }
-
-                // File entry
-                const isVirtual = 'isVirtual' in entry && entry.isVirtual
-                return (
-                  <div
-                    key={entry.id}
-                    className="flex items-center gap-3 px-4 py-3"
-                  >
-                    <FileText className="h-5 w-5 text-text-subtle shrink-0" aria-hidden="true" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium text-text truncate">
-                        {entry.name}
-                      </p>
-                      <div className="flex items-center gap-2 text-[11px] text-text-muted">
-                        {'fileSize' in entry && entry.fileSize && (
-                          <span>{formatFileSize(entry.fileSize)}</span>
-                        )}
-                        {'createdAt' in entry && entry.createdAt && (
-                          <span>{new Date(entry.createdAt).toLocaleDateString('en-SG')}</span>
-                        )}
-                        {isVirtual && (
-                          <span className="text-accent-600">On-demand PDF</span>
-                        )}
-                      </div>
-                    </div>
-                    {isVirtual && 'recordId' in entry && entry.recordId ? (
-                      <DownloadPdfButton orgSlug={orgSlug} recordId={entry.recordId} />
-                    ) : (
-                      <DownloadDocButton orgSlug={orgSlug} documentId={entry.id} />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {entries.map((entry) => {
+            if (entry.type === 'folder') {
+              return (
+                <FolderTile
+                  key={entry.id}
+                  entry={entry}
+                  onClick={() => navigateTo(`${basePath}/${entry.id}`)}
+                />
+              )
+            }
+            return (
+              <FileTile
+                key={entry.id}
+                entry={entry}
+                orgSlug={orgSlug}
+              />
+            )
+          })}
+        </div>
       )}
     </div>
   )
 }
 
 // ─────────────────────────────────────────────
-// Download buttons (client-side actions)
+// Folder tile
 // ─────────────────────────────────────────────
 
-function DownloadPdfButton({ orgSlug, recordId }: { orgSlug: string; recordId: string }) {
+function FolderTile({ entry, onClick }: { entry: ExplorerEntry; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface p-4 transition-all hover:border-accent-300 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-accent-500"
+    >
+      <Folder className="h-10 w-10 text-accent-500 group-hover:text-accent-600 transition-colors" aria-hidden="true" />
+      <span className="w-full text-center text-[12px] font-medium text-text line-clamp-2 leading-tight">
+        {entry.name}
+      </span>
+      {'meta' in entry && entry.meta && (
+        <span className="text-[10px] text-text-muted">{entry.meta}</span>
+      )}
+    </button>
+  )
+}
+
+// ─────────────────────────────────────────────
+// File tile
+// ─────────────────────────────────────────────
+
+function FileTile({ entry, orgSlug }: { entry: ExplorerEntry; orgSlug: string }) {
+  const isVirtual = 'isVirtual' in entry && entry.isVirtual
+
+  return (
+    <div className="group relative flex flex-col items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface p-4 transition-all hover:border-accent-300 hover:shadow-sm focus-within:border-accent-300 focus-within:shadow-sm">
+      <FileText className="h-10 w-10 text-text-subtle group-hover:text-text-muted transition-colors" aria-hidden="true" />
+      <span className="w-full text-center text-[12px] font-medium text-text line-clamp-2 leading-tight">
+        {entry.name}
+      </span>
+      {'fileSize' in entry && entry.fileSize && (
+        <span className="text-[10px] text-text-muted">{formatFileSize(entry.fileSize)}</span>
+      )}
+      {isVirtual && (
+        <span className="text-[10px] text-accent-600">PDF</span>
+      )}
+
+      {/* Download button — visible on hover/touch always, focus-visible for keyboard nav */}
+      <div className="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
+        {isVirtual && 'recordId' in entry && entry.recordId ? (
+          <DownloadPdfIconButton orgSlug={orgSlug} recordId={entry.recordId} />
+        ) : (
+          <DownloadDocIconButton orgSlug={orgSlug} documentId={entry.id} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Download icon buttons (hover overlay)
+// ─────────────────────────────────────────────
+
+function DownloadPdfIconButton({ orgSlug, recordId }: { orgSlug: string; recordId: string }) {
   const handleDownload = useCallback(async () => {
     const { downloadEmployeePdf } = await import('@/modules/payroll/pdf-actions')
     const result = await downloadEmployeePdf(orgSlug, recordId)
@@ -171,16 +181,15 @@ function DownloadPdfButton({ orgSlug, recordId }: { orgSlug: string; recordId: s
     <button
       type="button"
       onClick={handleDownload}
-      className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border px-2.5 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+      className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] bg-surface border border-border shadow-sm transition-colors hover:bg-surface-hover"
       aria-label="Download PDF"
     >
-      <Download className="h-3.5 w-3.5" aria-hidden="true" />
-      <span>PDF</span>
+      <Download className="h-3.5 w-3.5 text-text-muted" aria-hidden="true" />
     </button>
   )
 }
 
-function DownloadDocButton({ orgSlug, documentId }: { orgSlug: string; documentId: string }) {
+function DownloadDocIconButton({ orgSlug, documentId }: { orgSlug: string; documentId: string }) {
   const handleDownload = useCallback(async () => {
     const { getDocumentDownloadUrl } = await import('@/modules/documents/actions')
     const result = await getDocumentDownloadUrl(orgSlug, documentId)
@@ -201,11 +210,10 @@ function DownloadDocButton({ orgSlug, documentId }: { orgSlug: string; documentI
     <button
       type="button"
       onClick={handleDownload}
-      className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border px-2.5 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+      className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] bg-surface border border-border shadow-sm transition-colors hover:bg-surface-hover"
       aria-label="Download document"
     >
-      <Download className="h-3.5 w-3.5" aria-hidden="true" />
-      <span>Download</span>
+      <Download className="h-3.5 w-3.5 text-text-muted" aria-hidden="true" />
     </button>
   )
 }

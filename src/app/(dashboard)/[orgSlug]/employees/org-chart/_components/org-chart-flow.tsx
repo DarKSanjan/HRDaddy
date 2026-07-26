@@ -11,6 +11,7 @@ import {
   Position,
   useReactFlow,
   ReactFlowProvider,
+  Controls,
 } from '@xyflow/react'
 import dagre from 'dagre'
 import { useRouter } from 'next/navigation'
@@ -39,8 +40,8 @@ interface EmployeeNodeData {
 
 // ── Layout helpers ──────────────────────────────────────────────────────────
 
-const NODE_WIDTH = 220
-const NODE_HEIGHT = 80
+const NODE_WIDTH = 240
+const NODE_HEIGHT = 88
 
 function getLayoutedElements(
   nodes: Node<EmployeeNodeData>[],
@@ -171,7 +172,7 @@ function EmployeeNode({ data, id }: NodeProps<Node<EmployeeNodeData>>) {
       {/* Avatar */}
       <div
         className={`
-          flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-medium
+          flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-medium
           ${data.department ? 'bg-accent-50 text-accent-700' : 'bg-surface-hover text-text-muted'}
         `}
       >
@@ -180,14 +181,14 @@ function EmployeeNode({ data, id }: NodeProps<Node<EmployeeNodeData>>) {
 
       {/* Info */}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-text">
+        <p className="truncate text-[14px] font-medium text-text">
           {data.firstName} {data.lastName}
         </p>
         {data.jobTitle && (
-          <p className="truncate text-[11px] text-text-muted">{data.jobTitle}</p>
+          <p className="truncate text-[12px] text-text-muted">{data.jobTitle}</p>
         )}
         {data.department && (
-          <p className="truncate text-[10px] text-text-subtle">{data.department}</p>
+          <p className="truncate text-[11px] text-text-subtle">{data.department}</p>
         )}
       </div>
 
@@ -240,21 +241,27 @@ function OrgChartFlowInner({ nodes, orgSlug }: OrgChartFlowProps) {
   }, [nodes, orgSlug])
 
   return (
-    <div className="h-[600px] w-full rounded-[var(--radius-md)] border border-border bg-surface">
+    <div className="h-[calc(100vh-180px)] min-h-[500px] w-full rounded-[var(--radius-md)] border border-border bg-surface">
       <ReactFlow
         nodes={layoutedNodes}
         edges={layoutedEdges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.3}
+        fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+        minZoom={0.5}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
         nodesDraggable={false}
         nodesConnectable={false}
         edgesFocusable={false}
         elementsSelectable={false}
-      />
+      >
+        <Controls
+          showInteractive={false}
+          position="bottom-right"
+          className="!bg-surface !border-border !shadow-sm"
+        />
+      </ReactFlow>
     </div>
   )
 }

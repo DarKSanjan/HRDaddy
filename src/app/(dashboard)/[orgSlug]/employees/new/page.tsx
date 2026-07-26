@@ -2,6 +2,7 @@ import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { Breadcrumb } from '@/core/ui'
 import { listDepartments, listJobTitles, listWorkLocations, listEmploymentTypes, getShiftTemplates } from '@/modules/employees/queries'
+import { getPayrollComplexity } from '@/modules/payroll/settings'
 import { EmployeeForm } from '../_components/employee-form'
 
 export const dynamic = 'force-dynamic'
@@ -27,6 +28,8 @@ export default async function NewEmployeePage({
     getShiftTemplates(session.userId, org.id),
   ])
 
+  const payrollComplexity = await getPayrollComplexity(org.id)
+
   return (
     <div className="space-y-6">
       <Breadcrumb
@@ -45,6 +48,7 @@ export default async function NewEmployeePage({
         locations={locations}
         employmentTypes={employmentTypes}
         shiftTemplates={shiftTemplates}
+        isSimplePayroll={payrollComplexity === 'simple'}
       />
     </div>
   )

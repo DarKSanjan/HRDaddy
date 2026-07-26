@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { CHART_COLORS } from './palette'
+import { ChartTooltipContent } from './chart-tooltip'
 
 export interface DonutChartDataPoint {
   name: string
@@ -39,6 +40,8 @@ export function DonutChart({
   label,
   labelValue,
 }: DonutChartProps) {
+  const total = data.reduce((sum, d) => sum + d.value, 0)
+
   return (
     <div className="relative" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -63,13 +66,7 @@ export function DonutChart({
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{
-              backgroundColor: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: 12,
-              color: 'var(--text)',
-            }}
+            content={<ChartTooltipContent total={total} showPercentage />}
           />
           {showLegend && (
             <Legend

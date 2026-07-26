@@ -48,6 +48,7 @@ interface EmployeeFormProps {
   }
   managers?: { id: string; firstName: string; lastName: string }[]
   mode?: 'create' | 'edit'
+  isSimplePayroll?: boolean
 }
 
 const initialState: ActionResult = { success: false }
@@ -62,6 +63,7 @@ export function EmployeeForm({
   defaultValues,
   managers = [],
   mode = 'create',
+  isSimplePayroll = false,
 }: EmployeeFormProps) {
   const router = useRouter()
   const [shiftTemplateId, setShiftTemplateId] = useState(defaultValues?.shiftTemplateId ?? '')
@@ -330,6 +332,7 @@ export function EmployeeForm({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            {!isSimplePayroll && (
             <FormField label="Shift Template" htmlFor="shiftTemplateId">
               <select
                 id="shiftTemplateId"
@@ -346,6 +349,8 @@ export function EmployeeForm({
                 ))}
               </select>
             </FormField>
+            )}
+            {!isSimplePayroll && (
             <FormField label="Pay Type" htmlFor="payType">
               <select
                 id="payType"
@@ -358,6 +363,7 @@ export function EmployeeForm({
                 <option value="HOURLY">Hourly</option>
               </select>
             </FormField>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -394,6 +400,7 @@ export function EmployeeForm({
             </FormField>
           </div>
 
+          {!isSimplePayroll && (
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="hidden"
@@ -416,6 +423,7 @@ export function EmployeeForm({
               </div>
             </div>
           </label>
+          )}
         </CardContent>
       </Card>
 

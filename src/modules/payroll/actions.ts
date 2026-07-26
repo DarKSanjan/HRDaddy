@@ -23,6 +23,7 @@ import { dbAs } from '@/core/db'
 import { getComplianceProvider } from './compliance'
 import { MOM_OT_CAP_HOURS } from './compliance/sg'
 import { resolveShift, computeShiftMetrics } from '../attendance/shift-helpers'
+import { getPayrollComplexity } from './settings'
 import { momPayslipSchema } from './schemas'
 import type { CpfComputeInput, ResidencyStatus, PrArrangement } from './cpf/types'
 import {
@@ -86,6 +87,10 @@ export async function processPayroll(
 
     const compliance = getComplianceProvider(countryCode)
 
+    // Get payroll complexity setting for this org
+    const payrollComplexity = await getPayrollComplexity(org.id)
+    const isSimpleMode = payrollComplexity === 'simple'
+
     // Get all active employees with their details + shift info
     const employees = await tx.employee.findMany({
       where: { orgId: org.id, employmentStatus: 'ACTIVE' },
@@ -132,112 +137,120 @@ export async function processPayroll(
     for (const emp of employees) {
       if (!emp.compensationAmountCents || !emp.dateOfBirth) continue
 
-      // Resolve effective shift
-      const shift = resolveShift({
-        employeeShift: emp.shiftTemplate
-          ? {
-              startMinutes: emp.shiftTemplate.startMinutes,
-              endMinutes: emp.shiftTemplate.endMinutes,
-              standardMinutesPerDay: emp.shiftTemplate.standardMinutesPerDay,
-              overtimeMultiplier: Number(emp.shiftTemplate.overtimeMultiplier),
-              restDayMultiplier: Number(emp.shiftTemplate.restDayMultiplier),
-            }
-          : null,
-        employmentTypeShift: emp.employmentType?.defaultShiftTemplate
-          ? {
-              startMinutes: emp.employmentType.defaultShiftTemplate.startMinutes,
-              endMinutes: emp.employmentType.defaultShiftTemplate.endMinutes,
-              standardMinutesPerDay: emp.employmentType.defaultShiftTemplate.standardMinutesPerDay,
-              overtimeMultiplier: Number(emp.employmentType.defaultShiftTemplate.overtimeMultiplier),
-              restDayMultiplier: Number(emp.employmentType.defaultShiftTemplate.restDayMultiplier),
-            }
-          : null,
-        orgWorkingHoursStart: workingHoursStart,
-        orgWorkingHoursEnd: workingHoursEnd,
-      })
-
-      // Get attendance records for this period
-      const attendanceRecords = await tx.attendanceRecord.findMany({
-        where: {
-          orgId: org.id,
-          employeeId: emp.id,
-          date: { gte: period.startDate, lte: period.endDate },
-          status: { in: ['CLOSED', 'CORRECTED'] },
-        },
-        select: {
-          clockIn: true,
-          clockOut: true,
-          durationMinutes: true,
-          date: true,
-        },
-      })
-
-      // Compute gross pay based on pay type
+      // In simple mode: skip shift/OT/hourly logic; flat salary for all
       let baseCents: number
-      if (emp.payType === 'HOURLY') {
-        // Hourly: sum attendance hours × hourly rate in cents
-        const totalMinutesWorked = attendanceRecords.reduce(
-          (sum, r) => sum + (r.durationMinutes ?? 0), 0
-        )
-        const totalHoursWorked = totalMinutesWorked / 60
-        baseCents = Math.round(totalHoursWorked * emp.compensationAmountCents)
-      } else {
-        // Salaried: flat per-period salary
-        baseCents = emp.compensationAmountCents
-      }
-
-      // Compute overtime for salaried employees
-      let weekdayOtMinutes = 0
-      let restDayOtMinutes = 0
-
-      for (const record of attendanceRecords) {
-        if (!record.clockOut || record.durationMinutes === null) continue
-        const dayOfWeek = record.date.getDay()
-        const metrics = computeShiftMetrics({
-          shift,
-          clockIn: record.clockIn,
-          clockOut: record.clockOut,
-          durationMinutes: record.durationMinutes,
-          dayOfWeek,
-          workingDays,
-          timezone,
-        })
-        if (metrics.isRestDay) {
-          restDayOtMinutes += record.durationMinutes // All rest-day work counts
-        } else {
-          weekdayOtMinutes += metrics.overtimeMinutes
-        }
-      }
-
-      // OT line item(s) for salaried employees
       let overtimePayCents = 0
       const lineItems: Array<{ type: 'EARNING' | 'ALLOWANCE' | 'DEDUCTION' | 'OVERTIME'; name: string; amountCents: number }> = []
 
-      lineItems.push({ type: 'EARNING', name: 'Basic Salary', amountCents: baseCents })
+      if (isSimpleMode) {
+        // Simple mode: everyone treated as flat salaried
+        baseCents = emp.compensationAmountCents
+        lineItems.push({ type: 'EARNING', name: 'Basic Salary', amountCents: baseCents })
+      } else {
+        // Advanced mode: full shift/OT/hourly computation
 
-      if (emp.payType === 'SALARIED' && (weekdayOtMinutes > 0 || restDayOtMinutes > 0)) {
-        const hourlyRateCents = compliance.hourlyRateFromMonthlyCents(emp.compensationAmountCents)
+        // Resolve effective shift
+        const shift = resolveShift({
+          employeeShift: emp.shiftTemplate
+            ? {
+                startMinutes: emp.shiftTemplate.startMinutes,
+                endMinutes: emp.shiftTemplate.endMinutes,
+                standardMinutesPerDay: emp.shiftTemplate.standardMinutesPerDay,
+                overtimeMultiplier: Number(emp.shiftTemplate.overtimeMultiplier),
+                restDayMultiplier: Number(emp.shiftTemplate.restDayMultiplier),
+              }
+            : null,
+          employmentTypeShift: emp.employmentType?.defaultShiftTemplate
+            ? {
+                startMinutes: emp.employmentType.defaultShiftTemplate.startMinutes,
+                endMinutes: emp.employmentType.defaultShiftTemplate.endMinutes,
+                standardMinutesPerDay: emp.employmentType.defaultShiftTemplate.standardMinutesPerDay,
+                overtimeMultiplier: Number(emp.employmentType.defaultShiftTemplate.overtimeMultiplier),
+                restDayMultiplier: Number(emp.employmentType.defaultShiftTemplate.restDayMultiplier),
+              }
+            : null,
+          orgWorkingHoursStart: workingHoursStart,
+          orgWorkingHoursEnd: workingHoursEnd,
+        })
 
-        // Weekday OT: hourlyRate × overtimeMultiplier × hours
-        if (weekdayOtMinutes > 0) {
-          const weekdayOtHours = weekdayOtMinutes / 60
-          const weekdayOtCents = Math.round(hourlyRateCents * shift.overtimeMultiplier * weekdayOtHours)
+        // Get attendance records for this period
+        const attendanceRecords = await tx.attendanceRecord.findMany({
+          where: {
+            orgId: org.id,
+            employeeId: emp.id,
+            date: { gte: period.startDate, lte: period.endDate },
+            status: { in: ['CLOSED', 'CORRECTED'] },
+          },
+          select: {
+            clockIn: true,
+            clockOut: true,
+            durationMinutes: true,
+            date: true,
+          },
+        })
 
-          // Check MOM 72-hour cap — flag but don't truncate pay
-          const totalOtHours = (weekdayOtMinutes + restDayOtMinutes) / 60
-          const otCapExceeded = totalOtHours > MOM_OT_CAP_HOURS
+        // Compute gross pay based on pay type
+        if (emp.payType === 'HOURLY') {
+          // Hourly: sum attendance hours × hourly rate in cents
+          const totalMinutesWorked = attendanceRecords.reduce(
+            (sum, r) => sum + (r.durationMinutes ?? 0), 0
+          )
+          const totalHoursWorked = totalMinutesWorked / 60
+          baseCents = Math.round(totalHoursWorked * emp.compensationAmountCents)
+        } else {
+          // Salaried: flat per-period salary
+          baseCents = emp.compensationAmountCents
+        }
 
-          // Gate behind statutory eligibility
-          const isStatutory = compliance.isOvertimeEligible(emp.compensationAmountCents, emp.isWorkman)
+        lineItems.push({ type: 'EARNING', name: 'Basic Salary', amountCents: baseCents })
 
-          lineItems.push({
-            type: 'OVERTIME',
-            name: isStatutory
-              ? `Overtime Pay (Weekday)${otCapExceeded ? ' [72hr cap exceeded]' : ''}`
-              : 'Overtime Pay (Weekday) [Non-statutory]',
-            amountCents: weekdayOtCents,
+        // Compute overtime for salaried employees
+        let weekdayOtMinutes = 0
+        let restDayOtMinutes = 0
+
+        for (const record of attendanceRecords) {
+          if (!record.clockOut || record.durationMinutes === null) continue
+          const dayOfWeek = record.date.getDay()
+          const metrics = computeShiftMetrics({
+            shift,
+            clockIn: record.clockIn,
+            clockOut: record.clockOut,
+            durationMinutes: record.durationMinutes,
+            dayOfWeek,
+            workingDays,
+            timezone,
           })
-          overtimePayCents += weekdayOtCents
+          if (metrics.isRestDay) {
+            restDayOtMinutes += record.durationMinutes // All rest-day work counts
+          } else {
+            weekdayOtMinutes += metrics.overtimeMinutes
+          }
+        }
+
+        // OT line item(s) for salaried employees
+        if (emp.payType === 'SALARIED' && (weekdayOtMinutes > 0 || restDayOtMinutes > 0)) {
+          const hourlyRateCents = compliance.hourlyRateFromMonthlyCents(emp.compensationAmountCents)
+
+          // Weekday OT: hourlyRate × overtimeMultiplier × hours
+          if (weekdayOtMinutes > 0) {
+            const weekdayOtHours = weekdayOtMinutes / 60
+            const weekdayOtCents = Math.round(hourlyRateCents * shift.overtimeMultiplier * weekdayOtHours)
+
+            // Check MOM 72-hour cap — flag but don't truncate pay
+            const totalOtHours = (weekdayOtMinutes + restDayOtMinutes) / 60
+            const otCapExceeded = totalOtHours > MOM_OT_CAP_HOURS
+
+            // Gate behind statutory eligibility
+            const isStatutory = compliance.isOvertimeEligible(emp.compensationAmountCents, emp.isWorkman)
+
+            lineItems.push({
+              type: 'OVERTIME',
+              name: isStatutory
+                ? `Overtime Pay (Weekday)${otCapExceeded ? ' [72hr cap exceeded]' : ''}`
+                : 'Overtime Pay (Weekday) [Non-statutory]',
+              amountCents: weekdayOtCents,
+            })
+            overtimePayCents += weekdayOtCents
         }
 
         // Rest-day OT: hourlyRate × restDayMultiplier × hours
@@ -255,6 +268,7 @@ export async function processPayroll(
           overtimePayCents += restDayOtCents
         }
       }
+      } // end advanced mode
 
       const grossCents = baseCents + overtimePayCents
 

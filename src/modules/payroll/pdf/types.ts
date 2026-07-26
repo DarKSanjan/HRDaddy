@@ -7,6 +7,8 @@ export interface PayslipEmployeeData {
   employeeId: string
   firstName: string
   lastName: string
+  jobTitle: string | null
+  department: string | null
   grossAmountCents: number
   netAmountCents: number
   cpfEmployeeCents: number | null

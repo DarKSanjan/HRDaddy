@@ -1,12 +1,13 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
+import { moduleGuard } from '@/core/modules'
 import { Breadcrumb } from '@/core/ui'
-import { getOrgBranding } from '@/core/org/queries'
-import { OrgProfilePanel } from './_components/org-profile-panel'
+import { getPayrollComplexity } from '@/modules/payroll/settings'
+import { PayrollSettingsPanel } from './_components/payroll-settings-panel'
 import { SettingsNav } from '../_components/settings-nav'
 
 export const dynamic = 'force-dynamic'
 
-export default async function OrgProfileSettingsPage({
+export default async function PayrollSettingsPage({
   params,
 }: {
   params: Promise<{ orgSlug: string }>
@@ -15,30 +16,30 @@ export default async function OrgProfileSettingsPage({
 
   await verifySession()
   const { org, enabledModules } = await getOrgContext(orgSlug)
+  moduleGuard('payroll', enabledModules)
   await requirePermission(org.id, 'department.manage')
 
-  const branding = await getOrgBranding(org.id)
+  const currentComplexity = await getPayrollComplexity(org.id)
 
   return (
     <div className="space-y-6">
       <Breadcrumb
         items={[
           { label: 'Settings', href: `/${orgSlug}/settings` },
-          { label: 'Profile' },
+          { label: 'Payroll' },
         ]}
       />
 
       <SettingsNav orgSlug={orgSlug} enabledModules={enabledModules} />
 
-      <h1 className="text-[20px] font-bold text-text">Organisation Profile</h1>
+      <h1 className="text-[20px] font-bold text-text">Payroll Settings</h1>
       <p className="text-[13px] text-text-muted">
-        Manage your organisation&apos;s display name and branding.
+        Configure how payroll calculations work for your organisation.
       </p>
 
-      <OrgProfilePanel
+      <PayrollSettingsPanel
         orgSlug={orgSlug}
-        orgName={org.name}
-        orgLogoUrl={branding.logoSignedUrl}
+        currentComplexity={currentComplexity}
       />
     </div>
   )

@@ -42,7 +42,15 @@ export async function downloadPeriodPdf(
     const records = await tx.payrollRecord.findMany({
       where: { periodId, orgId: org.id },
       include: {
-        employee: { select: { id: true, firstName: true, lastName: true } },
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            jobTitle: { select: { name: true } },
+            department: { select: { name: true } },
+          },
+        },
         lineItems: { select: { id: true, type: true, name: true, amountCents: true } },
       },
       orderBy: { employee: { lastName: 'asc' } },
@@ -62,6 +70,8 @@ export async function downloadPeriodPdf(
     employeeId: r.employee.id,
     firstName: r.employee.firstName,
     lastName: r.employee.lastName,
+    jobTitle: r.employee.jobTitle?.name ?? null,
+    department: r.employee.department?.name ?? null,
     grossAmountCents: r.grossAmountCents,
     netAmountCents: r.netAmountCents,
     cpfEmployeeCents: r.cpfEmployeeCents,
@@ -121,7 +131,15 @@ export async function downloadEmployeePdf(
       where: { id: recordId, orgId: org.id },
       include: {
         period: { select: { name: true, startDate: true, endDate: true } },
-        employee: { select: { id: true, firstName: true, lastName: true } },
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            jobTitle: { select: { name: true } },
+            department: { select: { name: true } },
+          },
+        },
         lineItems: { select: { id: true, type: true, name: true, amountCents: true } },
       },
     })
@@ -150,6 +168,8 @@ export async function downloadEmployeePdf(
     employeeId: record.employee.id,
     firstName: record.employee.firstName,
     lastName: record.employee.lastName,
+    jobTitle: record.employee.jobTitle?.name ?? null,
+    department: record.employee.department?.name ?? null,
     grossAmountCents: record.grossAmountCents,
     netAmountCents: record.netAmountCents,
     cpfEmployeeCents: record.cpfEmployeeCents,

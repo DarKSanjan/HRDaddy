@@ -20,6 +20,7 @@ interface EmploymentTabProps {
   employmentTypes?: { id: string; name: string }[]
   managers?: { id: string; firstName: string; lastName: string }[]
   shiftTemplates?: { id: string; name: string }[]
+  isSimplePayroll?: boolean
 }
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
@@ -62,6 +63,7 @@ export function EmploymentTab({
   employmentTypes = [],
   managers = [],
   shiftTemplates = [],
+  isSimplePayroll = false,
 }: EmploymentTabProps) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -179,6 +181,7 @@ export function EmploymentTab({
                   ))}
                 </select>
               </FormField>
+              {!isSimplePayroll && (
               <FormField label="Shift Template" htmlFor="shiftTemplateId">
                 <select
                   id="shiftTemplateId"
@@ -192,6 +195,8 @@ export function EmploymentTab({
                   ))}
                 </select>
               </FormField>
+              )}
+              {!isSimplePayroll && (
               <FormField label="Pay Type" htmlFor="payType">
                 <select
                   id="payType"
@@ -203,6 +208,7 @@ export function EmploymentTab({
                   <option value="HOURLY">Hourly</option>
                 </select>
               </FormField>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -236,6 +242,7 @@ export function EmploymentTab({
                 </FormField>
               </div>
 
+              {!isSimplePayroll && (
               <label className="flex items-center gap-3 cursor-pointer">
                 <input type="hidden" name="isWorkman" value="false" />
                 <input
@@ -254,6 +261,7 @@ export function EmploymentTab({
                   </div>
                 </div>
               </label>
+              )}
             </CardContent>
           </Card>
         )}
@@ -297,8 +305,8 @@ export function EmploymentTab({
               label="End Date"
               value={employee.endDate ? new Date(employee.endDate).toLocaleDateString() : null}
             />
-            <Field label="Shift Template" value={employee.shiftTemplate?.name} />
-            <Field label="Pay Type" value={formatPayType(employee.payType)} />
+            {!isSimplePayroll && <Field label="Shift Template" value={employee.shiftTemplate?.name} />}
+            {!isSimplePayroll && <Field label="Pay Type" value={formatPayType(employee.payType)} />}
           </dl>
         </CardContent>
       </Card>

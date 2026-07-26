@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { CHART_COLORS, AXIS_STYLE, GRID_STYLE, CHART_MARGIN, formatChartNumber } from './palette'
+import { ChartTooltipContent } from './chart-tooltip'
 
 export interface BarChartSeries {
   dataKey: string
@@ -106,13 +107,7 @@ export function BarChart({
           </>
         )}
         <Tooltip
-          contentStyle={{
-            backgroundColor: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: 12,
-            color: 'var(--text)',
-          }}
+          content={<ChartTooltipContent />}
           cursor={{ fill: 'var(--surface-hover)' }}
         />
         {shouldShowLegend && (

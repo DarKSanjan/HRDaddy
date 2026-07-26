@@ -15,6 +15,7 @@ import {
 } from '@/modules/documents/explorer-queries'
 import type { ExplorerEntry } from '@/modules/documents/explorer-queries'
 import { DocumentExplorer } from './_components/document-explorer'
+import { PdfDownloadButton } from '@/modules/payroll/pdf-download-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +53,7 @@ export default async function DocumentsPage({
     { label: 'Documents', path: '/' },
   ]
   let basePath = ''
+  let payrollPeriodId: string | null = null
 
   if (segments.length === 0) {
     // Root: show Employee Documents and Payroll folders
@@ -154,6 +156,7 @@ export default async function DocumentsPage({
       } else if (segments.length === 3) {
         // By Month → Period: list employees
         const periodId = segments[2]
+        payrollPeriodId = periodId
         const periods = await getPayrollPeriodFolders(session.userId, org.id)
         const periodFolder = periods.find((p) => p.id === periodId)
         if (periodFolder) {
@@ -219,6 +222,17 @@ export default async function DocumentsPage({
           Browse employee documents and payroll records
         </p>
       </div>
+
+      {/* Download All button for payroll period view */}
+      {payrollPeriodId && canViewPayrollAll && (
+        <div className="flex justify-end">
+          <PdfDownloadButton
+            orgSlug={orgSlug}
+            periodId={payrollPeriodId}
+            label="Download All (PDF)"
+          />
+        </div>
+      )}
 
       <DocumentExplorer
         orgSlug={orgSlug}

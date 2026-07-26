@@ -15,6 +15,7 @@ import { resolveNav } from '@/core/modules'
 import { AppShell } from '@/core/ui/shell'
 import { getOrgBranding } from '@/core/org/queries'
 import { getUserNotifications } from '@/core/notifications/queries'
+import { getStorageUsedBytes, FREE_PLAN_STORAGE_LIMIT_BYTES } from '@/modules/documents/storage-queries'
 
 export default async function OrgDashboardLayout({
   children,
@@ -30,10 +31,11 @@ export default async function OrgDashboardLayout({
   // Resolve nav from module registry — no hardcoded navigation
   const navEntries = resolveNav(membership.role, enabledModules)
 
-  // Fetch org logo and notifications in parallel (independent queries)
-  const [branding, { notifications, unreadCount }] = await Promise.all([
+  // Fetch org logo, notifications, and storage in parallel (independent queries)
+  const [branding, { notifications, unreadCount }, storageUsedBytes] = await Promise.all([
     getOrgBranding(org.id),
     getUserNotifications(session.userId, org.id),
+    getStorageUsedBytes(session.userId, org.id),
   ])
 
   return (
@@ -46,6 +48,8 @@ export default async function OrgDashboardLayout({
       navEntries={navEntries}
       notifications={notifications}
       unreadCount={unreadCount}
+      storageUsedBytes={storageUsedBytes}
+      storageLimitBytes={FREE_PLAN_STORAGE_LIMIT_BYTES}
     >
       {children}
     </AppShell>

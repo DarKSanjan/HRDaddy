@@ -18,6 +18,8 @@ interface AppShellProps {
   notifications: { id: string; title: string; message: string; link: string | null; isRead: boolean; createdAt: Date }[]
   unreadCount: number
   breadcrumbs?: BreadcrumbItem[]
+  storageUsedBytes?: number
+  storageLimitBytes?: number
   children: React.ReactNode
 }
 
@@ -31,6 +33,8 @@ function AppShell({
   notifications,
   unreadCount,
   breadcrumbs = [],
+  storageUsedBytes,
+  storageLimitBytes,
   children,
 }: AppShellProps) {
   const [cmdOpen, setCmdOpen] = React.useState(false)
@@ -53,6 +57,8 @@ function AppShell({
           orgName={orgName}
           orgLogo={orgLogo}
           navEntries={navEntries}
+          storageUsedBytes={storageUsedBytes}
+          storageLimitBytes={storageLimitBytes}
         />
       </div>
 

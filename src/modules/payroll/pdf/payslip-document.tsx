@@ -2,7 +2,7 @@
  * Payslip PDF Document — renders a payslip page for one or more employees
  * using @react-pdf/renderer (server-side only).
  */
-import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image, Svg, Rect, Circle, Path, Defs, LinearGradient, Stop } from '@react-pdf/renderer'
 import type { PayslipPdfData, PayslipEmployeeData } from './types'
 
 const styles = StyleSheet.create({
@@ -42,10 +42,14 @@ const styles = StyleSheet.create({
   },
   employeeInfo: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
     marginBottom: 20,
+    gap: 0,
   },
-  infoBlock: {},
+  infoBlock: {
+    width: '33%',
+    marginBottom: 8,
+  },
   infoLabel: {
     fontSize: 8,
     color: '#666666',
@@ -124,9 +128,18 @@ const styles = StyleSheet.create({
     bottom: 30,
     left: 40,
     right: 40,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  footerText: {
     fontSize: 7,
     color: '#999999',
-    textAlign: 'center',
+  },
+  poweredBy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 })
 
@@ -141,6 +154,26 @@ function formatDate(date: Date): string {
     month: 'short',
     year: 'numeric',
   })
+}
+
+/** Miniature HRDaddy logo for PDF - hand-ported path data for @react-pdf/renderer */
+function HRDaddyMark() {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 64 64">
+      <Defs>
+        <LinearGradient id="lg" x1="4" y1="4" x2="60" y2="60">
+          <Stop offset="0%" stopColor="#0EE7FF" />
+          <Stop offset="50%" stopColor="#6758FF" />
+          <Stop offset="100%" stopColor="#8A1FFF" />
+        </LinearGradient>
+      </Defs>
+      <Rect x="4" y="4" width="56" height="56" rx="14" stroke="#6758FF" strokeWidth="8" fill="none" />
+      <Rect x="16" y="16" width="32" height="32" rx="8" fill="#1a1a1a" />
+      <Circle cx="28" cy="28" r="3" fill="#6758FF" />
+      <Circle cx="36" cy="28" r="3" fill="#6758FF" />
+      <Path d="M24 38c4 4 12 4 16 0" stroke="#6758FF" strokeWidth="5" strokeLinecap="round" fill="none" />
+    </Svg>
+  )
 }
 
 function EmployeePage({ employee, data }: { employee: PayslipEmployeeData; data: PayslipPdfData }) {
@@ -165,10 +198,10 @@ function EmployeePage({ employee, data }: { employee: PayslipEmployeeData; data:
       {/* Title */}
       <Text style={styles.title}>{data.periodName}</Text>
       <Text style={styles.subtitle}>
-        {formatDate(data.periodStart)} — {formatDate(data.periodEnd)}
+        Pay Period: {formatDate(data.periodStart)} — {formatDate(data.periodEnd)}
       </Text>
 
-      {/* Employee Info */}
+      {/* Employee Info — expanded grid */}
       <View style={styles.employeeInfo}>
         <View style={styles.infoBlock}>
           <Text style={styles.infoLabel}>Employee Name</Text>
@@ -180,6 +213,22 @@ function EmployeePage({ employee, data }: { employee: PayslipEmployeeData; data:
           <Text style={styles.infoLabel}>Employee ID</Text>
           <Text style={styles.infoValue}>{employee.employeeId}</Text>
         </View>
+        <View style={styles.infoBlock}>
+          <Text style={styles.infoLabel}>Pay Date</Text>
+          <Text style={styles.infoValue}>{formatDate(data.periodEnd)}</Text>
+        </View>
+        {employee.jobTitle && (
+          <View style={styles.infoBlock}>
+            <Text style={styles.infoLabel}>Job Title</Text>
+            <Text style={styles.infoValue}>{employee.jobTitle}</Text>
+          </View>
+        )}
+        {employee.department && (
+          <View style={styles.infoBlock}>
+            <Text style={styles.infoLabel}>Department</Text>
+            <Text style={styles.infoValue}>{employee.department}</Text>
+          </View>
+        )}
       </View>
 
       {/* Earnings */}
@@ -236,9 +285,15 @@ function EmployeePage({ employee, data }: { employee: PayslipEmployeeData; data:
       </View>
 
       {/* Footer */}
-      <Text style={styles.footer}>
-        This is a system-generated payslip. Figures are computed from configured statutory rate tables.
-      </Text>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          This is a system-generated payslip. Figures are computed from configured statutory rate tables.
+        </Text>
+        <View style={styles.poweredBy}>
+          <HRDaddyMark />
+          <Text style={{ fontSize: 7, color: '#6758FF' }}>Powered by HRDaddy</Text>
+        </View>
+      </View>
     </Page>
   )
 }

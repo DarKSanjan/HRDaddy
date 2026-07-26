@@ -11,6 +11,7 @@ import {
   listEmployees,
   getShiftTemplates,
 } from '@/modules/employees/queries'
+import { getPayrollComplexity } from '@/modules/payroll/settings'
 import { notFound } from 'next/navigation'
 import { ProfileHeader } from '../_components/profile-header'
 import { ProfileTabs } from '../_components/profile-tabs'
@@ -76,6 +77,8 @@ export default async function EmployeeProfilePage({
     shiftTemplates = shifts.map((s) => ({ id: s.id, name: s.name }))
   }
 
+  const payrollComplexity = await getPayrollComplexity(org.id)
+
   return (
     <div className="space-y-6">
       <Breadcrumb
@@ -105,6 +108,7 @@ export default async function EmployeeProfilePage({
         shiftTemplates={shiftTemplates}
         documentsEnabled={documentsEnabled}
         leaveEnabled={leaveEnabled}
+        isSimplePayroll={payrollComplexity === 'simple'}
       />
     </div>
   )

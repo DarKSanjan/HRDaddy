@@ -3,6 +3,7 @@ import { moduleGuard } from '@/core/modules'
 import { Breadcrumb } from '@/core/ui'
 import { getShiftTemplates } from '@/modules/employees/queries'
 import { ShiftTemplatesPanel } from './_components/shift-templates-panel'
+import { SettingsNav } from '../_components/settings-nav'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,8 @@ export default async function ShiftSettingsPage({
           { label: 'Shift Templates' },
         ]}
       />
+
+      <SettingsNav orgSlug={orgSlug} enabledModules={enabledModules} />
 
       <h1 className="text-[20px] font-bold text-text">Shift Templates</h1>
       <p className="text-[13px] text-text-muted">
