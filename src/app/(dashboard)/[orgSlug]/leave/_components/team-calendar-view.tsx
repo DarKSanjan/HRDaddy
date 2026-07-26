@@ -1,9 +1,10 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Button } from '@/core/ui'
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
+import { Button, Badge, HoverCard, HoverCardTrigger, HoverCardContent } from '@/core/ui'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ExternalLink } from 'lucide-react'
 import type { LeaveRequestStatus } from '@prisma/client'
+import Link from 'next/link'
 
 interface CalendarEntry {
   employeeId: string
@@ -16,6 +17,11 @@ interface CalendarEntry {
   isHalfDay: boolean
   halfDayPeriod: string | null
   status: LeaveRequestStatus
+  departmentName: string | null
+  reason: string | null
+  reviewedByName: string | null
+  reviewedAt: Date | null
+  reviewNote: string | null
 }
 
 interface TeamCalendarViewProps {
@@ -26,6 +32,138 @@ interface TeamCalendarViewProps {
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+
+function formatDate(date: Date): string {
+  return new Date(date).toLocaleDateString('en-SG', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function formatDateTime(date: Date): string {
+  return new Date(date).toLocaleDateString('en-SG', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function statusLabel(status: LeaveRequestStatus): string {
+  switch (status) {
+    case 'APPROVED':
+      return 'Approved'
+    case 'PENDING':
+      return 'Pending'
+    case 'REJECTED':
+      return 'Rejected'
+    case 'CANCELLED':
+      return 'Cancelled'
+    default:
+      return status
+  }
+}
+
+function statusVariant(status: LeaveRequestStatus): 'default' | 'success' | 'warning' | 'neutral' | 'danger' {
+  switch (status) {
+    case 'APPROVED':
+      return 'success'
+    case 'PENDING':
+      return 'warning'
+    case 'REJECTED':
+      return 'danger'
+    default:
+      return 'neutral'
+  }
+}
+
+function LeaveChipHoverCard({
+  entry,
+  orgSlug,
+  children,
+}: {
+  entry: CalendarEntry
+  orgSlug: string
+  children: React.ReactNode
+}) {
+  return (
+    <HoverCard openDelay={200} closeDelay={100}>
+      <HoverCardTrigger asChild>{children}</HoverCardTrigger>
+      <HoverCardContent side="top" className="w-80 text-[12px]">
+        <div className="space-y-3">
+          {/* Employee name & department */}
+          <div>
+            <p className="text-[13px] font-semibold text-text">
+              {entry.employeeFirstName} {entry.employeeLastName}
+            </p>
+            {entry.departmentName && (
+              <p className="text-[11px] text-text-muted">{entry.departmentName}</p>
+            )}
+          </div>
+
+          {/* Leave type & dates */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5">
+              <div
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: entry.leaveTypeColor || 'var(--accent-500)' }}
+              />
+              <span className="font-medium text-text">{entry.leaveTypeName}</span>
+              {entry.isHalfDay && (
+                <span className="text-text-muted">
+                  ({entry.halfDayPeriod === 'AM' ? 'Morning' : 'Afternoon'})
+                </span>
+              )}
+            </div>
+            <p className="text-text-muted">
+              {formatDate(entry.startDate)} – {formatDate(entry.endDate)}
+            </p>
+          </div>
+
+          {/* Status */}
+          <div className="flex items-center gap-2">
+            <span className="text-text-muted">Status:</span>
+            <Badge variant={statusVariant(entry.status)}>{statusLabel(entry.status)}</Badge>
+          </div>
+
+          {/* Reason */}
+          {entry.reason && (
+            <div>
+              <span className="text-text-muted">Reason:</span>{' '}
+              <span className="text-text">{entry.reason}</span>
+            </div>
+          )}
+
+          {/* Reviewed by */}
+          {entry.reviewedByName && (
+            <div className="space-y-0.5">
+              <p className="text-text-muted">
+                Reviewed by{' '}
+                <span className="font-medium text-text">{entry.reviewedByName}</span>
+                {entry.reviewedAt && (
+                  <> on {formatDateTime(entry.reviewedAt)}</>
+                )}
+              </p>
+              {entry.reviewNote && (
+                <p className="text-text italic">&ldquo;{entry.reviewNote}&rdquo;</p>
+              )}
+            </div>
+          )}
+
+          {/* Link to employee */}
+          <Link
+            href={`/${orgSlug}/employees/${entry.employeeId}`}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-500 hover:text-accent-600 hover:underline"
+          >
+            View employee <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  )
+}
 
 export function TeamCalendarView({ entries, month, year, orgSlug }: TeamCalendarViewProps) {
   const router = useRouter()
@@ -203,25 +341,31 @@ export function TeamCalendarView({ entries, month, year, orgSlug }: TeamCalendar
                   {/* Leave entries for this day */}
                   <div className="space-y-0.5">
                     {dayEntries.slice(0, 3).map((entry, entryIndex) => (
-                      <div
+                      <LeaveChipHoverCard
                         key={`${entry.employeeId}-${entry.leaveTypeName}-${entryIndex}`}
-                        className={[
-                          'flex items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5',
-                          entry.status === 'PENDING' ? 'opacity-50' : '',
-                        ].join(' ')}
-                        style={{
-                          backgroundColor: `${entry.leaveTypeColor || 'var(--accent-500)'}15`,
-                        }}
-                        title={`${entry.employeeFirstName} ${entry.employeeLastName} - ${entry.leaveTypeName} (${entry.status})`}
+                        entry={entry}
+                        orgSlug={orgSlug}
                       >
-                        <div
-                          className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                          style={{ backgroundColor: entry.leaveTypeColor || 'var(--accent-500)' }}
-                        />
-                        <span className="truncate text-[10px] font-medium text-text">
-                          {entry.employeeFirstName}
-                        </span>
-                      </div>
+                        <button
+                          type="button"
+                          className={[
+                            'flex w-full items-center gap-1 rounded-[var(--radius-sm)] px-1 py-0.5 text-left',
+                            'cursor-default focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-1',
+                            entry.status === 'PENDING' ? 'opacity-50' : '',
+                          ].join(' ')}
+                          style={{
+                            backgroundColor: `${entry.leaveTypeColor || 'var(--accent-500)'}15`,
+                          }}
+                        >
+                          <div
+                            className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                            style={{ backgroundColor: entry.leaveTypeColor || 'var(--accent-500)' }}
+                          />
+                          <span className="truncate text-[10px] font-medium text-text">
+                            {entry.employeeFirstName}
+                          </span>
+                        </button>
+                      </LeaveChipHoverCard>
                     ))}
                     {dayEntries.length > 3 && (
                       <span className="block px-1 text-[10px] text-text-muted">

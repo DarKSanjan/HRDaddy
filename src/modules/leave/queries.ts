@@ -63,6 +63,11 @@ export interface LeaveCalendarEntry {
   isHalfDay: boolean
   halfDayPeriod: string | null
   status: LeaveRequestStatus
+  departmentName: string | null
+  reason: string | null
+  reviewedByName: string | null
+  reviewedAt: Date | null
+  reviewNote: string | null
 }
 
 // ─────────────────────────────────────────────
@@ -313,7 +318,15 @@ export async function getTeamLeaveCalendar(
       where,
       include: {
         leaveType: { select: { name: true, color: true } },
-        employee: { select: { id: true, firstName: true, lastName: true } },
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            department: { select: { name: true } },
+          },
+        },
+        reviewedBy: { select: { firstName: true, lastName: true } },
       },
       orderBy: { startDate: 'asc' },
     })
@@ -329,6 +342,13 @@ export async function getTeamLeaveCalendar(
       isHalfDay: r.isHalfDay,
       halfDayPeriod: r.halfDayPeriod,
       status: r.status,
+      departmentName: r.employee.department?.name ?? null,
+      reason: r.reason ?? null,
+      reviewedByName: r.reviewedBy
+        ? `${r.reviewedBy.firstName} ${r.reviewedBy.lastName}`
+        : null,
+      reviewedAt: r.reviewedAt ?? null,
+      reviewNote: r.reviewNote ?? null,
     }))
   })
 }
