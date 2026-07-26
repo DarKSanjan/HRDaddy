@@ -39,13 +39,14 @@ export default async function EmployeesPage({
 
   const validParams = listParams.success ? listParams.data : {}
 
-  // Fetch data in parallel
-  const [{ employees, total }, departments, employmentTypes, locations] = await Promise.all([
-    listEmployees(session.userId, org.id, validParams),
-    listDepartments(session.userId, org.id),
-    listEmploymentTypes(session.userId, org.id),
-    listWorkLocations(session.userId, org.id),
-  ])
+  // Sequential rather than Promise.all: each call opens its own dbAs()
+  // transaction, and four of those firing at once against this page was the
+  // single largest concurrent-transaction load of any route in the app —
+  // directly implicated in intermittent connection contention in production.
+  const { employees, total } = await listEmployees(session.userId, org.id, validParams)
+  const departments = await listDepartments(session.userId, org.id)
+  const employmentTypes = await listEmploymentTypes(session.userId, org.id)
+  const locations = await listWorkLocations(session.userId, org.id)
 
   const hasFiltersApplied = !!(
     validParams.search ||

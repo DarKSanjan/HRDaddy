@@ -23,27 +23,31 @@ export interface OrgContext {
 }
 
 /**
- * Retry a read once on failure or an empty result.
+ * Retry a read (up to 3 attempts total) on failure or an empty result.
  *
  * getOrgContext/requirePermission run on every request and were surfacing as
  * intermittent 404s in production — a query that should reliably return a
  * row occasionally came back empty or threw, indistinguishable at the call
- * site from "genuinely doesn't exist." A single retry after a short delay
- * absorbs a transient pooler/connection hiccup without masking a real
- * "not found" (which stays empty on the retry too, since the underlying
- * data hasn't changed).
+ * site from "genuinely doesn't exist." A single 150ms retry measurably
+ * helped but did not eliminate it, so this backs off across three attempts
+ * (150ms, 400ms) rather than giving up after one. A genuine "not found"
+ * stays empty across every attempt, since the underlying data hasn't
+ * changed — this only masks transient connection/pooler hiccups.
  */
 async function retryOnce<T>(
   read: () => Promise<T>,
   isEmpty: (result: T) => boolean
 ): Promise<T> {
-  try {
-    const result = await read()
-    if (!isEmpty(result)) return result
-  } catch {
-    // fall through to the retry
+  const delays = [150, 400]
+  for (const delay of delays) {
+    try {
+      const result = await read()
+      if (!isEmpty(result)) return result
+    } catch {
+      // fall through to the next attempt
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay))
   }
-  await new Promise((resolve) => setTimeout(resolve, 150))
   return read()
 }
 
