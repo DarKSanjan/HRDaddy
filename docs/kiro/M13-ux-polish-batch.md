@@ -1,6 +1,30 @@
-# M13 — Leave Approval Safety, Calendar Hover Card, Org Chart Graph, Payroll PDF, Documents Explorer
+# M13 — Leave Approval Safety, Calendar Hover Card, Org Chart Graph, Payroll PDF, Documents Explorer, Team Attendance Dashboard, Sidebar Overhaul
 
-Five independent UX items. Do not start this milestone until M12 (shift/overtime/compliance) has landed and been reviewed — the payroll PDF item below should render whatever line item types exist at that point (including `OVERTIME` if M12 shipped it), and running two agents against this repo at once causes file races. Check with the reviewer before starting if unsure whether M12 has landed.
+Seven independent UX items, dispatched to kiro as separate scoped runs rather than one giant one — M12 shipped as a single large dispatch and needed five follow-up fixes after the fact; smaller reviewable chunks are cheaper to verify correctly. M12 (shift/overtime/compliance) has already landed and been reviewed.
+
+---
+
+## 0. Sidebar overhaul (do this one first — other items below build on it)
+
+Two real problems, reported live by the owner:
+
+**Bug: two sidebar items highlight as "active" at once.** `src/core/ui/shell/app-sidebar.tsx` computes `isActive` as `pathname === href || pathname.startsWith(`${href}/`)`. Since nav is a flat list, visiting `/attendance/team` matches both "Attendance" (`/attendance`, prefix match) and "Team Attendance" (`/attendance/team`, exact match) simultaneously — same for "Employees" (`/employees`) and "Org Chart" (`/employees/org-chart`). Any nav entry whose href is a prefix of another's has this bug.
+
+**Fix: real parent/child nav, not a flat list.** Add `children?: NavEntry[]` to the `NavEntry` interface in `src/core/modules/index.ts`. Update `resolveNav` there to carry children through. Update the manifests that currently register these as separate flat top-level entries — `src/modules/attendance/manifest.ts` ("Team Attendance") and `src/modules/employees/manifest.ts` ("Org Chart", check its exact current registration) — to instead register them as a `children` entry under their parent ("Attendance", "Employees" respectively).
+
+In `app-sidebar.tsx`: render children as an expandable sub-list under their parent (expand automatically when the current path matches the parent section, collapse otherwise — check for an existing disclosure/accordion primitive in `src/core/ui/` before building one). Active-state logic: only the single deepest-matching entry (parent OR the matching child, never both) gets the full active treatment; if a child is active, the parent shows a lighter "section is open" indication (e.g. bold label, not the same accent-filled pill the true active leaf gets) so it's visually clear which is the *page* and which is the *section*.
+
+**New: collapsible icon-only mode.** Add a collapse toggle (icon button, top or bottom of sidebar, whichever fits the existing header/footer layout) that shrinks the sidebar to icons-only with a narrower fixed width, showing labels as tooltips on hover. Persist the collapsed/expanded state (localStorage is fine, this is a pure UI preference, no need for a DB round-trip). Collapsed state should gracefully hide child nav items (or show them as a flyout on hover of the parent icon — your call on whichever reads cleaner, check for precedent in similar sidebar patterns) rather than trying to render a full expanded tree in a narrow icon rail.
+
+**General polish pass:** the owner flagged the sidebar's look/style as something they want improved, not just the two functional issues above — while in this file, tighten up spacing/icon consistency/hover states to match the rest of this app's already-established design system (check `src/core/ui/` primitives and existing polished pages like the employee profile or leave calendar for the bar to hit). Don't invent a new visual language, extend the existing one.
+
+Whatever you build here, make the new nesting/collapse feel like it was designed in from the start, not bolted on — check how the existing settings-nav sub-highlighting (`pathname.startsWith(`/${orgSlug}${settingsEntry.href}`)` around line 171 of app-sidebar.tsx) already handles a related case before introducing a second, inconsistent pattern.
+
+---
+
+## 0.5 More seed data
+
+The owner wants richer seed data to actually see the new dashboards (team attendance, org chart, calendar) populated well rather than sparse. Expand `prisma/seed-attendance.ts` (more months of history, more employees with varied patterns — some chronically late, some with lots of overtime, some with clean records, so the new Team/Org Attendance dashboard's graphs and per-employee stats actually show a visually interesting spread rather than everyone looking the same) and check whether `prisma/seed.ts`'s two orgs (Northstar Studios, Harbour Logistics) could use 1-2 more employees each to make the org chart and department breakdowns look less sparse. Keep it deterministic (same seeded data every run, no `Math.random()` without a fixed seed) since that's how the rest of the seed scripts already work — check the existing pattern before adding new randomization.
 
 ---
 
@@ -84,6 +108,17 @@ Documents/
 
 ---
 
+## 6. Team/Org Attendance — make it an actual dashboard
+
+`src/app/(dashboard)/[orgSlug]/attendance/team/page.tsx` and `_components/team-attendance-table.tsx` (from M12) currently render one sortable table and nothing else. Owner wants this to read as a dashboard: an overview of ~3 charts on top, the existing table below.
+
+- Reuse `getTeamAttendanceOverview`/`getOrgAttendanceOverview` (`src/modules/attendance/queries.ts`) — they already return per-employee `daysPresent`/`totalHoursWorked`/`lateCount`/`undertimeCount`/`overtimeCount` for the month, which is enough to build the charts from without a new query. If a chart genuinely needs data those queries don't return (e.g. a day-by-day trend rather than a monthly total), check `getEmployeeAttendanceHistory`/`getAttendanceWithShiftMetrics` before writing a new query — reuse first.
+- Suggested three: (1) present-vs-absent-vs-on-leave headcount for today or the period, (2) a late-arrivals trend or ranking (who has the most late days this month — a simple bar is fine, don't need a time series if the data doesn't support one cleanly), (3) total overtime hours by employee or department. Use your judgment on which three are most useful given what the queries actually return — these are a starting point, not a spec to force-fit.
+- **Read the `dataviz` skill/guidelines this codebase's charts already follow before building these** — check `src/core/dashboard/widgets/chart-widgets.tsx` and `chart-clients/attendance-bar.tsx` (already referenced elsewhere in this app) for the established chart library, color system, and card/tooltip conventions, and match them exactly. Don't introduce a second charting approach alongside whatever the main dashboard already uses.
+- Make employee rows in the table clickable — clicking a row navigates to `/${orgSlug}/employees/${employeeId}` (that profile page already exists, this is a navigation-only change, same pattern as any other employee-name-links-to-profile spot in this app — check the main Employees list table for the exact existing pattern and match it, e.g. hover state, cursor, whether the whole row is clickable or just the name).
+
+---
+
 ## Verification checklist
 
 1. `tsc --noEmit`, `eslint`, `vitest run` all clean.
@@ -92,3 +127,5 @@ Documents/
 4. Org chart renders as connected nodes for an org with a multi-level manager hierarchy, and doesn't crash for an org with one employee and no reports.
 5. Download a whole-period payroll PDF and a single-employee PDF, open both, confirm the numbers match what's in the DB for that period/employee exactly (spot check gross/net/CPF/line items against a direct query).
 6. Navigate the documents explorer: Employee Documents → an employee → a category → open a real document; Payroll → By Month → a period → an employee → PDF downloads and matches §4/§5's numbers; confirm a non-admin employee can't browse into someone else's folder.
+7. Sidebar: visiting Team Attendance or Org Chart highlights exactly one nav item, never two. Collapse to icon-only, confirm labels appear on hover and the state survives a page reload.
+8. Team/Org Attendance dashboard renders its charts with real (not placeholder) numbers matching the table below them, and clicking an employee row lands on their actual profile page.

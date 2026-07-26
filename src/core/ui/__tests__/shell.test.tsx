@@ -41,7 +41,9 @@ import type { NavEntry } from '@/core/modules'
 
 const mockNav: NavEntry[] = [
   { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
-  { label: 'Employees', href: '/employees', icon: 'Users', permission: 'employee.view_own' },
+  { label: 'Employees', href: '/employees', icon: 'Users', permission: 'employee.view_own', children: [
+    { label: 'Org Chart', href: '/employees/org-chart', permission: 'employee.view_all' },
+  ] },
   { label: 'Settings', href: '/settings', icon: 'Settings' },
 ]
 

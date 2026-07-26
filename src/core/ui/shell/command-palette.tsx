@@ -40,13 +40,27 @@ function CommandPaletteInner({
   const [selectedIndex, setSelectedIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
+  // Flatten nav entries (include children as searchable entries)
+  const flatEntries = React.useMemo(() => {
+    const result: NavEntry[] = []
+    for (const entry of navEntries) {
+      result.push(entry)
+      if (entry.children) {
+        for (const child of entry.children) {
+          result.push(child)
+        }
+      }
+    }
+    return result
+  }, [navEntries])
+
   const filtered = React.useMemo(() => {
-    if (!query.trim()) return navEntries
+    if (!query.trim()) return flatEntries
     const lower = query.toLowerCase()
-    return navEntries.filter((e) =>
+    return flatEntries.filter((e) =>
       e.label.toLowerCase().includes(lower)
     )
-  }, [query, navEntries])
+  }, [query, flatEntries])
 
   // Focus input on mount
   React.useEffect(() => {

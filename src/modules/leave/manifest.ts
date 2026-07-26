@@ -39,9 +39,16 @@ export const leaveModule = defineModule({
   ],
 
   nav: [
-    { label: 'Leave', href: '/leave', icon: 'CalendarDays', permission: 'leave.request.create' },
-    { label: 'Leave Approvals', href: '/leave/approvals', icon: 'ClipboardCheck', permission: 'leave.request.approve' },
-    { label: 'Team Calendar', href: '/leave/calendar', icon: 'Calendar', permission: 'leave.calendar.view_team' },
+    {
+      label: 'Leave',
+      href: '/leave',
+      icon: 'CalendarDays',
+      permission: 'leave.request.create',
+      children: [
+        { label: 'Leave Approvals', href: '/leave/approvals', icon: 'ClipboardCheck', permission: 'leave.request.approve' },
+        { label: 'Team Calendar', href: '/leave/calendar', icon: 'Calendar', permission: 'leave.calendar.view_team' },
+      ],
+    },
   ],
 
   widgets: [

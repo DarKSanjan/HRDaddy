@@ -80,21 +80,54 @@ function MobileNavInner({
               <ul className="space-y-0.5">
                 {navEntries.map((entry) => {
                   const href = `/${orgSlug}${entry.href}`
-                  const isActive = pathname === href || pathname.startsWith(`${href}/`)
+                  const sectionActive = pathname === href || pathname.startsWith(`${href}/`)
+                  const childActive = entry.children?.some((child) => {
+                    const childHref = `/${orgSlug}${child.href}`
+                    return pathname === childHref || pathname.startsWith(`${childHref}/`)
+                  }) ?? false
+                  const parentIsLeaf = sectionActive && !childActive
+                  const expanded = sectionActive && !!entry.children?.length
+
                   return (
                     <li key={entry.href}>
                       <Link
                         href={href}
                         className={cn(
                           'flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-[14px] font-medium transition-colors min-h-[44px]',
-                          isActive
+                          parentIsLeaf
                             ? 'bg-accent-50 text-accent-700'
-                            : 'text-text-muted hover:bg-surface-hover hover:text-text'
+                            : childActive
+                              ? 'font-semibold text-text'
+                              : 'text-text-muted hover:bg-surface-hover hover:text-text'
                         )}
-                        aria-current={isActive ? 'page' : undefined}
+                        aria-current={parentIsLeaf ? 'page' : undefined}
                       >
                         {entry.label}
                       </Link>
+                      {expanded && entry.children && (
+                        <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-3">
+                          {entry.children.map((child) => {
+                            const childHref = `/${orgSlug}${child.href}`
+                            const active = pathname === childHref || pathname.startsWith(`${childHref}/`)
+                            return (
+                              <li key={child.href}>
+                                <Link
+                                  href={childHref}
+                                  className={cn(
+                                    'flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-1.5 text-[13px] font-medium transition-colors min-h-[40px]',
+                                    active
+                                      ? 'bg-accent-50 text-accent-700 font-semibold'
+                                      : 'text-text-muted hover:bg-surface-hover hover:text-text'
+                                  )}
+                                  aria-current={active ? 'page' : undefined}
+                                >
+                                  {child.label}
+                                </Link>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
                     </li>
                   )
                 })}

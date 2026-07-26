@@ -14,6 +14,8 @@ import {
   CreditCard,
   PanelLeftClose,
   PanelLeftOpen,
+  ChevronRight,
+  GitBranch,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -32,11 +34,18 @@ const iconMap: Record<string, LucideIcon> = {
   FileText,
   Settings,
   CreditCard,
+  GitBranch,
 }
 
-function getIcon(name?: string): LucideIcon | null {
+/**
+ * Renders a nav icon by name. Declared as a stable component (not created
+ * during render) to satisfy React 19's static-components lint rule.
+ */
+function NavIcon({ name, className }: { name?: string; className?: string }) {
   if (!name) return null
-  return iconMap[name] ?? null
+  const IconCmp = iconMap[name]
+  if (!IconCmp) return null
+  return <IconCmp className={className} aria-hidden="true" />
 }
 
 // ─────────────────────────────────────────────
@@ -68,6 +77,254 @@ function subscribeToStorage(callback: () => void): () => void {
   window.addEventListener('storage', callback)
   return () => window.removeEventListener('storage', callback)
 }
+
+// ─────────────────────────────────────────────
+// Active-state helpers
+// ─────────────────────────────────────────────
+
+function matchesPath(pathname: string, href: string, orgSlug: string): boolean {
+  const fullHref = `/${orgSlug}${href}`
+  return pathname === fullHref || pathname.startsWith(`${fullHref}/`)
+}
+
+function hasActiveChild(pathname: string, entry: NavEntry, orgSlug: string): boolean {
+  if (!entry.children) return false
+  return entry.children.some((child) => matchesPath(pathname, child.href, orgSlug))
+}
+
+// ─────────────────────────────────────────────
+// Nav item components
+// ─────────────────────────────────────────────
+
+interface NavItemProps {
+  entry: NavEntry
+  orgSlug: string
+  pathname: string
+  collapsed: boolean
+}
+
+function NavItemWithChildren({ entry, orgSlug, pathname, collapsed }: NavItemProps) {
+  const sectionActive = matchesPath(pathname, entry.href, orgSlug)
+  const childActive = hasActiveChild(pathname, entry, orgSlug)
+  // Parent is the actual page only if the section is active but no child claims it
+  const parentIsLeaf = sectionActive && !childActive
+
+  // In expanded mode: auto-expand when section is active
+  const expanded = sectionActive
+
+  // In collapsed mode: show flyout on hover
+  const [flyoutVisible, setFlyoutVisible] = React.useState(false)
+  const flyoutTimeout = React.useRef<ReturnType<typeof setTimeout>>(null)
+
+  function showFlyout() {
+    if (flyoutTimeout.current) clearTimeout(flyoutTimeout.current)
+    setFlyoutVisible(true)
+  }
+
+  function hideFlyout() {
+    flyoutTimeout.current = setTimeout(() => setFlyoutVisible(false), 150)
+  }
+
+  if (collapsed) {
+    return (
+      <li
+        className="relative"
+        onMouseEnter={showFlyout}
+        onMouseLeave={hideFlyout}
+        onFocus={showFlyout}
+        onBlur={hideFlyout}
+      >
+        <Link
+          href={`/${orgSlug}${entry.href}`}
+          className={cn(
+            'relative flex items-center justify-center rounded-[var(--radius-sm)] px-0 py-1.5 transition-colors',
+            'min-h-[36px] touch-target',
+            parentIsLeaf
+              ? 'bg-accent-50 text-accent-700'
+              : childActive
+                ? 'text-accent-600'
+                : 'text-text-muted hover:bg-surface-hover hover:text-text'
+          )}
+          title={entry.label}
+          aria-current={parentIsLeaf ? 'page' : undefined}
+        >
+          {parentIsLeaf && (
+            <span
+              className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-500"
+              aria-hidden="true"
+            />
+          )}
+          {childActive && !parentIsLeaf && (
+            <span
+              className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-200"
+              aria-hidden="true"
+            />
+          )}
+          <NavIcon name={entry.icon} className="h-4 w-4 shrink-0" />
+        </Link>
+
+        {/* Flyout for children in collapsed mode */}
+        {flyoutVisible && entry.children && entry.children.length > 0 && (
+          <div
+            className="absolute left-full top-0 z-50 ml-1.5 min-w-[160px] rounded-[var(--radius-md)] border border-border bg-surface p-1 shadow-lg"
+            onMouseEnter={showFlyout}
+            onMouseLeave={hideFlyout}
+          >
+            {/* Parent link in flyout */}
+            <Link
+              href={`/${orgSlug}${entry.href}`}
+              className={cn(
+                'flex items-center gap-2 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[12px] font-semibold transition-colors',
+                parentIsLeaf
+                  ? 'bg-accent-50 text-accent-700'
+                  : 'text-text hover:bg-surface-hover'
+              )}
+              aria-current={parentIsLeaf ? 'page' : undefined}
+            >
+              {entry.label}
+            </Link>
+            <div className="my-1 h-px bg-border" aria-hidden="true" />
+            {entry.children.map((child) => {
+              const active = matchesPath(pathname, child.href, orgSlug)
+              return (
+                <Link
+                  key={child.href}
+                  href={`/${orgSlug}${child.href}`}
+                  className={cn(
+                    'flex items-center gap-2 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[12px] transition-colors',
+                    active
+                      ? 'bg-accent-50 font-semibold text-accent-700'
+                      : 'text-text-muted hover:bg-surface-hover hover:text-text'
+                  )}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {child.label}
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </li>
+    )
+  }
+
+  // Expanded mode: inline sub-list
+  return (
+    <li>
+      <Link
+        href={`/${orgSlug}${entry.href}`}
+        className={cn(
+          'relative flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] transition-colors',
+          'min-h-[36px] touch-target',
+          parentIsLeaf
+            ? 'bg-accent-50 font-semibold text-accent-700'
+            : childActive
+              ? 'font-semibold text-text'
+              : 'font-medium text-text-muted hover:bg-surface-hover hover:text-text'
+        )}
+        aria-current={parentIsLeaf ? 'page' : undefined}
+      >
+        {/* Active rail for leaf, subdued rail for section-open */}
+        {parentIsLeaf && (
+          <span
+            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-500"
+            aria-hidden="true"
+          />
+        )}
+        {childActive && (
+          <span
+            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-200"
+            aria-hidden="true"
+          />
+        )}
+        <NavIcon name={entry.icon} className="h-4 w-4 shrink-0" />
+        <span className="truncate">{entry.label}</span>
+        {entry.badge && (
+          <span className="ml-auto rounded-full bg-accent-50 px-1.5 py-0.5 text-[10px] font-medium text-accent-700 tabular-nums">
+            {entry.badge}
+          </span>
+        )}
+        {entry.children && entry.children.length > 0 && (
+          <ChevronRight
+            className={cn(
+              'ml-auto h-3 w-3 shrink-0 text-text-subtle transition-transform duration-150',
+              expanded && 'rotate-90'
+            )}
+            aria-hidden="true"
+          />
+        )}
+      </Link>
+
+      {/* Children sub-list, auto-expanded when section is active */}
+      {expanded && entry.children && entry.children.length > 0 && (
+        <ul className="mt-0.5 ml-[22px] space-y-0.5 border-l border-border pl-2.5">
+          {entry.children.map((child) => {
+            const active = matchesPath(pathname, child.href, orgSlug)
+            return (
+              <li key={child.href}>
+                <Link
+                  href={`/${orgSlug}${child.href}`}
+                  className={cn(
+                    'flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-[12px] transition-colors',
+                    'min-h-[32px] touch-target',
+                    active
+                      ? 'bg-accent-50 font-semibold text-accent-700'
+                      : 'font-medium text-text-muted hover:bg-surface-hover hover:text-text'
+                  )}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <span className="truncate">{child.label}</span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </li>
+  )
+}
+
+function NavItemSimple({ entry, orgSlug, pathname, collapsed }: NavItemProps) {
+  const href = `/${orgSlug}${entry.href}`
+  const isActive = pathname === href || pathname.startsWith(`${href}/`)
+
+  return (
+    <li>
+      <Link
+        href={href}
+        className={cn(
+          'relative flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] transition-colors',
+          'min-h-[36px] touch-target',
+          isActive
+            ? 'bg-accent-50 font-semibold text-accent-700'
+            : 'font-medium text-text-muted hover:bg-surface-hover hover:text-text',
+          collapsed && 'justify-center px-0'
+        )}
+        title={collapsed ? entry.label : undefined}
+        aria-current={isActive ? 'page' : undefined}
+      >
+        {/* Accent left-rail for active item */}
+        {isActive && (
+          <span
+            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-500"
+            aria-hidden="true"
+          />
+        )}
+        <NavIcon name={entry.icon} className="h-4 w-4 shrink-0" />
+        {!collapsed && <span className="truncate">{entry.label}</span>}
+        {!collapsed && entry.badge && (
+          <span className="ml-auto rounded-full bg-accent-50 px-1.5 py-0.5 text-[10px] font-medium text-accent-700 tabular-nums">
+            {entry.badge}
+          </span>
+        )}
+      </Link>
+    </li>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Main sidebar
+// ─────────────────────────────────────────────
 
 export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0.1.0' }: AppSidebarProps) {
   const pathname = usePathname()
@@ -118,44 +375,25 @@ export function AppSidebar({ orgSlug, orgName, orgLogo, navEntries, version = '0
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-2" aria-label="Main navigation">
         <ul className="space-y-0.5">
-          {mainNav.map((entry) => {
-            const href = `/${orgSlug}${entry.href}`
-            const isActive = pathname === href || pathname.startsWith(`${href}/`)
-            const Icon = getIcon(entry.icon)
-
-            return (
-              <li key={entry.href}>
-                <Link
-                  href={href}
-                  className={cn(
-                    'relative flex items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[13px] transition-colors',
-                    'min-h-[36px] touch-target',
-                    isActive
-                      ? 'bg-accent-50 font-semibold text-accent-700'
-                      : 'font-medium text-text-muted hover:bg-surface-hover hover:text-text',
-                    collapsed && 'justify-center px-0'
-                  )}
-                  title={collapsed ? entry.label : undefined}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  {/* Accent left-rail for active item */}
-                  {isActive && (
-                    <span
-                      className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-accent-500"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
-                  {!collapsed && <span className="truncate">{entry.label}</span>}
-                  {!collapsed && entry.badge && (
-                    <span className="ml-auto rounded-full bg-accent-50 px-1.5 py-0.5 text-[10px] font-medium text-accent-700 tabular-nums">
-                      {entry.badge}
-                    </span>
-                  )}
-                </Link>
-              </li>
+          {mainNav.map((entry) =>
+            entry.children && entry.children.length > 0 ? (
+              <NavItemWithChildren
+                key={entry.href}
+                entry={entry}
+                orgSlug={orgSlug}
+                pathname={pathname}
+                collapsed={collapsed}
+              />
+            ) : (
+              <NavItemSimple
+                key={entry.href}
+                entry={entry}
+                orgSlug={orgSlug}
+                pathname={pathname}
+                collapsed={collapsed}
+              />
             )
-          })}
+          )}
         </ul>
       </nav>
 

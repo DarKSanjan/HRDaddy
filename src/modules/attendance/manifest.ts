@@ -33,8 +33,15 @@ export const attendanceModule = defineModule({
   ],
 
   nav: [
-    { label: 'Attendance', href: '/attendance', icon: 'Clock', permission: 'attendance.clock' },
-    { label: 'Team Attendance', href: '/attendance/team', icon: 'Users', permission: 'attendance.view_team' },
+    {
+      label: 'Attendance',
+      href: '/attendance',
+      icon: 'Clock',
+      permission: 'attendance.clock',
+      children: [
+        { label: 'Team Attendance', href: '/attendance/team', permission: 'attendance.view_team' },
+      ],
+    },
   ],
 
   widgets: [

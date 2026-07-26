@@ -19,6 +19,7 @@ export interface NavEntry {
   icon?: string
   permission?: string
   badge?: string
+  children?: NavEntry[]
 }
 
 export interface WidgetDef {
@@ -153,7 +154,10 @@ export function resolveNav(
     if (!manifest) continue
     for (const nav of manifest.nav) {
       if (!nav.permission || userPermissions.has(nav.permission)) {
-        entries.push(nav)
+        // Filter children by permission as well
+        const children = nav.children
+          ?.filter((child) => !child.permission || userPermissions.has(child.permission))
+        entries.push(children && children.length > 0 ? { ...nav, children } : { ...nav, children: undefined })
       }
     }
   }
