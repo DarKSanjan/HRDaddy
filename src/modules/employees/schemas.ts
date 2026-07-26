@@ -19,30 +19,30 @@ export const createEmployeeSchema = z.object({
   nationalId: z.string().max(50).optional().or(z.literal('')),
   address: z.string().max(500).optional().or(z.literal('')),
   startDate: z.string().optional().or(z.literal('')),
-  departmentId: z.string().uuid().optional().or(z.literal('')),
-  jobTitleId: z.string().uuid().optional().or(z.literal('')),
-  locationId: z.string().uuid().optional().or(z.literal('')),
-  employmentTypeId: z.string().uuid().optional().or(z.literal('')),
-  managerId: z.string().uuid().optional().or(z.literal('')),
+  departmentId: z.string().optional().or(z.literal('')),
+  jobTitleId: z.string().optional().or(z.literal('')),
+  locationId: z.string().optional().or(z.literal('')),
+  employmentTypeId: z.string().optional().or(z.literal('')),
+  managerId: z.string().optional().or(z.literal('')),
   compensationAmountCents: z.number().int().min(0).optional(),
   compensationCurrency: z.string().length(3).optional().or(z.literal('')),
   inviteToPortal: z.boolean().optional(),
 })
 
 export const updateEmployeeSchema = createEmployeeSchema.partial().extend({
-  employeeId: z.string().uuid('Invalid employee ID'),
+  employeeId: z.string().min(1, 'Invalid employee ID'),
 })
 
 export const changeStatusSchema = z.object({
-  employeeId: z.string().uuid('Invalid employee ID'),
+  employeeId: z.string().min(1, 'Invalid employee ID'),
   newStatus: z.enum(['DRAFT', 'INVITED', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED', 'ARCHIVED']),
   reason: z.string().optional(),
-  reassignManagerId: z.string().uuid().optional().or(z.literal('')),
+  reassignManagerId: z.string().optional().or(z.literal('')),
 })
 
 export const assignManagerSchema = z.object({
-  employeeId: z.string().uuid('Invalid employee ID'),
-  managerId: z.string().uuid('Invalid manager ID').optional().or(z.literal('')),
+  employeeId: z.string().min(1, 'Invalid employee ID'),
+  managerId: z.string().optional().or(z.literal('')),
 })
 
 // ─────────────────────────────────────────────
@@ -51,11 +51,11 @@ export const assignManagerSchema = z.object({
 
 export const createDepartmentSchema = z.object({
   name: z.string().min(1, 'Department name is required').max(100),
-  managerId: z.string().uuid().optional().or(z.literal('')),
+  managerId: z.string().optional().or(z.literal('')),
 })
 
 export const updateDepartmentSchema = createDepartmentSchema.partial().extend({
-  departmentId: z.string().uuid('Invalid department ID'),
+  departmentId: z.string().min(1, 'Invalid department ID'),
 })
 
 export const createJobTitleSchema = z.object({
@@ -63,7 +63,7 @@ export const createJobTitleSchema = z.object({
 })
 
 export const updateJobTitleSchema = createJobTitleSchema.extend({
-  jobTitleId: z.string().uuid('Invalid job title ID'),
+  jobTitleId: z.string().min(1, 'Invalid job title ID'),
 })
 
 export const createWorkLocationSchema = z.object({
@@ -72,7 +72,7 @@ export const createWorkLocationSchema = z.object({
 })
 
 export const updateWorkLocationSchema = createWorkLocationSchema.partial().extend({
-  locationId: z.string().uuid('Invalid location ID'),
+  locationId: z.string().min(1, 'Invalid location ID'),
 })
 
 export const createEmploymentTypeSchema = z.object({
@@ -80,7 +80,7 @@ export const createEmploymentTypeSchema = z.object({
 })
 
 export const updateEmploymentTypeSchema = createEmploymentTypeSchema.extend({
-  employmentTypeId: z.string().uuid('Invalid employment type ID'),
+  employmentTypeId: z.string().min(1, 'Invalid employment type ID'),
 })
 
 // ─────────────────────────────────────────────
@@ -89,10 +89,10 @@ export const updateEmploymentTypeSchema = createEmploymentTypeSchema.extend({
 
 export const employeeListParamsSchema = z.object({
   search: z.string().optional(),
-  departmentId: z.string().uuid().optional(),
+  departmentId: z.string().optional(),
   status: z.enum(['DRAFT', 'INVITED', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED', 'ARCHIVED']).optional(),
-  employmentTypeId: z.string().uuid().optional(),
-  locationId: z.string().uuid().optional(),
+  employmentTypeId: z.string().optional(),
+  locationId: z.string().optional(),
   sortBy: z.enum(['firstName', 'lastName', 'startDate', 'createdAt']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   page: z.coerce.number().int().min(1).optional(),
