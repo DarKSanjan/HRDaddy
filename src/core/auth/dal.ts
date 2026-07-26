@@ -23,22 +23,26 @@ export interface OrgContext {
 }
 
 /**
- * Retry a read (up to 3 attempts total) on failure or an empty result.
+ * Retry a read (up to 4 attempts total) on failure or an empty result.
  *
  * getOrgContext/requirePermission run on every request and were surfacing as
  * intermittent 404s in production — a query that should reliably return a
  * row occasionally came back empty or threw, indistinguishable at the call
- * site from "genuinely doesn't exist." A single 150ms retry measurably
- * helped but did not eliminate it, so this backs off across three attempts
- * (150ms, 400ms) rather than giving up after one. A genuine "not found"
- * stays empty across every attempt, since the underlying data hasn't
- * changed — this only masks transient connection/pooler hiccups.
+ * site from "genuinely doesn't exist." Live testing showed the failures
+ * cluster on the FIRST request a fresh Lambda instance serves for a given
+ * route — i.e. this is a cold connection pool establishing its first
+ * connection to the pooler, not steady-state flakiness. A cold TLS
+ * handshake can take longer than the original 150+400ms retry budget, so
+ * this backs off further (150ms, 400ms, 1000ms) to give that genuinely
+ * enough time. A genuine "not found" stays empty across every attempt,
+ * since the underlying data hasn't changed — this only masks connection
+ * establishment latency.
  */
 export async function retryOnce<T>(
   read: () => Promise<T>,
   isEmpty: (result: T) => boolean
 ): Promise<T> {
-  const delays = [150, 400]
+  const delays = [150, 400, 1000]
   for (const delay of delays) {
     try {
       const result = await read()

@@ -58,11 +58,15 @@ export default async function EmployeesPage({
       return { employees, total, departments, employmentTypes, locations }
     })
 
+  // Same cold-start reasoning as retryOnce in core/auth/dal.ts: a fresh
+  // Lambda's first connection to the pooler can take longer than a short
+  // retry window, so give it real time to establish rather than a token
+  // 300ms pause.
   let pageData
   try {
     pageData = await fetchEmployeesPageData()
   } catch {
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
     pageData = await fetchEmployeesPageData()
   }
   const { employees, total, departments, employmentTypes, locations } = pageData
