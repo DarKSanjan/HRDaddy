@@ -3,7 +3,7 @@ import { moduleGuard } from '@/core/modules'
 import { hasPermission } from '@/core/permissions'
 import { Breadcrumb } from '@/core/ui'
 import { getOrgChart } from '@/modules/employees/org-chart-queries'
-import { OrgChartTree } from './_components/org-chart-tree'
+import { OrgChartFlow } from './_components/org-chart-flow'
 import { GitBranch } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -45,7 +45,7 @@ export default async function OrgChartPage({
           </p>
         </div>
       ) : (
-        <OrgChartTree nodes={tree} orgSlug={orgSlug} />
+        <OrgChartFlow nodes={tree} orgSlug={orgSlug} />
       )}
     </div>
   )
