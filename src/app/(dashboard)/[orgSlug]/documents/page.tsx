@@ -1,9 +1,20 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Badge, Card, CardContent } from '@/core/ui'
-import { listDocuments, listCategories } from '@/modules/documents/queries'
 import { hasPermission } from '@/core/permissions'
-import { FileText } from 'lucide-react'
+import { getEmployeeIdForUser } from '@/core/employees'
+import {
+  getRootFolders,
+  getEmployeeFolders,
+  getCategoryFoldersForEmployee,
+  getDocumentsForCategory,
+  getPayrollSubfolders,
+  getPayrollPeriodFolders,
+  getPayrollEmployeesInPeriod,
+  getPayrollEmployeeFolders,
+  getPayrollPeriodsForEmployee,
+} from '@/modules/documents/explorer-queries'
+import type { ExplorerEntry } from '@/modules/documents/explorer-queries'
+import { DocumentExplorer } from './_components/document-explorer'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,148 +33,199 @@ export default async function DocumentsPage({
   moduleGuard('documents', enabledModules)
 
   const canViewAll = hasPermission(membership.role, enabledModules, 'document.view_all')
+  const canViewPayrollAll = hasPermission(membership.role, enabledModules, 'payroll.view_all')
 
-  // Parse filter params
-  const employeeId = rawParams.employeeId as string | undefined
-  const categoryId = rawParams.categoryId as string | undefined
-  const search = rawParams.search as string | undefined
-  const page = rawParams.page ? Number(rawParams.page) : 1
+  // Get the viewer's employee ID for self-scoping
+  const selfEmployeeId = await getEmployeeIdForUser(org.id, session.userId)
 
-  const [{ documents, total }, categories] = await Promise.all([
-    listDocuments(session.userId, org.id, {
-      employeeId,
-      categoryId,
-      search,
-      page,
-      pageSize: 20,
-    }, { viewAll: canViewAll, excludeSensitive: !canViewAll }),
-    listCategories(session.userId, org.id),
-  ])
+  // Parse path — segments separated by /
+  const rawPath = (rawParams.path as string) || '/'
+  const segments = rawPath.split('/').filter(Boolean)
 
-  const totalPages = Math.ceil(total / 20)
+  // Determine if this is a self-only view (non-admin can only see their own)
+  const selfOnly = !canViewAll
+  const payrollSelfOnly = !canViewPayrollAll
+
+  // Resolve the current folder view
+  let entries: ExplorerEntry[] = []
+  const breadcrumbs: Array<{ label: string; path: string }> = [
+    { label: 'Documents', path: '/' },
+  ]
+  let basePath = ''
+
+  if (segments.length === 0) {
+    // Root: show Employee Documents and Payroll folders
+    entries = getRootFolders()
+    basePath = ''
+  } else if (segments[0] === 'employee-documents') {
+    breadcrumbs.push({ label: 'Employee Documents', path: '/employee-documents' })
+    basePath = '/employee-documents'
+
+    if (segments.length === 1) {
+      // Employee Documents root: show employees
+      entries = await getEmployeeFolders(
+        session.userId,
+        org.id,
+        selfOnly ? selfEmployeeId : null
+      )
+    } else if (segments.length === 2) {
+      // Employee Documents → Employee: show categories
+      const employeeId = segments[1]
+      // Permission check: non-admin can only see own
+      if (selfOnly && employeeId !== selfEmployeeId) {
+        entries = []
+      } else {
+        // Get employee name for breadcrumb
+        const employeeFolders = await getEmployeeFolders(
+          session.userId,
+          org.id,
+          selfOnly ? selfEmployeeId : null
+        )
+        const empFolder = employeeFolders.find((f) => f.id === employeeId)
+        if (empFolder) {
+          breadcrumbs.push({ label: empFolder.name, path: `/employee-documents/${employeeId}` })
+        }
+        entries = await getCategoryFoldersForEmployee(
+          session.userId,
+          org.id,
+          employeeId,
+          !canViewAll
+        )
+        basePath = `/employee-documents/${employeeId}`
+      }
+    } else if (segments.length === 3) {
+      // Employee Documents → Employee → Category: show files
+      const employeeId = segments[1]
+      const categoryId = segments[2]
+
+      if (selfOnly && employeeId !== selfEmployeeId) {
+        entries = []
+      } else {
+        // Get employee name for breadcrumb
+        const employeeFolders = await getEmployeeFolders(
+          session.userId,
+          org.id,
+          selfOnly ? selfEmployeeId : null
+        )
+        const empFolder = employeeFolders.find((f) => f.id === employeeId)
+        if (empFolder) {
+          breadcrumbs.push({ label: empFolder.name, path: `/employee-documents/${employeeId}` })
+        }
+
+        // Get category name for breadcrumb
+        const categories = await getCategoryFoldersForEmployee(
+          session.userId,
+          org.id,
+          employeeId,
+          !canViewAll
+        )
+        const catFolder = categories.find((c) => c.id === categoryId)
+        if (catFolder) {
+          breadcrumbs.push({
+            label: catFolder.name,
+            path: `/employee-documents/${employeeId}/${categoryId}`,
+          })
+        }
+
+        entries = await getDocumentsForCategory(
+          session.userId,
+          org.id,
+          employeeId,
+          categoryId,
+          !canViewAll
+        )
+        basePath = `/employee-documents/${employeeId}/${categoryId}`
+      }
+    }
+  } else if (segments[0] === 'payroll') {
+    breadcrumbs.push({ label: 'Payroll', path: '/payroll' })
+    basePath = '/payroll'
+
+    if (segments.length === 1) {
+      // Payroll root: show By Month / By Employee
+      entries = getPayrollSubfolders()
+    } else if (segments[1] === 'by-month') {
+      breadcrumbs.push({ label: 'By Month', path: '/payroll/by-month' })
+      basePath = '/payroll/by-month'
+
+      if (segments.length === 2) {
+        // By Month: list periods
+        entries = await getPayrollPeriodFolders(session.userId, org.id)
+      } else if (segments.length === 3) {
+        // By Month → Period: list employees
+        const periodId = segments[2]
+        const periods = await getPayrollPeriodFolders(session.userId, org.id)
+        const periodFolder = periods.find((p) => p.id === periodId)
+        if (periodFolder) {
+          breadcrumbs.push({
+            label: periodFolder.name,
+            path: `/payroll/by-month/${periodId}`,
+          })
+        }
+        entries = await getPayrollEmployeesInPeriod(
+          session.userId,
+          org.id,
+          periodId,
+          payrollSelfOnly ? selfEmployeeId : null
+        )
+        basePath = `/payroll/by-month/${periodId}`
+      }
+    } else if (segments[1] === 'by-employee') {
+      breadcrumbs.push({ label: 'By Employee', path: '/payroll/by-employee' })
+      basePath = '/payroll/by-employee'
+
+      if (segments.length === 2) {
+        // By Employee: list employees
+        entries = await getPayrollEmployeeFolders(
+          session.userId,
+          org.id,
+          payrollSelfOnly ? selfEmployeeId : null
+        )
+      } else if (segments.length === 3) {
+        // By Employee → Employee: list periods as virtual files
+        const employeeId = segments[2]
+
+        if (payrollSelfOnly && employeeId !== selfEmployeeId) {
+          entries = []
+        } else {
+          const employeeFolders = await getPayrollEmployeeFolders(
+            session.userId,
+            org.id,
+            payrollSelfOnly ? selfEmployeeId : null
+          )
+          const empFolder = employeeFolders.find((f) => f.id === employeeId)
+          if (empFolder) {
+            breadcrumbs.push({
+              label: empFolder.name,
+              path: `/payroll/by-employee/${employeeId}`,
+            })
+          }
+          entries = await getPayrollPeriodsForEmployee(
+            session.userId,
+            org.id,
+            employeeId
+          )
+          basePath = `/payroll/by-employee/${employeeId}`
+        }
+      }
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: 'Documents' }]} />
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[20px] font-bold text-text">Documents</h1>
-          <p className="text-[13px] text-text-muted">
-            {total} document{total !== 1 ? 's' : ''} in your organisation
-          </p>
-        </div>
+      <div>
+        <h1 className="text-[20px] font-bold text-text">Documents</h1>
+        <p className="text-[13px] text-text-muted">
+          Browse employee documents and payroll records
+        </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        {categories.map((cat) => (
-          <a
-            key={cat.id}
-            href={`/${orgSlug}/documents?categoryId=${cat.id}`}
-            className={
-              categoryId === cat.id
-                ? 'rounded-[var(--radius-sm)] bg-accent-50 px-2.5 py-1 text-[12px] font-medium text-accent-700'
-                : 'rounded-[var(--radius-sm)] border border-border px-2.5 py-1 text-[12px] font-medium text-text-muted hover:bg-surface-hover'
-            }
-          >
-            {cat.name} ({cat._count.documents})
-          </a>
-        ))}
-        {categoryId && (
-          <a
-            href={`/${orgSlug}/documents`}
-            className="rounded-[var(--radius-sm)] px-2.5 py-1 text-[12px] font-medium text-text-muted hover:text-text"
-          >
-            Clear filter
-          </a>
-        )}
-      </div>
-
-      {/* Document list */}
-      {documents.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileText className="h-10 w-10 text-text-subtle" aria-hidden="true" />
-            <p className="mt-3 text-[13px] text-text-muted">
-              No documents found.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-4 py-3 text-[12px] font-medium text-text-muted">File Name</th>
-                  <th className="px-4 py-3 text-[12px] font-medium text-text-muted hidden sm:table-cell">Employee</th>
-                  <th className="px-4 py-3 text-[12px] font-medium text-text-muted hidden md:table-cell">Category</th>
-                  <th className="px-4 py-3 text-[12px] font-medium text-text-muted hidden lg:table-cell">Expires</th>
-                  <th className="px-4 py-3 text-[12px] font-medium text-text-muted">Uploaded</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map((doc) => (
-                  <tr key={doc.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-text-subtle shrink-0" aria-hidden="true" />
-                        <span className="text-[13px] font-medium text-text truncate max-w-[200px]">
-                          {doc.fileName}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-text-muted hidden sm:table-cell">
-                      {doc.employee.firstName} {doc.employee.lastName}
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <Badge variant={doc.category.isSensitive ? 'warning' : 'neutral'}>
-                        {doc.category.name}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-text-muted hidden lg:table-cell">
-                      {doc.expiresAt
-                        ? new Date(doc.expiresAt).toLocaleDateString()
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-text-muted">
-                      {new Date(doc.createdAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-[12px] text-text-muted">
-            Page {page} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <a
-                href={`/${orgSlug}/documents?page=${page - 1}${categoryId ? `&categoryId=${categoryId}` : ''}`}
-                className="rounded-[var(--radius-sm)] border border-border px-3 py-1.5 text-[12px] font-medium text-text-muted hover:bg-surface-hover"
-              >
-                Previous
-              </a>
-            )}
-            {page < totalPages && (
-              <a
-                href={`/${orgSlug}/documents?page=${page + 1}${categoryId ? `&categoryId=${categoryId}` : ''}`}
-                className="rounded-[var(--radius-sm)] border border-border px-3 py-1.5 text-[12px] font-medium text-text-muted hover:bg-surface-hover"
-              >
-                Next
-              </a>
-            )}
-          </div>
-        </div>
-      )}
+      <DocumentExplorer
+        orgSlug={orgSlug}
+        entries={entries}
+        breadcrumbs={breadcrumbs}
+        basePath={basePath}
+      />
     </div>
   )
 }
