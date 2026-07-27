@@ -105,7 +105,7 @@ export function CycleManager({ orgSlug, cycles }: CycleManagerProps) {
                   id="cycle-start"
                   name="startDate"
                   type="date"
-                  defaultValue={suggestion.startDate.toISOString().split('T')[0]}
+                  defaultValue={toDateInputValue(suggestion.startDate)}
                   className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500"
                   required
                 />
@@ -118,7 +118,7 @@ export function CycleManager({ orgSlug, cycles }: CycleManagerProps) {
                   id="cycle-end"
                   name="endDate"
                   type="date"
-                  defaultValue={suggestion.endDate.toISOString().split('T')[0]}
+                  defaultValue={toDateInputValue(suggestion.endDate)}
                   className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500"
                   required
                 />
@@ -189,4 +189,18 @@ function formatDate(date: Date): string {
     month: 'short',
     year: 'numeric',
   }).format(new Date(date))
+}
+
+/**
+ * Format a Date as yyyy-mm-dd for a date input's defaultValue using LOCAL
+ * date parts — never toISOString() here, which converts to UTC and shifts
+ * the date backward a day whenever the runtime's local offset is ahead of
+ * UTC (the same class of bug already hit in attendance's average-start-time
+ * calc — see TZDate usage there).
+ */
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
