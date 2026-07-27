@@ -93,6 +93,11 @@ export function PerformanceTab({
                 value={`${autoMetrics.totalHoursWorked}h`}
                 sublabel="total tracked"
               />
+              <MetricTile
+                label="Overtime"
+                value={`${autoMetrics.overtimeHours}h`}
+                sublabel="beyond standard"
+              />
             </div>
           </CardContent>
         </Card>

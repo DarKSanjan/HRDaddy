@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/core/ui'
 import { createCycle, openCycle, closeCycle } from '@/modules/performance/actions'
 import { suggestNextCycle } from '@/modules/performance/utils'
+import { PerformancePdfDownloadButton } from '@/modules/performance/pdf-download-button'
 import type { CycleItemBase } from '@/modules/performance/utils'
 
 interface CycleManagerProps {
@@ -172,6 +173,13 @@ export function CycleManager({ orgSlug, cycles }: CycleManagerProps) {
                     >
                       Close
                     </Button>
+                  )}
+                  {(cycle.status === 'ACTIVE' || cycle.status === 'CLOSED') && (
+                    <PerformancePdfDownloadButton
+                      orgSlug={orgSlug}
+                      cycleId={cycle.id}
+                      label="PDF"
+                    />
                   )}
                 </div>
               </div>

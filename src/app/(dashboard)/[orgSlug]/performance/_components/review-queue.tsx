@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/core/ui'
 import { submitReview, publishReview } from '@/modules/performance/actions'
 import { getRatingLabel } from '@/modules/performance/labels'
-import type { ReviewItem } from '@/modules/performance/queries'
+import type { ReviewItem, AutoMetrics } from '@/modules/performance/queries'
 import type { ReviewComplexity } from '@/modules/performance/settings'
 import type { PerformanceCompetency } from '@prisma/client'
 
@@ -16,6 +16,7 @@ interface ReviewQueueProps {
   reviews: ReviewItem[]
   complexity: ReviewComplexity
   canPublish: boolean
+  autoMetricsMap?: Record<string, AutoMetrics>
 }
 
 const COMPETENCIES: Array<{ key: PerformanceCompetency; label: string }> = [
@@ -39,6 +40,7 @@ export function ReviewQueue({
   reviews,
   complexity,
   canPublish,
+  autoMetricsMap = {},
 }: ReviewQueueProps) {
   const router = useRouter()
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null)
@@ -111,6 +113,47 @@ export function ReviewQueue({
 
                 {activeReviewId === review.id && (
                   <form onSubmit={handleSubmit} className="ml-4 space-y-3 rounded-lg border border-border p-4">
+                    {/* Auto-metrics scorecard */}
+                    {autoMetricsMap[review.employeeId] && (
+                      <div className="mb-3 rounded-lg bg-surface-hover p-3">
+                        <p className="text-[11px] font-medium text-text-muted mb-2">
+                          Performance Metrics (this cycle)
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <div>
+                            <p className="text-[14px] font-bold text-text">
+                              {autoMetricsMap[review.employeeId].attendanceReliability}%
+                            </p>
+                            <p className="text-[10px] text-text-muted">Attendance</p>
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-bold text-text">
+                              {autoMetricsMap[review.employeeId].lateArrivals}
+                            </p>
+                            <p className="text-[10px] text-text-muted">Late Arrivals</p>
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-bold text-text">
+                              {autoMetricsMap[review.employeeId].leaveDaysTaken} days
+                            </p>
+                            <p className="text-[10px] text-text-muted">Leave Taken</p>
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-bold text-text">
+                              {autoMetricsMap[review.employeeId].totalHoursWorked}h
+                            </p>
+                            <p className="text-[10px] text-text-muted">Hours Worked</p>
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-bold text-text">
+                              {autoMetricsMap[review.employeeId].overtimeHours}h
+                            </p>
+                            <p className="text-[10px] text-text-muted">Overtime</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {complexity === 'simple' ? (
                       <div className="space-y-1">
                         <label htmlFor="overallScore" className="text-[12px] font-medium text-text-muted">

@@ -28,19 +28,27 @@ export interface FileEntry {
   recordId?: string
   /** Whether this is a virtual on-demand PDF */
   isVirtual?: boolean
+  /** Type of virtual PDF for download routing */
+  pdfType?: 'payroll' | 'performance-cycle' | 'performance-review'
 }
 
 export type ExplorerEntry = FolderEntry | FileEntry
 
 // ─────────────────────────────────────────────
-// Root level — returns the two top-level folders
+// Root level — returns the top-level folders
 // ─────────────────────────────────────────────
 
-export function getRootFolders(): FolderEntry[] {
-  return [
+export function getRootFolders(enabledModules: string[]): FolderEntry[] {
+  const folders: FolderEntry[] = [
     { id: 'employee-documents', name: 'Employee Documents', type: 'folder' },
-    { id: 'payroll', name: 'Payroll', type: 'folder' },
   ]
+  if (enabledModules.includes('payroll')) {
+    folders.push({ id: 'payroll', name: 'Payroll', type: 'folder' })
+  }
+  if (enabledModules.includes('performance')) {
+    folders.push({ id: 'performance', name: 'Performance', type: 'folder' })
+  }
+  return folders
 }
 
 // ─────────────────────────────────────────────
@@ -50,36 +58,45 @@ export function getRootFolders(): FolderEntry[] {
 /**
  * List employees that have documents — one folder per employee.
  * If selfOnly is true, only returns the given employeeId.
+ * Delegates to the shared listDocuments query to ensure consistency.
  */
 export async function getEmployeeFolders(
   userId: string,
   orgId: string,
   selfEmployeeId: string | null
 ): Promise<FolderEntry[]> {
-  return dbAs(userId, async (tx) => {
-    const where = selfEmployeeId
-      ? { orgId, employeeId: selfEmployeeId, isArchived: false }
-      : { orgId, isArchived: false }
-
-    const employees = await tx.employeeDocument.findMany({
-      where,
-      select: {
-        employee: { select: { id: true, firstName: true, lastName: true } },
-      },
-      distinct: ['employeeId'],
-      orderBy: { employee: { lastName: 'asc' } },
-    })
-
-    return employees.map((e) => ({
-      id: e.employee.id,
-      name: `${e.employee.firstName} ${e.employee.lastName}`,
-      type: 'folder' as const,
-    }))
+  // Use the shared listDocuments query (large page size to get all docs)
+  const { listDocuments } = await import('./queries')
+  const { documents } = await listDocuments(userId, orgId, {
+    ...(selfEmployeeId ? { employeeId: selfEmployeeId } : {}),
+    pageSize: 10000,
   })
+
+  // Extract unique employees from results
+  const employeeMap = new Map<string, { firstName: string; lastName: string }>()
+  for (const doc of documents) {
+    if (!employeeMap.has(doc.employee.id)) {
+      employeeMap.set(doc.employee.id, {
+        firstName: doc.employee.firstName,
+        lastName: doc.employee.lastName,
+      })
+    }
+  }
+
+  // Sort by last name
+  const entries = Array.from(employeeMap.entries())
+    .sort(([, a], [, b]) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+
+  return entries.map(([id, emp]) => ({
+    id,
+    name: `${emp.firstName} ${emp.lastName}`,
+    type: 'folder' as const,
+  }))
 }
 
 /**
  * List document categories for a specific employee — one folder per category.
+ * Delegates to the shared listDocuments query to ensure consistency.
  */
 export async function getCategoryFoldersForEmployee(
   userId: string,
@@ -87,30 +104,31 @@ export async function getCategoryFoldersForEmployee(
   employeeId: string,
   excludeSensitive: boolean
 ): Promise<FolderEntry[]> {
-  return dbAs(userId, async (tx) => {
-    const docs = await tx.employeeDocument.findMany({
-      where: {
-        orgId,
-        employeeId,
-        isArchived: false,
-        ...(excludeSensitive ? { category: { isSensitive: false } } : {}),
-      },
-      select: {
-        category: { select: { id: true, name: true } },
-      },
-      distinct: ['categoryId'],
-    })
+  // Use the shared listDocuments query (no pagination, no search, non-archived only)
+  const { listDocuments } = await import('./queries')
+  const { documents } = await listDocuments(userId, orgId, {
+    employeeId,
+    pageSize: 1000,
+  }, { excludeSensitive })
 
-    return docs.map((d) => ({
-      id: d.category.id,
-      name: d.category.name,
-      type: 'folder' as const,
-    }))
-  })
+  // Extract unique categories from results
+  const categoryMap = new Map<string, string>()
+  for (const doc of documents) {
+    if (!categoryMap.has(doc.category.id)) {
+      categoryMap.set(doc.category.id, doc.category.name)
+    }
+  }
+
+  return Array.from(categoryMap.entries()).map(([id, name]) => ({
+    id,
+    name,
+    type: 'folder' as const,
+  }))
 }
 
 /**
  * List actual documents for an employee + category.
+ * Delegates to the shared listDocuments query to ensure consistency.
  */
 export async function getDocumentsForCategory(
   userId: string,
@@ -119,34 +137,22 @@ export async function getDocumentsForCategory(
   categoryId: string,
   excludeSensitive: boolean
 ): Promise<FileEntry[]> {
-  return dbAs(userId, async (tx) => {
-    const docs = await tx.employeeDocument.findMany({
-      where: {
-        orgId,
-        employeeId,
-        categoryId,
-        isArchived: false,
-        ...(excludeSensitive ? { category: { isSensitive: false } } : {}),
-      },
-      select: {
-        id: true,
-        fileName: true,
-        mimeType: true,
-        fileSize: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+  // Use the shared listDocuments query
+  const { listDocuments } = await import('./queries')
+  const { documents } = await listDocuments(userId, orgId, {
+    employeeId,
+    categoryId,
+    pageSize: 1000,
+  }, { excludeSensitive })
 
-    return docs.map((d) => ({
-      id: d.id,
-      name: d.fileName,
-      type: 'file' as const,
-      mimeType: d.mimeType,
-      fileSize: d.fileSize,
-      createdAt: d.createdAt,
-    }))
-  })
+  return documents.map((d) => ({
+    id: d.id,
+    name: d.fileName,
+    type: 'file' as const,
+    mimeType: d.mimeType,
+    fileSize: d.fileSize,
+    createdAt: d.createdAt,
+  }))
 }
 
 // ─────────────────────────────────────────────
@@ -215,6 +221,7 @@ export async function getPayrollEmployeesInPeriod(
       type: 'file' as const,
       recordId: r.id,
       isVirtual: true,
+      pdfType: 'payroll' as const,
     }))
   })
 }
@@ -279,6 +286,106 @@ export async function getPayrollPeriodsForEmployee(
       type: 'file' as const,
       recordId: r.id,
       isVirtual: true,
+      pdfType: 'payroll' as const,
     }))
+  })
+}
+
+// ─────────────────────────────────────────────
+// Performance branch
+// ─────────────────────────────────────────────
+
+export function getPerformanceSubfolders(): FolderEntry[] {
+  return [
+    { id: 'by-quarter', name: 'By Quarter', type: 'folder' },
+  ]
+}
+
+/**
+ * List performance cycles as folders (By Quarter view).
+ * Only shows cycles with at least one PUBLISHED review.
+ */
+export async function getPerformanceCycleFolders(
+  userId: string,
+  orgId: string
+): Promise<FolderEntry[]> {
+  return dbAs(userId, async (tx) => {
+    const cycles = await tx.performanceCycle.findMany({
+      where: {
+        orgId,
+        reviews: { some: { status: 'PUBLISHED' } },
+      },
+      select: { id: true, name: true, startDate: true, endDate: true },
+      orderBy: { startDate: 'desc' },
+    })
+
+    return cycles.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: 'folder' as const,
+      meta: `${c.startDate.toLocaleDateString('en-SG')} - ${c.endDate.toLocaleDateString('en-SG')}`,
+    }))
+  })
+}
+
+/**
+ * List published reviews within a performance cycle as virtual file entries.
+ * Returns one "whole cycle" file plus one file per employee.
+ * If selfOnly, restricts to the given employeeId.
+ */
+export async function getPerformanceReviewsInCycle(
+  userId: string,
+  orgId: string,
+  cycleId: string,
+  selfEmployeeId: string | null
+): Promise<FileEntry[]> {
+  return dbAs(userId, async (tx) => {
+    const cycle = await tx.performanceCycle.findFirst({
+      where: { id: cycleId, orgId },
+      select: { name: true },
+    })
+    if (!cycle) return []
+
+    const reviews = await tx.performanceReview.findMany({
+      where: {
+        orgId,
+        cycleId,
+        status: 'PUBLISHED',
+        ...(selfEmployeeId ? { employeeId: selfEmployeeId } : {}),
+      },
+      select: {
+        id: true,
+        employee: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { employee: { lastName: 'asc' } },
+    })
+
+    const files: FileEntry[] = []
+
+    // First entry: whole-cycle PDF (only if viewer can see all, i.e. not self-only)
+    if (!selfEmployeeId && reviews.length > 0) {
+      files.push({
+        id: `cycle-${cycleId}`,
+        name: `${cycle.name} — All Reviews`,
+        type: 'file' as const,
+        recordId: cycleId,
+        isVirtual: true,
+        pdfType: 'performance-cycle' as const,
+      })
+    }
+
+    // Per-employee review PDFs
+    for (const r of reviews) {
+      files.push({
+        id: r.id,
+        name: `${r.employee.firstName} ${r.employee.lastName}`,
+        type: 'file' as const,
+        recordId: r.id,
+        isVirtual: true,
+        pdfType: 'performance-review' as const,
+      })
+    }
+
+    return files
   })
 }

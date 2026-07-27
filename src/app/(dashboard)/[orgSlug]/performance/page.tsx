@@ -4,7 +4,8 @@ import { hasPermission } from '@/core/permissions'
 import { Breadcrumb } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { getReviewComplexity } from '@/modules/performance/settings'
-import { listCycles, getCycleReviews } from '@/modules/performance/queries'
+import { listCycles, getCycleReviews, getPerformanceAutoMetrics } from '@/modules/performance/queries'
+import type { AutoMetrics } from '@/modules/performance/queries'
 import { CycleManager } from './_components/cycle-manager'
 import { ReviewQueue } from './_components/review-queue'
 
@@ -31,6 +32,7 @@ export default async function PerformancePage({
   // Get the active cycle's reviews for the review queue
   const activeCycle = cycles.find((c) => c.status === 'ACTIVE')
   let reviewQueue: Awaited<ReturnType<typeof getCycleReviews>> = []
+  let autoMetricsMap: Record<string, AutoMetrics> = {}
 
   if (activeCycle && canSubmitReviews) {
     const callerEmployeeId = await getEmployeeIdForUser(org.id, session.userId)
@@ -42,6 +44,24 @@ export default async function PerformancePage({
       activeCycle.id,
       filterByManager
     )
+
+    // Fetch auto-metrics for all employees with pending reviews
+    const pendingReviews = reviewQueue.filter((r) => r.status === 'PENDING')
+    const uniqueEmployeeIds = [...new Set(pendingReviews.map((r) => r.employeeId))]
+
+    const metricsEntries = await Promise.all(
+      uniqueEmployeeIds.map(async (empId) => {
+        const metrics = await getPerformanceAutoMetrics(
+          session.userId,
+          org.id,
+          empId,
+          activeCycle.startDate,
+          activeCycle.endDate
+        )
+        return [empId, metrics] as const
+      })
+    )
+    autoMetricsMap = Object.fromEntries(metricsEntries)
   }
 
   return (
@@ -73,6 +93,7 @@ export default async function PerformancePage({
           reviews={reviewQueue}
           complexity={complexity}
           canPublish={canManageCycles}
+          autoMetricsMap={autoMetricsMap}
         />
       )}
 

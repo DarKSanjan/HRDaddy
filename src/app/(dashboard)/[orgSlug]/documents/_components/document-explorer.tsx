@@ -146,7 +146,7 @@ function FileTile({ entry, orgSlug }: { entry: ExplorerEntry; orgSlug: string })
       {/* Download button — visible on hover/touch always, focus-visible for keyboard nav */}
       <div className="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
         {isVirtual && 'recordId' in entry && entry.recordId ? (
-          <DownloadPdfIconButton orgSlug={orgSlug} recordId={entry.recordId} />
+          <DownloadPdfIconButton orgSlug={orgSlug} recordId={entry.recordId} pdfType={'pdfType' in entry ? entry.pdfType : 'payroll'} />
         ) : (
           <DownloadDocIconButton orgSlug={orgSlug} documentId={entry.id} />
         )}
@@ -159,11 +159,22 @@ function FileTile({ entry, orgSlug }: { entry: ExplorerEntry; orgSlug: string })
 // Download icon buttons (hover overlay)
 // ─────────────────────────────────────────────
 
-function DownloadPdfIconButton({ orgSlug, recordId }: { orgSlug: string; recordId: string }) {
+function DownloadPdfIconButton({ orgSlug, recordId, pdfType }: { orgSlug: string; recordId: string; pdfType?: string }) {
   const handleDownload = useCallback(async () => {
-    const { downloadEmployeePdf } = await import('@/modules/payroll/pdf-actions')
-    const result = await downloadEmployeePdf(orgSlug, recordId)
-    if (result.success && result.data) {
+    let result: { success: boolean; data?: { buffer: number[]; fileName: string } } | null = null
+
+    if (pdfType === 'performance-cycle') {
+      const { downloadCyclePdf } = await import('@/modules/performance/pdf-actions')
+      result = await downloadCyclePdf(orgSlug, recordId)
+    } else if (pdfType === 'performance-review') {
+      const { downloadEmployeeCyclePdf } = await import('@/modules/performance/pdf-actions')
+      result = await downloadEmployeeCyclePdf(orgSlug, recordId)
+    } else {
+      const { downloadEmployeePdf } = await import('@/modules/payroll/pdf-actions')
+      result = await downloadEmployeePdf(orgSlug, recordId)
+    }
+
+    if (result?.success && result.data) {
       const bytes = new Uint8Array(result.data.buffer)
       const blob = new Blob([bytes], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
@@ -175,7 +186,7 @@ function DownloadPdfIconButton({ orgSlug, recordId }: { orgSlug: string; recordI
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     }
-  }, [orgSlug, recordId])
+  }, [orgSlug, recordId, pdfType])
 
   return (
     <button

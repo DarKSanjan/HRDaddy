@@ -4,6 +4,7 @@
 import 'server-only'
 import { dbAs } from '@/core/db'
 import { getOrgSettings } from '@/core/employees'
+import { resolveShift, computeShiftMetrics } from '../attendance/shift-helpers'
 import type {
   PerformanceCycleStatus,
   PerformanceReviewStatus,
@@ -57,6 +58,7 @@ export interface AutoMetrics {
   lateArrivals: number
   leaveDaysTaken: number
   totalHoursWorked: number
+  overtimeHours: number
 }
 
 // ─────────────────────────────────────────────
@@ -216,6 +218,8 @@ export async function getPerformanceAutoMetrics(
   const orgSettings = await getOrgSettings(orgId)
   const workingDays = (orgSettings?.workingDays as number[]) ?? [1, 2, 3, 4, 5]
   const workingHoursStart = orgSettings?.workingHoursStart ?? '09:00'
+  const workingHoursEnd = orgSettings?.workingHoursEnd ?? '17:00'
+  const timezone = (orgSettings?.timezone as string) ?? 'UTC'
 
   // Count expected workdays in range
   const expectedWorkdays = countWorkdays(startDate, endDate, workingDays)
@@ -229,7 +233,60 @@ export async function getPerformanceAutoMetrics(
         date: { gte: startDate, lte: endDate },
         status: { in: ['CLOSED', 'CORRECTED'] },
       },
-      select: { clockIn: true, durationMinutes: true },
+      select: { clockIn: true, clockOut: true, durationMinutes: true, date: true },
+    })
+
+    // Get employee shift info — same shape resolveShift() expects, matching
+    // exactly how payroll and attendance resolve an employee's effective shift.
+    const employee = await tx.employee.findFirst({
+      where: { id: employeeId, orgId },
+      select: {
+        shiftTemplate: {
+          select: {
+            startMinutes: true,
+            endMinutes: true,
+            standardMinutesPerDay: true,
+            overtimeMultiplier: true,
+            restDayMultiplier: true,
+          },
+        },
+        employmentType: {
+          select: {
+            defaultShiftTemplate: {
+              select: {
+                startMinutes: true,
+                endMinutes: true,
+                standardMinutesPerDay: true,
+                overtimeMultiplier: true,
+                restDayMultiplier: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const shift = resolveShift({
+      employeeShift: employee?.shiftTemplate
+        ? {
+            startMinutes: employee.shiftTemplate.startMinutes,
+            endMinutes: employee.shiftTemplate.endMinutes,
+            standardMinutesPerDay: employee.shiftTemplate.standardMinutesPerDay,
+            overtimeMultiplier: Number(employee.shiftTemplate.overtimeMultiplier),
+            restDayMultiplier: Number(employee.shiftTemplate.restDayMultiplier),
+          }
+        : null,
+      employmentTypeShift: employee?.employmentType?.defaultShiftTemplate
+        ? {
+            startMinutes: employee.employmentType.defaultShiftTemplate.startMinutes,
+            endMinutes: employee.employmentType.defaultShiftTemplate.endMinutes,
+            standardMinutesPerDay: employee.employmentType.defaultShiftTemplate.standardMinutesPerDay,
+            overtimeMultiplier: Number(employee.employmentType.defaultShiftTemplate.overtimeMultiplier),
+            restDayMultiplier: Number(employee.employmentType.defaultShiftTemplate.restDayMultiplier),
+          }
+        : null,
+      orgWorkingHoursStart: workingHoursStart,
+      orgWorkingHoursEnd: workingHoursEnd,
     })
 
     const daysPresent = attendanceRecords.length
@@ -239,13 +296,29 @@ export async function getPerformanceAutoMetrics(
     )
     const totalHoursWorked = Math.round((totalMinutes / 60) * 10) / 10
 
-    // Late arrivals
-    const [configHour, configMinute] = workingHoursStart.split(':').map(Number)
-    const configStartMinutes = configHour * 60 + configMinute
-    const lateArrivals = attendanceRecords.filter((r) => {
-      const min = r.clockIn.getHours() * 60 + r.clockIn.getMinutes()
-      return min > configStartMinutes
-    }).length
+    // Late arrivals + overtime — same computeShiftMetrics() call payroll and
+    // the attendance dashboard already use, so this report's numbers never
+    // diverge from what's shown/paid elsewhere.
+    let lateArrivals = 0
+    let totalOvertimeMinutes = 0
+    for (const r of attendanceRecords) {
+      const metrics = computeShiftMetrics({
+        shift,
+        clockIn: r.clockIn,
+        clockOut: r.clockOut,
+        durationMinutes: r.durationMinutes,
+        dayOfWeek: r.date.getDay(),
+        workingDays,
+        timezone,
+      })
+      if (metrics.lateMinutes > 0) lateArrivals++
+      if (metrics.isRestDay) {
+        totalOvertimeMinutes += r.durationMinutes ?? 0
+      } else {
+        totalOvertimeMinutes += metrics.overtimeMinutes
+      }
+    }
+    const overtimeHours = Math.round((totalOvertimeMinutes / 60) * 10) / 10
 
     // Leave days in range (APPROVED leave requests overlapping the range)
     const leaveRequests = await tx.leaveRequest.findMany({
@@ -275,6 +348,7 @@ export async function getPerformanceAutoMetrics(
       lateArrivals,
       leaveDaysTaken,
       totalHoursWorked,
+      overtimeHours,
     }
   })
 }

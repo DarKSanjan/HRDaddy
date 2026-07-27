@@ -12,10 +12,14 @@ import {
   getPayrollEmployeesInPeriod,
   getPayrollEmployeeFolders,
   getPayrollPeriodsForEmployee,
+  getPerformanceSubfolders,
+  getPerformanceCycleFolders,
+  getPerformanceReviewsInCycle,
 } from '@/modules/documents/explorer-queries'
 import type { ExplorerEntry } from '@/modules/documents/explorer-queries'
 import { DocumentExplorer } from './_components/document-explorer'
 import { PdfDownloadButton } from '@/modules/payroll/pdf-download-button'
+import { PerformancePdfDownloadButton } from '@/modules/performance/pdf-download-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +39,7 @@ export default async function DocumentsPage({
 
   const canViewAll = hasPermission(membership.role, enabledModules, 'document.view_all')
   const canViewPayrollAll = hasPermission(membership.role, enabledModules, 'payroll.view_all')
+  const canViewPerformanceAll = hasPermission(membership.role, enabledModules, 'performance.review.view_all')
 
   // Get the viewer's employee ID for self-scoping
   const selfEmployeeId = await getEmployeeIdForUser(org.id, session.userId)
@@ -54,10 +59,11 @@ export default async function DocumentsPage({
   ]
   let basePath = ''
   let payrollPeriodId: string | null = null
+  let performanceCycleId: string | null = null
 
   if (segments.length === 0) {
-    // Root: show Employee Documents and Payroll folders
-    entries = getRootFolders()
+    // Root: show Employee Documents and module-specific folders
+    entries = getRootFolders(enabledModules)
     basePath = ''
   } else if (segments[0] === 'employee-documents') {
     breadcrumbs.push({ label: 'Employee Documents', path: '/employee-documents' })
@@ -212,6 +218,43 @@ export default async function DocumentsPage({
         }
       }
     }
+  } else if (segments[0] === 'performance') {
+    breadcrumbs.push({ label: 'Performance', path: '/performance' })
+    basePath = '/performance'
+
+    const performanceSelfOnly = !canViewPerformanceAll
+
+    if (segments.length === 1) {
+      // Performance root: show By Quarter
+      entries = getPerformanceSubfolders()
+    } else if (segments[1] === 'by-quarter') {
+      breadcrumbs.push({ label: 'By Quarter', path: '/performance/by-quarter' })
+      basePath = '/performance/by-quarter'
+
+      if (segments.length === 2) {
+        // By Quarter: list cycles
+        entries = await getPerformanceCycleFolders(session.userId, org.id)
+      } else if (segments.length === 3) {
+        // By Quarter → Cycle: list reviews
+        const cycleId = segments[2]
+        performanceCycleId = cycleId
+        const cycles = await getPerformanceCycleFolders(session.userId, org.id)
+        const cycleFolder = cycles.find((c) => c.id === cycleId)
+        if (cycleFolder) {
+          breadcrumbs.push({
+            label: cycleFolder.name,
+            path: `/performance/by-quarter/${cycleId}`,
+          })
+        }
+        entries = await getPerformanceReviewsInCycle(
+          session.userId,
+          org.id,
+          cycleId,
+          performanceSelfOnly ? selfEmployeeId : null
+        )
+        basePath = `/performance/by-quarter/${cycleId}`
+      }
+    }
   }
 
   return (
@@ -229,6 +272,17 @@ export default async function DocumentsPage({
           <PdfDownloadButton
             orgSlug={orgSlug}
             periodId={payrollPeriodId}
+            label="Download All (PDF)"
+          />
+        </div>
+      )}
+
+      {/* Download All button for performance cycle view */}
+      {performanceCycleId && canViewPerformanceAll && (
+        <div className="flex justify-end">
+          <PerformancePdfDownloadButton
+            orgSlug={orgSlug}
+            cycleId={performanceCycleId}
             label="Download All (PDF)"
           />
         </div>
