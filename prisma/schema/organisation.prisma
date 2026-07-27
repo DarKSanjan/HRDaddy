@@ -36,6 +36,9 @@ model Organisation {
   payrollPeriods PayrollPeriod[]
   payrollRecords PayrollRecord[]
 
+  performanceCycles  PerformanceCycle[]
+  performanceReviews PerformanceReview[]
+
   notifications Notification[]
   auditLogs     AuditLog[]
 

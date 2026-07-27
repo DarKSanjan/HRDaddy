@@ -7,7 +7,10 @@ import { EmploymentTab } from './employment-tab'
 import { ActivityTab } from './activity-tab'
 import { EmployeeDocumentsTab } from './documents-tab'
 import { EmployeeLeaveTab } from './leave-tab'
+import { PerformanceTab } from './performance-tab'
 import type { EmployeeProfile } from '@/modules/employees/queries'
+import type { ReviewItem, AutoMetrics } from '@/modules/performance/queries'
+import type { ReviewComplexity } from '@/modules/performance/settings'
 import type { OrgRole } from '@prisma/client'
 
 interface ProfileTabsProps {
@@ -24,7 +27,11 @@ interface ProfileTabsProps {
   shiftTemplates?: { id: string; name: string }[]
   documentsEnabled: boolean
   leaveEnabled: boolean
+  performanceEnabled: boolean
   isSimplePayroll?: boolean
+  reviewHistory?: ReviewItem[]
+  autoMetrics?: AutoMetrics | null
+  reviewComplexity?: ReviewComplexity
 }
 
 const TABS = [
@@ -32,6 +39,7 @@ const TABS = [
   { id: 'employment', label: 'Employment' },
   { id: 'documents', label: 'Documents' },
   { id: 'leave', label: 'Leave' },
+  { id: 'performance', label: 'Performance' },
   { id: 'activity', label: 'Activity' },
 ]
 
@@ -49,7 +57,11 @@ export function ProfileTabs({
   shiftTemplates,
   documentsEnabled,
   leaveEnabled,
+  performanceEnabled,
   isSimplePayroll,
+  reviewHistory,
+  autoMetrics,
+  reviewComplexity,
 }: ProfileTabsProps) {
   const router = useRouter()
 
@@ -57,6 +69,7 @@ export function ProfileTabs({
   const visibleTabs = TABS.filter((tab) => {
     if (tab.id === 'documents' && !documentsEnabled) return false
     if (tab.id === 'leave' && !leaveEnabled) return false
+    if (tab.id === 'performance' && !performanceEnabled) return false
     return true
   })
 
@@ -112,6 +125,15 @@ export function ProfileTabs({
         )}
         {activeTab === 'leave' && leaveEnabled && (
           <EmployeeLeaveTab employeeId={employee.id} orgSlug={orgSlug} />
+        )}
+        {activeTab === 'performance' && performanceEnabled && (
+          <PerformanceTab
+            employeeId={employee.id}
+            orgSlug={orgSlug}
+            reviewHistory={reviewHistory ?? []}
+            autoMetrics={autoMetrics ?? null}
+            reviewComplexity={reviewComplexity ?? 'simple'}
+          />
         )}
         {activeTab === 'activity' && (
           <ActivityTab employeeId={employee.id} orgSlug={orgSlug} />

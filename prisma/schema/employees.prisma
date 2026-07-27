@@ -69,6 +69,9 @@ model Employee {
 
   payrollRecords PayrollRecord[]
 
+  performanceReviewsReceived PerformanceReview[] @relation("PerformanceReviewSubject")
+  performanceReviewsGiven    PerformanceReview[] @relation("PerformanceReviewer")
+
   @@index([orgId])
   @@index([orgId, employmentStatus])
   @@index([userId])

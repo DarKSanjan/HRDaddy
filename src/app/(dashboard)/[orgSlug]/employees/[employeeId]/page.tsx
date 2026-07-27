@@ -12,6 +12,9 @@ import {
   getShiftTemplates,
 } from '@/modules/employees/queries'
 import { getPayrollComplexity } from '@/modules/payroll/settings'
+import { getReviewComplexity } from '@/modules/performance/settings'
+import { getEmployeeIdForUser } from '@/core/employees'
+import { getEmployeeReviewHistory, getPerformanceAutoMetrics, listCycles } from '@/modules/performance/queries'
 import { notFound } from 'next/navigation'
 import { ProfileHeader } from '../_components/profile-header'
 import { ProfileTabs } from '../_components/profile-tabs'
@@ -79,6 +82,45 @@ export default async function EmployeeProfilePage({
 
   const payrollComplexity = await getPayrollComplexity(org.id)
 
+  // Performance data
+  const performanceEnabled = enabledModules.includes('performance')
+  let reviewHistory: Awaited<ReturnType<typeof getEmployeeReviewHistory>> = []
+  let autoMetrics: Awaited<ReturnType<typeof getPerformanceAutoMetrics>> | null = null
+  let reviewComplexity: 'simple' | 'advanced' = 'simple'
+
+  if (performanceEnabled) {
+    const callerEmployeeId = await getEmployeeIdForUser(org.id, session.userId)
+    const isOwnProfile = callerEmployeeId === employeeId
+    const canViewAll = hasPermission(membership.role, enabledModules, 'performance.review.view_all')
+    const isManager = employee.manager?.id === callerEmployeeId
+
+    if (isOwnProfile || canViewAll || isManager) {
+      reviewHistory = await getEmployeeReviewHistory(
+        session.userId,
+        org.id,
+        employeeId,
+        isOwnProfile
+      )
+
+      // Auto-metrics: use active cycle's date range, or current quarter
+      const cycles = await listCycles(session.userId, org.id)
+      const activeCycle = cycles.find((c) => c.status === 'ACTIVE')
+      const now = new Date()
+      const metricsStart = activeCycle?.startDate ?? new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+      const metricsEnd = activeCycle?.endDate ?? new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 + 3, 0)
+
+      autoMetrics = await getPerformanceAutoMetrics(
+        session.userId,
+        org.id,
+        employeeId,
+        metricsStart,
+        metricsEnd
+      )
+    }
+
+    reviewComplexity = await getReviewComplexity(org.id)
+  }
+
   return (
     <div className="space-y-6">
       <Breadcrumb
@@ -108,7 +150,11 @@ export default async function EmployeeProfilePage({
         shiftTemplates={shiftTemplates}
         documentsEnabled={documentsEnabled}
         leaveEnabled={leaveEnabled}
+        performanceEnabled={performanceEnabled}
         isSimplePayroll={payrollComplexity === 'simple'}
+        reviewHistory={reviewHistory}
+        autoMetrics={autoMetrics}
+        reviewComplexity={reviewComplexity}
       />
     </div>
   )

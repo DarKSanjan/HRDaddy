@@ -8,6 +8,7 @@ import {
   ClipboardList,
   FileText,
   CreditCard,
+  TrendingUp,
   Check,
   Lock,
   type LucideIcon,
@@ -68,6 +69,13 @@ const MODULE_CARDS: {
     description: 'CPF-ready payroll processing with compliant payslips generated automatically.',
     benefits: ['CPF calculation', 'Compliant payslips', 'Salary history'],
     icon: CreditCard,
+  },
+  {
+    id: 'performance',
+    name: 'Performance',
+    description: 'Quarterly review cycles with manager ratings, plus an auto-generated metrics scorecard.',
+    benefits: ['Review cycles', 'Competency scoring', 'Auto-metrics'],
+    icon: TrendingUp,
   },
 ]
 

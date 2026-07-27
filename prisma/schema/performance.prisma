@@ -1,0 +1,80 @@
+// HR Daddy - Performance Reviews schema
+// PerformanceCycle, PerformanceReview, PerformanceCompetencyScore
+
+model PerformanceCycle {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  name      String   // e.g. "Q3 2026"
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  status    PerformanceCycleStatus @default(DRAFT)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  reviews      PerformanceReview[]
+
+  @@index([orgId])
+  @@map("performance_cycles")
+}
+
+model PerformanceReview {
+  id               String   @id @default(cuid())
+  orgId            String   @map("org_id")
+  cycleId          String   @map("cycle_id")
+  employeeId       String   @map("employee_id")
+  reviewerId       String?  @map("reviewer_id")
+  overallScore     Int?     @map("overall_score")
+  strengths        String?
+  improvements     String?
+  goals            String?
+  selfAssessment   String?  @map("self_assessment")
+  status           PerformanceReviewStatus @default(PENDING)
+  submittedAt      DateTime? @map("submitted_at")
+  publishedAt      DateTime? @map("published_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  organisation      Organisation      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  cycle             PerformanceCycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  employee          Employee          @relation("PerformanceReviewSubject", fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewer          Employee?         @relation("PerformanceReviewer", fields: [reviewerId], references: [id])
+  competencyScores  PerformanceCompetencyScore[]
+
+  @@unique([cycleId, employeeId])
+  @@index([orgId])
+  @@index([employeeId])
+  @@map("performance_reviews")
+}
+
+model PerformanceCompetencyScore {
+  id         String               @id @default(cuid())
+  reviewId   String               @map("review_id")
+  competency PerformanceCompetency
+  score      Int                  // 1–5
+
+  review PerformanceReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, competency])
+  @@map("performance_competency_scores")
+}
+
+enum PerformanceCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum PerformanceReviewStatus {
+  PENDING
+  SUBMITTED
+  PUBLISHED
+}
+
+enum PerformanceCompetency {
+  JOB_KNOWLEDGE
+  QUALITY_OF_WORK
+  COMMUNICATION
+  TEAMWORK
+  INITIATIVE
+  RELIABILITY
+}
