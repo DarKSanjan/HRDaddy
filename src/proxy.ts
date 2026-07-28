@@ -22,6 +22,9 @@ const AUTH_FLOW_PATHS = [
   '/auth/callback',
   '/auth/confirm',
   '/api/auth/sign-out',
+  // Vercel Cron invocations carry no Supabase session — these routes gate
+  // themselves with their own CRON_SECRET bearer-token check instead.
+  '/api/cron',
 ]
 
 function matches(pathname: string, paths: string[]): boolean {
