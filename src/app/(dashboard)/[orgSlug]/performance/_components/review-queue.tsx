@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/core/
 import { submitReview, publishReview } from '@/modules/performance/actions'
 import { getRatingLabel } from '@/modules/performance/labels'
 import { DonutChart } from '@/core/ui/charts/donut-chart'
-import { BarChart } from '@/core/ui/charts/bar-chart'
+import { HoursMiniBars } from '@/modules/performance/components/hours-mini-bars'
 import type { ReviewItem, AutoMetrics } from '@/modules/performance/queries'
 import type { ReviewComplexity } from '@/modules/performance/settings'
 import type { PerformanceCompetency } from '@prisma/client'
@@ -301,25 +301,11 @@ function AutoMetricsCard({ metrics }: { metrics: AutoMetrics }) {
           />
         </div>
 
-        {/* Hours bar chart */}
-        <div>
-          <BarChart
-            data={[
-              {
-                category: 'Hours',
-                regular: Math.round((metrics.totalHoursWorked - metrics.overtimeHours) * 10) / 10,
-                overtime: metrics.overtimeHours,
-              },
-            ]}
-            xKey="category"
-            series={[
-              { dataKey: 'regular', name: 'Regular' },
-              { dataKey: 'overtime', name: 'OT' },
-            ]}
-            height={100}
-            showGrid={false}
-            showLegend
-            stacked
+        {/* Hours comparison */}
+        <div className="h-[100px]">
+          <HoursMiniBars
+            regular={Math.round((metrics.totalHoursWorked - metrics.overtimeHours) * 10) / 10}
+            overtime={metrics.overtimeHours}
           />
         </div>
 

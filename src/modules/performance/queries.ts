@@ -238,8 +238,15 @@ export async function getPerformanceAutoMetrics(
   const workingHoursEnd = orgSettings?.workingHoursEnd ?? '17:00'
   const timezone = (orgSettings?.timezone as string) ?? 'UTC'
 
+  // For a cycle still in progress, don't count days that haven't happened
+  // yet as "expected" — that's what was silently deflating attendance
+  // reliability (e.g. 17 days present out of a full 64-day quarter reads
+  // as 27%, when the employee has actually been present every day so far).
+  const now = new Date()
+  const effectiveEndDate = endDate.getTime() < now.getTime() ? endDate : now
+
   // Count expected workdays in range
-  const expectedWorkdays = countWorkdays(startDate, endDate, workingDays)
+  const expectedWorkdays = countWorkdays(startDate, effectiveEndDate, workingDays)
 
   return dbAs(userId, async (tx) => {
     // Attendance records in range (CLOSED/CORRECTED status only)
@@ -247,7 +254,7 @@ export async function getPerformanceAutoMetrics(
       where: {
         orgId,
         employeeId,
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lte: effectiveEndDate },
         status: { in: ['CLOSED', 'CORRECTED'] },
       },
       select: { clockIn: true, clockOut: true, durationMinutes: true, date: true },
@@ -337,13 +344,15 @@ export async function getPerformanceAutoMetrics(
     }
     const overtimeHours = Math.round((totalOvertimeMinutes / 60) * 10) / 10
 
-    // Leave days in range (APPROVED leave requests overlapping the range)
+    // Leave days in range (APPROVED leave requests overlapping the range,
+    // not counting leave scheduled for later in the cycle that hasn't
+    // happened yet)
     const leaveRequests = await tx.leaveRequest.findMany({
       where: {
         orgId,
         employeeId,
         status: 'APPROVED',
-        startDate: { lte: endDate },
+        startDate: { lte: effectiveEndDate },
         endDate: { gte: startDate },
       },
       select: { totalDays: true },

@@ -7,7 +7,7 @@ import { getRatingLabel, scoreVariant } from '@/modules/performance/labels'
 import { submitSelfAssessment, acknowledgeReview } from '@/modules/performance/actions'
 import { LineChart } from '@/core/ui/charts/line-chart'
 import { DonutChart } from '@/core/ui/charts/donut-chart'
-import { BarChart } from '@/core/ui/charts/bar-chart'
+import { HoursMiniBars } from '@/modules/performance/components/hours-mini-bars'
 import type { ReviewItem, AutoMetrics } from '@/modules/performance/queries'
 import type { ReviewComplexity } from '@/modules/performance/settings'
 
@@ -108,25 +108,11 @@ export function PerformanceTab({
                 />
               </div>
 
-              {/* Hours bar chart */}
-              <div>
-                <BarChart
-                  data={[
-                    {
-                      category: 'Hours',
-                      regular: Math.round((autoMetrics.totalHoursWorked - autoMetrics.overtimeHours) * 10) / 10,
-                      overtime: autoMetrics.overtimeHours,
-                    },
-                  ]}
-                  xKey="category"
-                  series={[
-                    { dataKey: 'regular', name: 'Regular Hours' },
-                    { dataKey: 'overtime', name: 'Overtime Hours' },
-                  ]}
-                  height={120}
-                  showGrid={false}
-                  showLegend
-                  stacked
+              {/* Hours comparison */}
+              <div className="h-[120px]">
+                <HoursMiniBars
+                  regular={Math.round((autoMetrics.totalHoursWorked - autoMetrics.overtimeHours) * 10) / 10}
+                  overtime={autoMetrics.overtimeHours}
                 />
               </div>
 
