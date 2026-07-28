@@ -32,6 +32,7 @@ interface ProfileTabsProps {
   reviewHistory?: ReviewItem[]
   autoMetrics?: AutoMetrics | null
   reviewComplexity?: ReviewComplexity
+  isOwnProfile?: boolean
 }
 
 const TABS = [
@@ -62,6 +63,7 @@ export function ProfileTabs({
   reviewHistory,
   autoMetrics,
   reviewComplexity,
+  isOwnProfile,
 }: ProfileTabsProps) {
   const router = useRouter()
 
@@ -133,6 +135,7 @@ export function ProfileTabs({
             reviewHistory={reviewHistory ?? []}
             autoMetrics={autoMetrics ?? null}
             reviewComplexity={reviewComplexity ?? 'simple'}
+            isOwnProfile={isOwnProfile}
           />
         )}
         {activeTab === 'activity' && (

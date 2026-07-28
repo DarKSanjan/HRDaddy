@@ -44,11 +44,25 @@ export interface ReviewItem {
   status: PerformanceReviewStatus
   submittedAt: Date | null
   publishedAt: Date | null
+  acknowledgedAt: Date | null
   competencyScores: Array<{
     competency: PerformanceCompetency
     score: number
   }>
   cycleName?: string
+  cycleStartDate?: Date
+}
+
+export interface CalibrationManager {
+  reviewerId: string
+  reviewerName: string
+  avgScore: number
+  reviewCount: number
+}
+
+export interface CalibrationData {
+  byManager: CalibrationManager[]
+  orgAverage: number
 }
 
 export interface AutoMetrics {
@@ -140,6 +154,7 @@ export async function getCycleReviews(
       status: r.status,
       submittedAt: r.submittedAt,
       publishedAt: r.publishedAt,
+      acknowledgedAt: r.acknowledgedAt,
       competencyScores: r.competencyScores.map((cs) => ({
         competency: cs.competency,
         score: cs.score,
@@ -195,11 +210,13 @@ export async function getEmployeeReviewHistory(
       status: r.status,
       submittedAt: r.submittedAt,
       publishedAt: r.publishedAt,
+      acknowledgedAt: r.acknowledgedAt,
       competencyScores: r.competencyScores.map((cs) => ({
         competency: cs.competency,
         score: cs.score,
       })),
       cycleName: r.cycle.name,
+      cycleStartDate: r.cycle.startDate,
     }))
   })
 }
@@ -350,6 +367,87 @@ export async function getPerformanceAutoMetrics(
       totalHoursWorked,
       overtimeHours,
     }
+  })
+}
+
+/**
+ * Get the latest CLOSED cycle ID for an org.
+ */
+export async function getLatestClosedCycleId(
+  userId: string,
+  orgId: string
+): Promise<string | null> {
+  return dbAs(userId, async (tx) => {
+    const cycle = await tx.performanceCycle.findFirst({
+      where: { orgId, status: 'CLOSED' },
+      orderBy: { endDate: 'desc' },
+      select: { id: true },
+    })
+    return cycle?.id ?? null
+  })
+}
+
+/**
+ * Calibration data for a given cycle — grouped by reviewer (manager).
+ */
+export async function getCalibrationData(
+  userId: string,
+  orgId: string,
+  cycleId: string
+): Promise<CalibrationData> {
+  return dbAs(userId, async (tx) => {
+    const reviews = await tx.performanceReview.findMany({
+      where: {
+        orgId,
+        cycleId,
+        status: 'PUBLISHED',
+        reviewerId: { not: null },
+        overallScore: { not: null },
+      },
+      select: {
+        overallScore: true,
+        reviewerId: true,
+        reviewer: { select: { firstName: true, lastName: true } },
+      },
+    })
+
+    if (reviews.length === 0) {
+      return { byManager: [], orgAverage: 0 }
+    }
+
+    const orgAverage =
+      Math.round(
+        (reviews.reduce((sum, r) => sum + r.overallScore!, 0) / reviews.length) * 10
+      ) / 10
+
+    // Group by reviewer
+    const grouped = new Map<
+      string,
+      { name: string; scores: number[] }
+    >()
+    for (const r of reviews) {
+      const rid = r.reviewerId!
+      if (!grouped.has(rid)) {
+        grouped.set(rid, {
+          name: `${r.reviewer!.firstName} ${r.reviewer!.lastName}`,
+          scores: [],
+        })
+      }
+      grouped.get(rid)!.scores.push(r.overallScore!)
+    }
+
+    const byManager: CalibrationManager[] = Array.from(grouped.entries()).map(
+      ([reviewerId, { name, scores }]) => ({
+        reviewerId,
+        reviewerName: name,
+        avgScore: Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10,
+        reviewCount: scores.length,
+      })
+    )
+
+    byManager.sort((a, b) => b.avgScore - a.avgScore)
+
+    return { byManager, orgAverage }
   })
 }
 

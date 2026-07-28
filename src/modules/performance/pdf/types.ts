@@ -16,6 +16,7 @@ export interface ReviewEmployeeData {
   selfAssessment: string | null
   reviewerName: string | null
   publishedAt: Date | null
+  acknowledgedAt?: Date | null
   competencyScores: Array<{
     competency: string
     score: number

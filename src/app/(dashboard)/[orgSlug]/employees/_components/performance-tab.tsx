@@ -3,8 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/core/ui'
-import { getRatingLabel } from '@/modules/performance/labels'
-import { submitSelfAssessment } from '@/modules/performance/actions'
+import { getRatingLabel, scoreVariant } from '@/modules/performance/labels'
+import { submitSelfAssessment, acknowledgeReview } from '@/modules/performance/actions'
+import { LineChart } from '@/core/ui/charts/line-chart'
+import { DonutChart } from '@/core/ui/charts/donut-chart'
+import { BarChart } from '@/core/ui/charts/bar-chart'
 import type { ReviewItem, AutoMetrics } from '@/modules/performance/queries'
 import type { ReviewComplexity } from '@/modules/performance/settings'
 
@@ -14,13 +17,7 @@ interface PerformanceTabProps {
   reviewHistory: ReviewItem[]
   autoMetrics: AutoMetrics | null
   reviewComplexity: ReviewComplexity
-}
-
-function scoreVariant(score: number | null): 'danger' | 'warning' | 'success' | 'neutral' {
-  if (score == null) return 'neutral'
-  if (score <= 2) return 'danger'
-  if (score === 3) return 'warning'
-  return 'success'
+  isOwnProfile?: boolean
 }
 
 const COMPETENCY_LABELS: Record<string, string> = {
@@ -36,10 +33,12 @@ export function PerformanceTab({
   orgSlug,
   reviewHistory,
   autoMetrics,
+  isOwnProfile = false,
 }: PerformanceTabProps) {
   const router = useRouter()
   const [selfText, setSelfText] = useState('')
   const [saving, setSaving] = useState(false)
+  const [acknowledging, setAcknowledging] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Find a pending/submitted review for self-assessment
@@ -63,6 +62,26 @@ export function PerformanceTab({
     setSaving(false)
   }
 
+  const handleAcknowledge = async (reviewId: string) => {
+    setAcknowledging(reviewId)
+    const result = await acknowledgeReview(orgSlug, reviewId)
+    if (result.success) {
+      router.refresh()
+    } else {
+      setError(result.error ?? 'Failed to acknowledge review.')
+    }
+    setAcknowledging(null)
+  }
+
+  // Trend chart data: published reviews sorted by cycle start date
+  const trendData = publishedReviews
+    .filter((r) => r.overallScore != null && r.cycleStartDate != null)
+    .sort((a, b) => new Date(a.cycleStartDate!).getTime() - new Date(b.cycleStartDate!).getTime())
+    .map((r) => ({
+      cycle: r.cycleName ?? '',
+      score: r.overallScore!,
+    }))
+
   return (
     <div className="space-y-6">
       {/* Auto-metrics scorecard */}
@@ -72,39 +91,83 @@ export function PerformanceTab({
             <CardTitle>Performance Metrics (Current Cycle)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <MetricTile
-                label="Attendance"
-                value={`${autoMetrics.attendanceReliability}%`}
-                sublabel={`${autoMetrics.daysPresent} / ${autoMetrics.expectedWorkdays} days`}
-              />
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {/* Attendance donut */}
+              <div>
+                <DonutChart
+                  data={[
+                    { name: 'Present', value: autoMetrics.daysPresent },
+                    { name: 'Absent', value: Math.max(0, autoMetrics.expectedWorkdays - autoMetrics.daysPresent) },
+                  ]}
+                  height={120}
+                  innerRadius={32}
+                  outerRadius={48}
+                  showLegend={false}
+                  label="Attendance"
+                  labelValue={`${autoMetrics.attendanceReliability}%`}
+                />
+              </div>
+
+              {/* Hours bar chart */}
+              <div>
+                <BarChart
+                  data={[
+                    {
+                      category: 'Hours',
+                      regular: Math.round((autoMetrics.totalHoursWorked - autoMetrics.overtimeHours) * 10) / 10,
+                      overtime: autoMetrics.overtimeHours,
+                    },
+                  ]}
+                  xKey="category"
+                  series={[
+                    { dataKey: 'regular', name: 'Regular Hours' },
+                    { dataKey: 'overtime', name: 'Overtime Hours' },
+                  ]}
+                  height={120}
+                  showGrid={false}
+                  showLegend
+                  stacked
+                />
+              </div>
+
+              {/* Late arrivals — plain stat tile */}
               <MetricTile
                 label="Late Arrivals"
                 value={String(autoMetrics.lateArrivals)}
                 sublabel="this cycle"
               />
+
+              {/* Leave taken — plain stat tile */}
               <MetricTile
                 label="Leave Taken"
                 value={`${autoMetrics.leaveDaysTaken} days`}
                 sublabel="approved leave"
-              />
-              <MetricTile
-                label="Hours Worked"
-                value={`${autoMetrics.totalHoursWorked}h`}
-                sublabel="total tracked"
-              />
-              <MetricTile
-                label="Overtime"
-                value={`${autoMetrics.overtimeHours}h`}
-                sublabel="beyond standard"
               />
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* Trend chart — only show with 2+ published reviews */}
+      {trendData.length >= 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Score Trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <LineChart
+              data={trendData}
+              xKey="cycle"
+              series={[{ dataKey: 'score', name: 'Overall Score' }]}
+              height={200}
+              yAxisFormatter={(v) => String(v)}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Self-assessment (own profile only, when cycle is open) */}
-      {selfAssessmentReview && (
+      {selfAssessmentReview && isOwnProfile && (
         <Card>
           <CardHeader>
             <CardTitle>Self-Assessment</CardTitle>
@@ -161,6 +224,9 @@ export function PerformanceTab({
                       <span className="text-[13px] font-medium text-text">
                         {getRatingLabel(review.overallScore)}
                       </span>
+                      {review.cycleName && (
+                        <span className="text-[11px] text-text-subtle">{review.cycleName}</span>
+                      )}
                     </div>
                     <div className="text-right">
                       {review.reviewerFirstName && (
@@ -210,6 +276,31 @@ export function PerformanceTab({
                       <p className="text-[13px] text-text">{review.goals}</p>
                     </div>
                   )}
+
+                  {/* Acknowledgment */}
+                  <div className="pt-1">
+                    {isOwnProfile && !review.acknowledgedAt ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleAcknowledge(review.id)}
+                        disabled={acknowledging === review.id}
+                      >
+                        {acknowledging === review.id ? 'Acknowledging…' : 'Acknowledge'}
+                      </Button>
+                    ) : review.acknowledgedAt ? (
+                      <p className="text-[11px] text-text-muted">
+                        Acknowledged on{' '}
+                        {new Intl.DateTimeFormat('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        }).format(new Date(review.acknowledgedAt))}
+                      </p>
+                    ) : (
+                      <Badge variant="neutral">Not yet acknowledged</Badge>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/core/ui'
 import { submitReview, publishReview } from '@/modules/performance/actions'
 import { getRatingLabel } from '@/modules/performance/labels'
+import { DonutChart } from '@/core/ui/charts/donut-chart'
+import { BarChart } from '@/core/ui/charts/bar-chart'
 import type { ReviewItem, AutoMetrics } from '@/modules/performance/queries'
 import type { ReviewComplexity } from '@/modules/performance/settings'
 import type { PerformanceCompetency } from '@prisma/client'
@@ -115,43 +117,7 @@ export function ReviewQueue({
                   <form onSubmit={handleSubmit} className="ml-4 space-y-3 rounded-lg border border-border p-4">
                     {/* Auto-metrics scorecard */}
                     {autoMetricsMap[review.employeeId] && (
-                      <div className="mb-3 rounded-lg bg-surface-hover p-3">
-                        <p className="text-[11px] font-medium text-text-muted mb-2">
-                          Performance Metrics (this cycle)
-                        </p>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          <div>
-                            <p className="text-[14px] font-bold text-text">
-                              {autoMetricsMap[review.employeeId].attendanceReliability}%
-                            </p>
-                            <p className="text-[10px] text-text-muted">Attendance</p>
-                          </div>
-                          <div>
-                            <p className="text-[14px] font-bold text-text">
-                              {autoMetricsMap[review.employeeId].lateArrivals}
-                            </p>
-                            <p className="text-[10px] text-text-muted">Late Arrivals</p>
-                          </div>
-                          <div>
-                            <p className="text-[14px] font-bold text-text">
-                              {autoMetricsMap[review.employeeId].leaveDaysTaken} days
-                            </p>
-                            <p className="text-[10px] text-text-muted">Leave Taken</p>
-                          </div>
-                          <div>
-                            <p className="text-[14px] font-bold text-text">
-                              {autoMetricsMap[review.employeeId].totalHoursWorked}h
-                            </p>
-                            <p className="text-[10px] text-text-muted">Hours Worked</p>
-                          </div>
-                          <div>
-                            <p className="text-[14px] font-bold text-text">
-                              {autoMetricsMap[review.employeeId].overtimeHours}h
-                            </p>
-                            <p className="text-[10px] text-text-muted">Overtime</p>
-                          </div>
-                        </div>
-                      </div>
+                      <AutoMetricsCard metrics={autoMetricsMap[review.employeeId]} />
                     )}
 
                     {complexity === 'simple' ? (
@@ -292,6 +258,11 @@ export function ReviewQueue({
                   <span className="text-[11px] text-text-muted">
                     Score: {review.overallScore}/5
                   </span>
+                  {review.acknowledgedAt ? (
+                    <Badge variant="success">Acknowledged</Badge>
+                  ) : (
+                    <Badge variant="neutral">Awaiting acknowledgment</Badge>
+                  )}
                 </div>
               </div>
             ))}
@@ -303,5 +274,67 @@ export function ReviewQueue({
         )}
       </CardContent>
     </Card>
+  )
+}
+
+/** Compact auto-metrics card with mini charts + stat tiles. */
+function AutoMetricsCard({ metrics }: { metrics: AutoMetrics }) {
+  return (
+    <div className="mb-3 rounded-lg bg-surface-hover p-3">
+      <p className="text-[11px] font-medium text-text-muted mb-2">
+        Performance Metrics (this cycle)
+      </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Attendance donut */}
+        <div>
+          <DonutChart
+            data={[
+              { name: 'Present', value: metrics.daysPresent },
+              { name: 'Absent', value: Math.max(0, metrics.expectedWorkdays - metrics.daysPresent) },
+            ]}
+            height={100}
+            innerRadius={24}
+            outerRadius={38}
+            showLegend={false}
+            label="Attendance"
+            labelValue={`${metrics.attendanceReliability}%`}
+          />
+        </div>
+
+        {/* Hours bar chart */}
+        <div>
+          <BarChart
+            data={[
+              {
+                category: 'Hours',
+                regular: Math.round((metrics.totalHoursWorked - metrics.overtimeHours) * 10) / 10,
+                overtime: metrics.overtimeHours,
+              },
+            ]}
+            xKey="category"
+            series={[
+              { dataKey: 'regular', name: 'Regular' },
+              { dataKey: 'overtime', name: 'OT' },
+            ]}
+            height={100}
+            showGrid={false}
+            showLegend
+            stacked
+          />
+        </div>
+
+        {/* Late arrivals — stat tile */}
+        <div className="flex flex-col justify-center">
+          <p className="text-[14px] font-bold text-text">{metrics.lateArrivals}</p>
+          <p className="text-[10px] text-text-muted">Late Arrivals</p>
+        </div>
+
+        {/* Leave taken — stat tile */}
+        <div className="flex flex-col justify-center">
+          <p className="text-[14px] font-bold text-text">{metrics.leaveDaysTaken} days</p>
+          <p className="text-[10px] text-text-muted">Leave Taken</p>
+        </div>
+      </div>
+    </div>
   )
 }

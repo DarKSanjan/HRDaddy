@@ -87,10 +87,11 @@ export default async function EmployeeProfilePage({
   let reviewHistory: Awaited<ReturnType<typeof getEmployeeReviewHistory>> = []
   let autoMetrics: Awaited<ReturnType<typeof getPerformanceAutoMetrics>> | null = null
   let reviewComplexity: 'simple' | 'advanced' = 'simple'
+  let isOwnProfile = false
 
   if (performanceEnabled) {
     const callerEmployeeId = await getEmployeeIdForUser(org.id, session.userId)
-    const isOwnProfile = callerEmployeeId === employeeId
+    isOwnProfile = callerEmployeeId === employeeId
     const canViewAll = hasPermission(membership.role, enabledModules, 'performance.review.view_all')
     const isManager = employee.manager?.id === callerEmployeeId
 
@@ -155,6 +156,7 @@ export default async function EmployeeProfilePage({
         reviewHistory={reviewHistory}
         autoMetrics={autoMetrics}
         reviewComplexity={reviewComplexity}
+        isOwnProfile={isOwnProfile}
       />
     </div>
   )

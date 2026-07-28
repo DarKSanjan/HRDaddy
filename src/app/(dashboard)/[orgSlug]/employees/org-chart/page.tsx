@@ -23,7 +23,7 @@ export default async function OrgChartPage({
     notFound()
   }
 
-  const tree = await getOrgChart(session.userId, org.id)
+  const tree = await getOrgChart(session.userId, org.id, enabledModules)
 
   return (
     <div className="space-y-6">

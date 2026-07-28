@@ -31,6 +31,8 @@ model PerformanceReview {
   status           PerformanceReviewStatus @default(PENDING)
   submittedAt      DateTime? @map("submitted_at")
   publishedAt      DateTime? @map("published_at")
+  acknowledgedAt   DateTime? @map("acknowledged_at")
+  reminderSentAt   DateTime? @map("reminder_sent_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 

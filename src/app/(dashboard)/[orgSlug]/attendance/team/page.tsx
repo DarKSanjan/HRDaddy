@@ -6,10 +6,12 @@ import {
   getTeamAttendanceOverview,
   getOrgAttendanceOverview,
 } from '@/modules/attendance/queries'
+import { getLatestClosedCycleId, getCycleReviews } from '@/modules/performance/queries'
 import { TeamAttendanceTable } from './_components/team-attendance-table'
 import { AttendanceHeadcountDonut } from './_components/attendance-headcount-donut'
 import { LateArrivalsBar } from './_components/late-arrivals-bar'
 import { OvertimeHoursBar } from './_components/overtime-hours-bar'
+import { TeamPerformanceBar } from './_components/team-performance-bar'
 import { Users } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -52,6 +54,27 @@ export default async function TeamAttendancePage({
     overview = await getOrgAttendanceOverview(session.userId, org.id, month, year)
   }
 
+  // Team performance data (only if performance module is enabled)
+  let teamPerformanceData: Array<{ employeeName: string; overallScore: number }> = []
+  if (enabledModules.includes('performance')) {
+    const closedCycleId = await getLatestClosedCycleId(session.userId, org.id)
+    if (closedCycleId) {
+      const filterByManager = role === 'MANAGER' ? employeeId : null
+      const reviews = await getCycleReviews(
+        session.userId,
+        org.id,
+        closedCycleId,
+        filterByManager
+      )
+      teamPerformanceData = reviews
+        .filter((r) => r.status === 'PUBLISHED' && r.overallScore != null)
+        .map((r) => ({
+          employeeName: `${r.employeeFirstName} ${r.employeeLastName}`,
+          overallScore: r.overallScore!,
+        }))
+    }
+  }
+
   const scopeLabel = role === 'MANAGER' ? 'Team' : 'Organisation'
 
   return (
@@ -76,6 +99,11 @@ export default async function TeamAttendancePage({
           <LateArrivalsBar employees={overview} />
           <OvertimeHoursBar employees={overview} />
         </div>
+      )}
+
+      {/* Team performance */}
+      {teamPerformanceData.length > 0 && (
+        <TeamPerformanceBar data={teamPerformanceData} />
       )}
 
       {/* Table */}

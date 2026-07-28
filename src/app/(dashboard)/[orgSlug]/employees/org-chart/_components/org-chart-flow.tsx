@@ -15,6 +15,7 @@ import {
 } from '@xyflow/react'
 import dagre from 'dagre'
 import { useRouter } from 'next/navigation'
+import { scoreVariant } from '@/modules/performance/labels'
 import '@xyflow/react/dist/style.css'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ interface OrgChartNode {
   lastName: string
   jobTitle: string | null
   department: string | null
+  avgTeamScore: number | null
   directReports: OrgChartNode[]
 }
 
@@ -34,8 +36,16 @@ interface EmployeeNodeData {
   jobTitle: string | null
   department: string | null
   directReportCount: number
+  avgTeamScore: number | null
   orgSlug: string
   [key: string]: unknown
+}
+
+const TEAM_SCORE_BADGE_CLASSES: Record<ReturnType<typeof scoreVariant>, string> = {
+  success: 'bg-success/10 text-success',
+  warning: 'bg-warning/10 text-warning',
+  danger: 'bg-danger/10 text-danger',
+  neutral: 'bg-surface-hover text-text-muted',
 }
 
 // ── Layout helpers ──────────────────────────────────────────────────────────
@@ -95,6 +105,7 @@ function flattenTree(
         jobTitle: node.jobTitle,
         department: node.department,
         directReportCount: node.directReports.length,
+        avgTeamScore: node.avgTeamScore,
         orgSlug,
       },
     })
@@ -191,6 +202,18 @@ function EmployeeNode({ data, id }: NodeProps<Node<EmployeeNodeData>>) {
           <p className="truncate text-[11px] text-text-subtle">{data.department}</p>
         )}
       </div>
+
+      {/* Team score badge */}
+      {data.avgTeamScore != null && (
+        <div
+          className={`
+            flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium
+            ${TEAM_SCORE_BADGE_CLASSES[scoreVariant(data.avgTeamScore)]}
+          `}
+        >
+          ★ {data.avgTeamScore}
+        </div>
+      )}
 
       <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-none !w-0 !h-0" />
 

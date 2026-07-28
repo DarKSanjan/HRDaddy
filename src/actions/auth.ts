@@ -2,7 +2,6 @@
 
 /**
  * Auth actions — thin wrappers around Supabase Auth.
- * The signup wizard (M2) will replace this with a multi-step flow.
  */
 
 import { redirect } from 'next/navigation'
@@ -33,7 +32,6 @@ export async function signIn(
     return { error: 'Invalid email or password' }
   }
 
-  // TODO(M2) Redirect to the user's first org dashboard
   redirect('/')
 }
 
@@ -62,7 +60,6 @@ export async function signUp(
     return { error: error.message }
   }
 
-  // TODO(M2) Full signup wizard with email verification, org creation, etc.
   redirect('/sign-in')
 }
 

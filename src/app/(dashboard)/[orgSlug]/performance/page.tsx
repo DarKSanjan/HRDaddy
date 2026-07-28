@@ -4,10 +4,11 @@ import { hasPermission } from '@/core/permissions'
 import { Breadcrumb } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { getReviewComplexity } from '@/modules/performance/settings'
-import { listCycles, getCycleReviews, getPerformanceAutoMetrics } from '@/modules/performance/queries'
+import { listCycles, getCycleReviews, getPerformanceAutoMetrics, getCalibrationData } from '@/modules/performance/queries'
 import type { AutoMetrics } from '@/modules/performance/queries'
 import { CycleManager } from './_components/cycle-manager'
 import { ReviewQueue } from './_components/review-queue'
+import { CalibrationSection } from './_components/calibration-section'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,6 +65,24 @@ export default async function PerformancePage({
     autoMetricsMap = Object.fromEntries(metricsEntries)
   }
 
+  // Calibration: fetch for the most recent CLOSED cycle (or active if no closed cycle)
+  let calibrationData: Awaited<ReturnType<typeof getCalibrationData>> | null = null
+  let calibrationCycleName: string | null = null
+
+  if (canManageCycles) {
+    // Use the latest closed cycle, or fallback to active cycle
+    const closedCycle = cycles.find((c) => c.status === 'CLOSED')
+    const calibrationCycle = closedCycle ?? activeCycle
+    if (calibrationCycle) {
+      calibrationData = await getCalibrationData(
+        session.userId,
+        org.id,
+        calibrationCycle.id
+      )
+      calibrationCycleName = calibrationCycle.name
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'Performance' }]} />
@@ -94,6 +113,13 @@ export default async function PerformancePage({
           complexity={complexity}
           canPublish={canManageCycles}
           autoMetricsMap={autoMetricsMap}
+        />
+      )}
+
+      {canManageCycles && calibrationData && calibrationCycleName && (
+        <CalibrationSection
+          data={calibrationData}
+          cycleName={calibrationCycleName}
         />
       )}
 

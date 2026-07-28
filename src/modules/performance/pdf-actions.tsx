@@ -97,6 +97,7 @@ export async function downloadCyclePdf(
           ? `${r.reviewer.firstName} ${r.reviewer.lastName}`
           : null,
         publishedAt: r.publishedAt,
+        acknowledgedAt: r.acknowledgedAt,
         competencyScores: r.competencyScores.map((cs) => ({
           competency: cs.competency,
           score: cs.score,
@@ -253,6 +254,7 @@ export async function downloadEmployeeCyclePdf(
       ? `${review.reviewer.firstName} ${review.reviewer.lastName}`
       : null,
     publishedAt: review.publishedAt,
+    acknowledgedAt: review.acknowledgedAt,
     competencyScores: review.competencyScores.map((cs) => ({
       competency: cs.competency,
       score: cs.score,

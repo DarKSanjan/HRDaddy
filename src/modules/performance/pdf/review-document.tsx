@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import type { ReviewPdfData, ReviewEmployeeData } from './types'
+import { PdfBarChart } from './pdf-charts'
 
 // Read the real logo PNG once at module load (server-only file)
 const logoBuffer = fs.readFileSync(path.join(process.cwd(), 'public/logo.png'))
@@ -204,14 +205,12 @@ function SummaryPage({ data }: { data: ReviewPdfData }) {
 
       {/* Score Distribution */}
       <Text style={{ ...styles.sectionTitle, marginTop: 20 }}>Score Distribution</Text>
-      {[5, 4, 3, 2, 1].map((score) => (
-        <View key={score} style={styles.row}>
-          <Text style={styles.rowLabel}>
-            {score} — {RATING_LABELS[score]}
-          </Text>
-          <Text style={styles.rowValue}>{summary.distribution[score] ?? 0} employees</Text>
-        </View>
-      ))}
+      <PdfBarChart
+        data={[5, 4, 3, 2, 1].map((score) => ({
+          label: `${score} — ${RATING_LABELS[score]}`,
+          value: summary.distribution[score] ?? 0,
+        }))}
+      />
 
       {/* Aggregate attendance/leave/OT metrics */}
       <View style={styles.metricsSection}>
@@ -326,12 +325,13 @@ function EmployeePage({ employee, data }: { employee: ReviewEmployeeData; data: 
       {employee.competencyScores.length > 0 && (
         <View>
           <Text style={styles.sectionTitle}>Competency Breakdown</Text>
-          {employee.competencyScores.map((cs) => (
-            <View key={cs.competency} style={styles.row}>
-              <Text style={styles.rowLabel}>{COMPETENCY_LABELS[cs.competency] ?? cs.competency}</Text>
-              <Text style={styles.rowValue}>{cs.score}/5</Text>
-            </View>
-          ))}
+          <PdfBarChart
+            data={employee.competencyScores.map((cs) => ({
+              label: COMPETENCY_LABELS[cs.competency] ?? cs.competency,
+              value: cs.score,
+            }))}
+            maxValue={5}
+          />
         </View>
       )}
 
@@ -387,6 +387,16 @@ function EmployeePage({ employee, data }: { employee: ReviewEmployeeData; data: 
           <Text style={styles.textContent}>{employee.selfAssessment}</Text>
         </View>
       )}
+
+      {/* Acknowledgment status */}
+      <View style={{ marginTop: 12 }}>
+        <Text style={{ fontSize: 8, color: '#666666' }}>
+          Acknowledged by employee:{' '}
+          {employee.acknowledgedAt
+            ? `Yes, ${formatDate(employee.acknowledgedAt)}`
+            : 'Not yet acknowledged'}
+        </Text>
+      </View>
 
       {/* Footer */}
       <View style={styles.footer}>

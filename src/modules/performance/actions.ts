@@ -12,6 +12,7 @@ import { getOrgContext, requirePermission } from '@/core/auth'
 import { writeAudit } from '@/core/audit'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { dbAs } from '@/core/db'
+import { getNotificationAdapter } from '@/core/notifications'
 import { getReviewComplexity } from './settings'
 import { computeOverallScore, canSubmitReviewAs } from './utils'
 import type { PerformanceCompetency } from '@prisma/client'
@@ -112,14 +113,28 @@ export async function openCycle(
     const cycle = await tx.performanceCycle.findFirst({
       where: { id: cycleId, orgId: org.id },
     })
-    if (!cycle) return { error: 'Cycle not found.' }
-    if (cycle.status !== 'DRAFT') return { error: 'Only DRAFT cycles can be opened.' }
+    if (!cycle) return { error: 'Cycle not found.', cycle: null }
+    if (cycle.status !== 'DRAFT') return { error: 'Only DRAFT cycles can be opened.', cycle: null }
 
     await tx.performanceCycle.update({
       where: { id: cycleId },
       data: { status: 'ACTIVE' },
     })
-    return { error: null }
+
+    // Fetch pending reviews grouped by manager for notification
+    const pendingReviews = await tx.performanceReview.findMany({
+      where: { cycleId, orgId: org.id, status: 'PENDING' },
+      select: {
+        employee: {
+          select: {
+            managerId: true,
+            manager: { select: { userId: true } },
+          },
+        },
+      },
+    })
+
+    return { error: null, cycle, pendingReviews }
   })
 
   if (result.error) return { success: false, error: result.error }
@@ -132,6 +147,33 @@ export async function openCycle(
     targetId: cycleId,
     after: { status: 'ACTIVE' },
   })
+
+  // Send one notification per manager about their pending reviews
+  if (result.pendingReviews && result.cycle) {
+    const managerCounts = new Map<string, number>()
+    for (const r of result.pendingReviews) {
+      const managerUserId = r.employee.manager?.userId
+      if (!managerUserId) continue
+      managerCounts.set(managerUserId, (managerCounts.get(managerUserId) ?? 0) + 1)
+    }
+
+    const notifier = getNotificationAdapter()
+    const endFormatted = new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(result.cycle.endDate)
+
+    for (const [managerUserId, count] of managerCounts) {
+      await notifier.send({
+        orgId: org.id,
+        userId: managerUserId,
+        title: 'Performance reviews to complete',
+        message: `You have ${count} performance review${count === 1 ? '' : 's'} to complete for ${result.cycle.name}, due by ${endFormatted}.`,
+        link: `/${orgSlug}/performance`,
+      })
+    }
+  }
 
   revalidatePath(`/${orgSlug}/performance`)
   return { success: true }
@@ -378,6 +420,57 @@ export async function submitSelfAssessment(
     targetType: 'performance_review',
     targetId: reviewId,
     after: { selfAssessment: text.substring(0, 100) },
+  })
+
+  revalidatePath(`/${orgSlug}/employees/${callerEmployeeId}`)
+  return { success: true }
+}
+
+// ─────────────────────────────────────────────
+// Acknowledge review
+// ─────────────────────────────────────────────
+
+export async function acknowledgeReview(
+  orgSlug: string,
+  reviewId: string
+): Promise<ActionResult> {
+  const { org } = await getOrgContext(orgSlug)
+  const { userId } = await requirePermission(org.id, 'performance.review.view_own')
+
+  const callerEmployeeId = await getEmployeeIdForUser(org.id, userId)
+  if (!callerEmployeeId) {
+    return { success: false, error: 'No employee record found.' }
+  }
+
+  const result = await dbAs(userId, async (tx) => {
+    const review = await tx.performanceReview.findFirst({
+      where: { id: reviewId, orgId: org.id, employeeId: callerEmployeeId },
+    })
+    if (!review) return { error: 'Review not found or not yours.' }
+    if (review.status !== 'PUBLISHED') {
+      return { error: 'Only published reviews can be acknowledged.' }
+    }
+    if (review.acknowledgedAt) {
+      // Idempotent — already acknowledged
+      return { error: null }
+    }
+
+    await tx.performanceReview.update({
+      where: { id: reviewId },
+      data: { acknowledgedAt: new Date() },
+    })
+    return { error: null }
+  })
+
+  if (result.error) return { success: false, error: result.error }
+
+  await writeAudit({
+    orgId: org.id,
+    actorId: userId,
+    action: 'performance.review.acknowledge',
+    targetType: 'performance_review',
+    targetId: reviewId,
+    after: { acknowledgedAt: new Date().toISOString() },
   })
 
   revalidatePath(`/${orgSlug}/employees/${callerEmployeeId}`)

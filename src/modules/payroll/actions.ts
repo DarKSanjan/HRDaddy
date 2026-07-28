@@ -521,7 +521,33 @@ export async function publishPayroll(
         records: {
           include: {
             employee: {
-              select: { firstName: true, lastName: true },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                shiftTemplate: {
+                  select: {
+                    startMinutes: true,
+                    endMinutes: true,
+                    standardMinutesPerDay: true,
+                    overtimeMultiplier: true,
+                    restDayMultiplier: true,
+                  },
+                },
+                employmentType: {
+                  select: {
+                    defaultShiftTemplate: {
+                      select: {
+                        startMinutes: true,
+                        endMinutes: true,
+                        standardMinutesPerDay: true,
+                        overtimeMultiplier: true,
+                        restDayMultiplier: true,
+                      },
+                    },
+                  },
+                },
+              },
             },
             lineItems: true,
           },
@@ -540,6 +566,15 @@ export async function publishPayroll(
       select: { name: true },
     })
 
+    // Load org settings for OT computation
+    const orgSettings = await tx.organisationSettings.findUnique({
+      where: { orgId: org.id },
+    })
+    const workingDays: number[] = (orgSettings?.workingDays as number[]) ?? [1, 2, 3, 4, 5]
+    const workingHoursStart = orgSettings?.workingHoursStart ?? '09:00'
+    const workingHoursEnd = orgSettings?.workingHoursEnd ?? '17:00'
+    const timezone = (orgSettings?.timezone as string) ?? 'UTC'
+
     for (const record of period.records) {
       const allowances = record.lineItems
         .filter((li) => li.type === 'ALLOWANCE')
@@ -556,6 +591,59 @@ export async function publishPayroll(
       const overtimeItems = record.lineItems.filter((li) => li.type === 'OVERTIME')
       const overtimePayCents = overtimeItems.reduce((sum, li) => sum + li.amountCents, 0)
 
+      // Compute actual overtime hours from attendance
+      const shift = resolveShift({
+        employeeShift: record.employee.shiftTemplate
+          ? {
+              startMinutes: record.employee.shiftTemplate.startMinutes,
+              endMinutes: record.employee.shiftTemplate.endMinutes,
+              standardMinutesPerDay: record.employee.shiftTemplate.standardMinutesPerDay,
+              overtimeMultiplier: Number(record.employee.shiftTemplate.overtimeMultiplier),
+              restDayMultiplier: Number(record.employee.shiftTemplate.restDayMultiplier),
+            }
+          : null,
+        employmentTypeShift: record.employee.employmentType?.defaultShiftTemplate
+          ? {
+              startMinutes: record.employee.employmentType.defaultShiftTemplate.startMinutes,
+              endMinutes: record.employee.employmentType.defaultShiftTemplate.endMinutes,
+              standardMinutesPerDay: record.employee.employmentType.defaultShiftTemplate.standardMinutesPerDay,
+              overtimeMultiplier: Number(record.employee.employmentType.defaultShiftTemplate.overtimeMultiplier),
+              restDayMultiplier: Number(record.employee.employmentType.defaultShiftTemplate.restDayMultiplier),
+            }
+          : null,
+        orgWorkingHoursStart: workingHoursStart,
+        orgWorkingHoursEnd: workingHoursEnd,
+      })
+
+      const attendanceRecords = await tx.attendanceRecord.findMany({
+        where: {
+          orgId: org.id,
+          employeeId: record.employee.id,
+          date: { gte: period.startDate, lte: period.endDate },
+          status: { in: ['CLOSED', 'CORRECTED'] },
+        },
+        select: { clockIn: true, clockOut: true, durationMinutes: true, date: true },
+      })
+
+      let totalOvertimeMinutes = 0
+      for (const att of attendanceRecords) {
+        const metrics = computeShiftMetrics({
+          shift,
+          clockIn: att.clockIn,
+          clockOut: att.clockOut,
+          durationMinutes: att.durationMinutes,
+          dayOfWeek: att.date.getDay(),
+          workingDays,
+          timezone,
+        })
+        if (metrics.isRestDay) {
+          totalOvertimeMinutes += att.durationMinutes ?? 0
+        } else {
+          totalOvertimeMinutes += metrics.overtimeMinutes
+        }
+      }
+      const overtimeHours = Math.round((totalOvertimeMinutes / 60) * 10) / 10
+
       const payslipData = {
         employerName: orgData?.name ?? '',
         employeeName: `${record.employee.firstName} ${record.employee.lastName}`,
@@ -566,7 +654,7 @@ export async function publishPayroll(
         allowances,
         additionalPayments,
         deductions,
-        overtimeHours: 0, // TODO M13: derive from attendance once dashboard ships
+        overtimeHours,
         overtimePayCents,
         overtimePeriodStart: null,
         overtimePeriodEnd: null,
