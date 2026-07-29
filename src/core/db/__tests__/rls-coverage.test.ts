@@ -34,6 +34,9 @@ const TENANT_OWNED_TABLES = [
   'payroll_line_items',
   'notifications',
   'audit_logs',
+  'shift_templates',
+  'performance_cycles',
+  'performance_reviews',
 ]
 
 /**
@@ -47,8 +50,10 @@ const NON_ORG_SCOPED_TABLES = ['organisations', 'users', 'org_setup_progress']
  * Tables reachable through PostgREST that carry no org_id and so were missed by
  * the first pass. onboarding_template_tasks is keyed only by template_id and
  * was flagged by the Supabase security advisor; it is scoped via its parent.
+ * performance_competency_scores is keyed only by review_id — same shape,
+ * scoped via performance_reviews.org_id.
  */
-const INDIRECTLY_SCOPED_TABLES = ['onboarding_template_tasks']
+const INDIRECTLY_SCOPED_TABLES = ['onboarding_template_tasks', 'performance_competency_scores']
 
 /**
  * Reads every migration, not just the first. Policies added in later migrations
