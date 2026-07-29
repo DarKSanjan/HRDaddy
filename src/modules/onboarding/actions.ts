@@ -27,7 +27,6 @@ import { getHolidaysForRange } from '@/core/calendar/holidays-sg'
 import {
   calculateWorkingDayDueDate,
   resolveOnboardingAssignee,
-  recomputeOnboardingDueDates,
 } from '@/core/onboarding'
 import {
   createTemplateSchema,
@@ -49,9 +48,6 @@ export interface ActionResult {
   fieldErrors?: Record<string, string>
   data?: unknown
 }
-
-// Re-exports for use by tests and other consumers
-export { calculateWorkingDayDueDate as calculateDueDate, recomputeOnboardingDueDates as recomputeDueDates } from '@/core/onboarding'
 
 // ─────────────────────────────────────────────
 // Template CRUD

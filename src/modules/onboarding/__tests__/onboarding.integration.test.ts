@@ -156,7 +156,7 @@ describe.runIf(RUN)('onboarding — integration (live database)', () => {
       },
     })
 
-    const { calculateDueDate } = await import('@/modules/onboarding/actions')
+    const { calculateWorkingDayDueDate: calculateDueDate } = await import('@/core/onboarding')
 
     const startDate = new Date('2026-08-04') // Monday
     const holidays = [{ date: '2026-08-09', name: 'National Day' }]
@@ -181,7 +181,7 @@ describe.runIf(RUN)('onboarding — integration (live database)', () => {
 
   it('recomputes due dates when start date changes for incomplete tasks only', async () => {
     const { dbAdmin } = await import('@/core/db/admin')
-    const { recomputeDueDates } = await import('@/modules/onboarding/actions')
+    const { recomputeOnboardingDueDates: recomputeDueDates } = await import('@/core/onboarding')
 
     // Assign onboarding
     const ob = await dbAdmin.employeeOnboarding.create({
@@ -253,7 +253,7 @@ describe.runIf(RUN)('onboarding — integration (live database)', () => {
 
   it('resolves MANAGER assignee to HR admin when employee has no manager', async () => {
     const { dbAdmin } = await import('@/core/db/admin')
-    const { calculateDueDate } = await import('@/modules/onboarding/actions')
+    const { calculateWorkingDayDueDate: calculateDueDate } = await import('@/core/onboarding')
 
     // We test the resolveAssignee logic indirectly by creating an onboarding
     // for the no-manager employee and checking the assigned person
