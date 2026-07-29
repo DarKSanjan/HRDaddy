@@ -80,7 +80,7 @@ function AppShell({
 
         {/* Mobile nav hamburger in header is handled separately */}
         <div className="md:hidden absolute top-3 left-3 z-40">
-          <MobileNav orgSlug={orgSlug} orgName={orgName} navEntries={navEntries} />
+          <MobileNav orgSlug={orgSlug} orgName={orgName} navEntries={navEntries} canManageSettings={canManageSettings} />
         </div>
 
         <main className="flex-1 overflow-y-auto bg-bg-subtle p-4 md:p-6">

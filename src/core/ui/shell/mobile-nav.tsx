@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NavEntry } from '@/core/modules'
 
@@ -11,6 +11,7 @@ interface MobileNavProps {
   orgSlug: string
   orgName: string
   navEntries: NavEntry[]
+  canManageSettings?: boolean
 }
 
 /**
@@ -18,7 +19,7 @@ interface MobileNavProps {
  * Shown below md breakpoint.
  * Uses key-based remount to close on route change.
  */
-function MobileNav({ orgSlug, orgName, navEntries }: MobileNavProps) {
+function MobileNav({ orgSlug, orgName, navEntries, canManageSettings }: MobileNavProps) {
   const pathname = usePathname()
 
   // Remount inner state on path change by using pathname as key
@@ -28,6 +29,7 @@ function MobileNav({ orgSlug, orgName, navEntries }: MobileNavProps) {
       orgSlug={orgSlug}
       orgName={orgName}
       navEntries={navEntries}
+      canManageSettings={canManageSettings}
       pathname={pathname}
     />
   )
@@ -37,6 +39,7 @@ function MobileNavInner({
   orgSlug,
   orgName,
   navEntries,
+  canManageSettings,
   pathname,
 }: MobileNavProps & { pathname: string }) {
   const [open, setOpen] = React.useState(false)
@@ -131,6 +134,23 @@ function MobileNavInner({
                     </li>
                   )
                 })}
+                {canManageSettings && (
+                  <li>
+                    <Link
+                      href={`/${orgSlug}/settings`}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-[14px] font-medium transition-colors min-h-[44px]',
+                        pathname.startsWith(`/${orgSlug}/settings`)
+                          ? 'bg-accent-50 text-accent-700'
+                          : 'text-text-muted hover:bg-surface-hover hover:text-text'
+                      )}
+                      aria-current={pathname.startsWith(`/${orgSlug}/settings`) ? 'page' : undefined}
+                    >
+                      <Settings className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      Settings
+                    </Link>
+                  </li>
+                )}
               </ul>
             </nav>
           </div>
