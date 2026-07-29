@@ -24,6 +24,8 @@ export interface FileEntry {
   mimeType?: string
   fileSize?: number
   createdAt?: Date
+  /** Whether this document is archived */
+  isArchived?: boolean
   /** For payroll "files": the recordId for PDF generation */
   recordId?: string
   /** Whether this is a virtual on-demand PDF */
@@ -135,13 +137,15 @@ export async function getDocumentsForCategory(
   orgId: string,
   employeeId: string,
   categoryId: string,
-  excludeSensitive: boolean
+  excludeSensitive: boolean,
+  showArchived: boolean = false
 ): Promise<FileEntry[]> {
   // Use the shared listDocuments query
   const { listDocuments } = await import('./queries')
   const { documents } = await listDocuments(userId, orgId, {
     employeeId,
     categoryId,
+    showArchived,
     pageSize: 1000,
   }, { excludeSensitive })
 
@@ -152,6 +156,7 @@ export async function getDocumentsForCategory(
     mimeType: d.mimeType,
     fileSize: d.fileSize,
     createdAt: d.createdAt,
+    isArchived: d.isArchived,
   }))
 }
 

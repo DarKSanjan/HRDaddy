@@ -38,6 +38,7 @@ export default async function DocumentsPage({
   moduleGuard('documents', enabledModules)
 
   const canViewAll = hasPermission(membership.role, enabledModules, 'document.view_all')
+  const canUpload = hasPermission(membership.role, enabledModules, 'document.upload')
   const canViewPayrollAll = hasPermission(membership.role, enabledModules, 'payroll.view_all')
   const canViewPerformanceAll = hasPermission(membership.role, enabledModules, 'performance.review.view_all')
 
@@ -60,6 +61,7 @@ export default async function DocumentsPage({
   let basePath = ''
   let payrollPeriodId: string | null = null
   let performanceCycleId: string | null = null
+  let fileContext: { employeeId: string; categoryId: string; canUpload: boolean; canDelete: boolean } | undefined
 
   if (segments.length === 0) {
     // Root: show Employee Documents and module-specific folders
@@ -140,9 +142,16 @@ export default async function DocumentsPage({
           org.id,
           employeeId,
           categoryId,
-          !canViewAll
+          !canViewAll,
+          canViewAll
         )
         basePath = `/employee-documents/${employeeId}/${categoryId}`
+        fileContext = {
+          employeeId,
+          categoryId,
+          canUpload: canUpload,
+          canDelete: canViewAll,
+        }
       }
     }
   } else if (segments[0] === 'payroll') {
@@ -293,6 +302,7 @@ export default async function DocumentsPage({
         entries={entries}
         breadcrumbs={breadcrumbs}
         basePath={basePath}
+        fileContext={fileContext}
       />
     </div>
   )
