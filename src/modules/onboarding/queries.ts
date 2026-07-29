@@ -236,7 +236,11 @@ export async function getMyOnboardingTasks(
         orgId,
         onboarding: { employeeId },
         assigneeType: 'EMPLOYEE',
-        status: { in: ['PENDING', 'IN_PROGRESS'] },
+        // COMPLETED is included so the self-service view can offer Reopen —
+        // hasActiveOnboarding() already gates this whole query to onboardings
+        // that are still NOT_STARTED/IN_PROGRESS, so this can't accumulate a
+        // full history once an onboarding finishes.
+        status: { in: ['PENDING', 'IN_PROGRESS', 'COMPLETED'] },
       },
       select: {
         id: true,
@@ -255,7 +259,16 @@ export async function getMyOnboardingTasks(
       where: {
         orgId,
         assigneeId: employeeId,
-        status: { in: ['PENDING', 'IN_PROGRESS'] },
+        // Excludes EMPLOYEE-type tasks: for those, assigneeId always equals
+        // the onboarding's own employeeId (see resolveOnboardingAssignee),
+        // so without this filter every "Your Tasks" row would also show up
+        // duplicated here under "Assigned to You".
+        assigneeType: { in: ['MANAGER', 'HR'] },
+        // COMPLETED is included so the self-service view can offer Reopen —
+        // hasActiveOnboarding() already gates this whole query to onboardings
+        // that are still NOT_STARTED/IN_PROGRESS, so this can't accumulate a
+        // full history once an onboarding finishes.
+        status: { in: ['PENDING', 'IN_PROGRESS', 'COMPLETED'] },
       },
       select: {
         id: true,

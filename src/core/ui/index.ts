@@ -15,3 +15,13 @@ export { EmptyState, type EmptyStateProps } from './empty-state'
 export { Logo } from './logo'
 export { Breadcrumb, type BreadcrumbItem } from './breadcrumb'
 export { HoverCard, HoverCardTrigger, HoverCardContent } from './hover-card'
+export {
+  Dialog,
+  DialogTrigger,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from './dialog'

@@ -22,7 +22,8 @@ import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { emit } from '@/core/events'
 import { getNotificationAdapter } from '@/core/notifications'
-import { getOrgSettings } from '@/core/employees'
+import { getOrgSettings, getEmployeeIdForUser } from '@/core/employees'
+import { hasPermission } from '@/core/permissions'
 import { getHolidaysForRange } from '@/core/calendar/holidays-sg'
 import {
   calculateWorkingDayDueDate,
@@ -424,7 +425,7 @@ export async function completeTask(
   orgSlug: string,
   input: unknown
 ): Promise<ActionResult> {
-  const { org } = await getOrgContext(orgSlug)
+  const { org, membership, enabledModules } = await getOrgContext(orgSlug)
   const { userId } = await requirePermission(org.id, 'onboarding.complete_task')
 
   const parsed = completeTaskSchema.safeParse(input)
@@ -440,11 +441,23 @@ export async function completeTask(
       select: {
         id: true,
         status: true,
+        assigneeId: true,
         onboardingId: true,
         onboarding: { select: { status: true } },
       },
     })
   })
+
+  // onboarding.complete_task is granted to every role so employees can work
+  // their own checklist — without this, that permission alone would let any
+  // employee complete anyone else's task by taskId. HR/Owner (onboarding.view_all)
+  // retain full oversight, matching what they already see on the admin page.
+  if (!hasPermission(membership.role, enabledModules, 'onboarding.view_all')) {
+    const callerEmployeeId = await getEmployeeIdForUser(org.id, userId)
+    if (!task || task.assigneeId !== callerEmployeeId) {
+      return { success: false, error: 'You can only complete tasks assigned to you.' }
+    }
+  }
 
   if (!task) return { success: false, error: 'Task not found' }
   if (task.status === 'COMPLETED') return { success: false, error: 'Task is already completed' }
@@ -556,12 +569,40 @@ export async function waiveTask(
   return { success: true }
 }
 
+// ─────────────────────────────────────────────
+// Query wrappers (server actions for client use)
+// ─────────────────────────────────────────────
+
+export async function fetchOnboardingDetail(
+  orgSlug: string,
+  onboardingId: string
+) {
+  const { org } = await getOrgContext(orgSlug)
+  const { userId } = await requirePermission(org.id, 'onboarding.view_all')
+  const { getOnboardingDetail } = await import('./queries')
+  return getOnboardingDetail(userId, org.id, onboardingId)
+}
+
+export async function fetchTemplateDetail(
+  orgSlug: string,
+  templateId: string
+) {
+  const { org } = await getOrgContext(orgSlug)
+  const { userId } = await requirePermission(org.id, 'onboarding.template.view')
+  const { getTemplateDetail } = await import('./queries')
+  return getTemplateDetail(userId, org.id, templateId)
+}
+
 export async function reopenTask(
   orgSlug: string,
   input: unknown
 ): Promise<ActionResult> {
-  const { org } = await getOrgContext(orgSlug)
-  const { userId } = await requirePermission(org.id, 'onboarding.template.manage')
+  const { org, membership, enabledModules } = await getOrgContext(orgSlug)
+  // Same tier as completeTask, not onboarding.template.manage — reopening your
+  // own task is the natural undo of completing it, and the M6 spec lists
+  // "complete, reopen, waive" together as part of the self-service checklist.
+  // The ownership check below is what actually keeps this safe.
+  const { userId } = await requirePermission(org.id, 'onboarding.complete_task')
 
   const parsed = reopenTaskSchema.safeParse(input)
   if (!parsed.success) {
@@ -576,11 +617,19 @@ export async function reopenTask(
       select: {
         id: true,
         status: true,
+        assigneeId: true,
         onboardingId: true,
         onboarding: { select: { status: true } },
       },
     })
   })
+
+  if (!hasPermission(membership.role, enabledModules, 'onboarding.view_all')) {
+    const callerEmployeeId = await getEmployeeIdForUser(org.id, userId)
+    if (!task || task.assigneeId !== callerEmployeeId) {
+      return { success: false, error: 'You can only reopen tasks assigned to you.' }
+    }
+  }
 
   if (!task) return { success: false, error: 'Task not found' }
   if (task.status === 'PENDING') return { success: false, error: 'Task is already pending' }

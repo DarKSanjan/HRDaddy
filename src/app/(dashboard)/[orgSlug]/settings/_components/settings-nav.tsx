@@ -15,6 +15,7 @@ const TABS: Array<{ slug: string; label: string; requiresModule?: string }> = [
   { slug: 'shifts', label: 'Shifts', requiresModule: 'employees' },
   { slug: 'payroll', label: 'Payroll', requiresModule: 'payroll' },
   { slug: 'performance', label: 'Performance', requiresModule: 'performance' },
+  { slug: 'onboarding', label: 'Onboarding', requiresModule: 'onboarding' },
 ]
 
 export function SettingsNav({ orgSlug, enabledModules }: SettingsNavProps) {

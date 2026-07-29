@@ -42,6 +42,23 @@ export async function seedOnboarding(
   const aidenId = employeeIdMap.get('aiden.teo@northstarstudios.sg')!
   const meiId = employeeIdMap.get('mei.lin@northstarstudios.sg')!
   const kevinId = employeeIdMap.get('kevin.ng@northstarstudios.sg')!
+  const hrAdminId = employeeIdMap.get('rachel.tan@northstarstudios.sg')!
+
+  /**
+   * Mirrors resolveOnboardingAssignee (src/core/onboarding) so seeded tasks
+   * carry the same assigneeId a real assignOnboarding() call would produce —
+   * without this, every seeded task has assigneeId: null, which fails the
+   * assignee-ownership check on completeTask/reopenTask for every demo user.
+   */
+  function resolveAssigneeId(
+    assigneeType: 'EMPLOYEE' | 'HR' | 'MANAGER',
+    employeeId: string,
+    managerEmail: string
+  ): string {
+    if (assigneeType === 'EMPLOYEE') return employeeId
+    if (assigneeType === 'HR') return hrAdminId
+    return employeeIdMap.get(managerEmail)!
+  }
 
   // 1. Completed onboarding (Kevin - joined Feb 2023)
   const completedOb = await db.employeeOnboarding.create({
@@ -61,6 +78,7 @@ export async function seedOnboarding(
         orgId,
         title: t.title,
         assigneeType: t.assigneeType,
+        assigneeId: resolveAssigneeId(t.assigneeType, kevinId, 'sarah.wong@northstarstudios.sg'),
         status: 'COMPLETED',
         completedAt: new Date('2023-02-15'),
         dueDate: new Date('2023-02-04'),
@@ -90,6 +108,7 @@ export async function seedOnboarding(
         orgId,
         title: t.title,
         assigneeType: t.assigneeType,
+        assigneeId: resolveAssigneeId(t.assigneeType, aidenId, 'daniel.chen@northstarstudios.sg'),
         status: i < 4 ? 'COMPLETED' : 'PENDING', // First 4 done
         completedAt: i < 4 ? new Date('2026-06-20') : undefined,
         dueDate,
@@ -120,6 +139,7 @@ export async function seedOnboarding(
         orgId,
         title: t.title,
         assigneeType: t.assigneeType,
+        assigneeId: resolveAssigneeId(t.assigneeType, meiId, 'jun.nakamura@northstarstudios.sg'),
         status: i < 2 ? 'COMPLETED' : 'PENDING', // Only 2 completed, rest overdue
         completedAt: i < 2 ? new Date('2026-07-02') : undefined,
         dueDate,
