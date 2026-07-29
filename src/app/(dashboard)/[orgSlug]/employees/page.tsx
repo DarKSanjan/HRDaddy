@@ -1,4 +1,4 @@
-import { verifySession, getOrgContext } from '@/core/auth'
+import { verifySession, getOrgContext, retryOnce } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { Breadcrumb, Button, EmptyState } from '@/core/ui'
 import { listEmployees, listDepartments, listEmploymentTypes, listWorkLocations } from '@/modules/employees/queries'
@@ -58,17 +58,13 @@ export default async function EmployeesPage({
       return { employees, total, departments, employmentTypes, locations }
     })
 
-  // Same cold-start reasoning as retryOnce in core/auth/dal.ts: a fresh
-  // Lambda's first connection to the pooler can take longer than a short
-  // retry window, so give it real time to establish rather than a token
-  // 300ms pause.
-  let pageData
-  try {
-    pageData = await fetchEmployeesPageData()
-  } catch {
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    pageData = await fetchEmployeesPageData()
-  }
+  // Reuses retryOnce's cold-start backoff (150/400/1000ms + a final try)
+  // instead of a hand-rolled single retry — same underlying cause as every
+  // other cold-Lambda-connection fix in core/auth/dal.ts, so it gets the
+  // same tuned schedule rather than a one-off guess at the right delay.
+  // This batch always returns a populated object or throws, so there's no
+  // "empty result" case to detect — only retry on throw.
+  const pageData = await retryOnce(fetchEmployeesPageData, () => false)
   const { employees, total, departments, employmentTypes, locations } = pageData
 
   const hasFiltersApplied = !!(
