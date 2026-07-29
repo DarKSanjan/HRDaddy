@@ -1,5 +1,6 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
+import { hasPermission } from '@/core/permissions'
 import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
 import { getEmployeeIdForUser, getOrgSettings } from '@/core/employees'
 import {
@@ -26,8 +27,10 @@ export default async function AttendancePage({
   const rawSearchParams = await searchParams
 
   const session = await verifySession()
-  const { org, enabledModules } = await getOrgContext(orgSlug)
+  const { org, enabledModules, membership } = await getOrgContext(orgSlug)
   moduleGuard('attendance', enabledModules)
+
+  const canCorrect = hasPermission(membership.role, enabledModules, 'attendance.correct')
 
   const employeeId = await getEmployeeIdForUser(org.id, session.userId)
   if (!employeeId) {
@@ -112,6 +115,8 @@ export default async function AttendancePage({
             <AttendanceHistoryTable
               records={records}
               timezone={timezone}
+              canCorrect={canCorrect}
+              orgSlug={orgSlug}
             />
           )}
         </CardContent>

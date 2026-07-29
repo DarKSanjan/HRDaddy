@@ -1,8 +1,25 @@
 'use client'
 
-import { Badge } from '@/core/ui'
+import { useActionState } from 'react'
+import { useState } from 'react'
+import {
+  Badge,
+  Button,
+  FormField,
+  Input,
+  Textarea,
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from '@/core/ui'
+import { correctAttendance } from '@/modules/attendance/actions'
+import type { ActionResult } from '@/modules/attendance/actions'
 import type { AttendanceStatus, AttendanceType } from '@prisma/client'
-import { MapPin, Wifi } from 'lucide-react'
+import { MapPin, Wifi, Pencil } from 'lucide-react'
 
 interface AttendanceRecord {
   id: string
@@ -22,6 +39,8 @@ interface AttendanceRecord {
 interface AttendanceHistoryTableProps {
   records: AttendanceRecord[]
   timezone: string
+  canCorrect?: boolean
+  orgSlug?: string
 }
 
 const STATUS_VARIANT: Record<AttendanceStatus, 'default' | 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
@@ -55,7 +74,113 @@ function formatDate(date: Date, timezone: string): string {
   })
 }
 
-export function AttendanceHistoryTable({ records, timezone }: AttendanceHistoryTableProps) {
+/**
+ * Convert a Date to a datetime-local input value string in the given timezone.
+ */
+function toDatetimeLocal(date: Date, timezone: string): string {
+  const localized = new Date(date).toLocaleString('sv-SE', { timeZone: timezone })
+  // sv-SE gives "YYYY-MM-DD HH:MM:SS", convert to "YYYY-MM-DDTHH:MM"
+  return localized.slice(0, 16).replace(' ', 'T')
+}
+
+const initialCorrectionState: ActionResult = { success: false }
+
+function CorrectionDialog({
+  record,
+  timezone,
+  orgSlug,
+}: {
+  record: AttendanceRecord
+  timezone: string
+  orgSlug: string
+}) {
+  const [open, setOpen] = useState(false)
+
+  const [state, formAction, isPending] = useActionState(
+    async (_prev: ActionResult, formData: FormData) => {
+      const result = await correctAttendance(orgSlug, formData)
+      if (result.success) {
+        setOpen(false)
+      }
+      return result
+    },
+    initialCorrectionState
+  )
+
+  const clockInDefault = toDatetimeLocal(record.clockIn, timezone)
+  const clockOutDefault = record.clockOut ? toDatetimeLocal(record.clockOut, timezone) : ''
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-[11px]">
+          <Pencil className="h-3 w-3" />
+          Correct
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Correct Attendance Record</DialogTitle>
+          <DialogDescription>
+            Adjust the clock-in/out times for {formatDate(record.date, timezone)}. A reason is required.
+          </DialogDescription>
+        </DialogHeader>
+        <form action={formAction} className="space-y-4">
+          <input type="hidden" name="recordId" value={record.id} />
+
+          <FormField label="Clock In" htmlFor={`correct-clockIn-${record.id}`} required>
+            <Input
+              type="datetime-local"
+              name="clockIn"
+              id={`correct-clockIn-${record.id}`}
+              defaultValue={clockInDefault}
+              required
+            />
+          </FormField>
+
+          <FormField label="Clock Out" htmlFor={`correct-clockOut-${record.id}`}>
+            <Input
+              type="datetime-local"
+              name="clockOut"
+              id={`correct-clockOut-${record.id}`}
+              defaultValue={clockOutDefault}
+            />
+          </FormField>
+
+          <FormField label="Reason for Correction" htmlFor={`correct-reason-${record.id}`} required>
+            <Textarea
+              name="reason"
+              id={`correct-reason-${record.id}`}
+              placeholder="Explain why this correction is needed"
+              required
+              rows={3}
+            />
+          </FormField>
+
+          {state.error && (
+            <p className="text-[13px] text-danger">{state.error}</p>
+          )}
+          {state.fieldErrors && (
+            <p className="text-[13px] text-danger">
+              {Object.values(state.fieldErrors).join(', ')}
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" loading={isPending}>
+              {isPending ? 'Correcting…' : 'Confirm Correction'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function AttendanceHistoryTable({ records, timezone, canCorrect, orgSlug }: AttendanceHistoryTableProps) {
   return (
     <div className="overflow-hidden rounded-[var(--radius-sm)] border border-border">
       <table className="w-full text-[13px]">
@@ -68,6 +193,9 @@ export function AttendanceHistoryTable({ records, timezone }: AttendanceHistoryT
             <th className="px-3 py-2 text-left font-medium text-text-muted">Shift Metrics</th>
             <th className="px-3 py-2 text-left font-medium text-text-muted">Type</th>
             <th className="px-3 py-2 text-left font-medium text-text-muted">Status</th>
+            {canCorrect && (
+              <th className="px-3 py-2 text-left font-medium text-text-muted">Actions</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -135,6 +263,11 @@ export function AttendanceHistoryTable({ records, timezone }: AttendanceHistoryT
                   </span>
                 )}
               </td>
+              {canCorrect && orgSlug && (
+                <td className="px-3 py-2">
+                  <CorrectionDialog record={record} timezone={timezone} orgSlug={orgSlug} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
