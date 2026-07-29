@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   Users,
   Building2,
+  Calendar,
   CalendarDays,
   Clock,
   FileText,
@@ -32,6 +33,7 @@ const iconMap: Record<string, LucideIcon> = {
   LayoutDashboard,
   Users,
   Building2,
+  Calendar,
   CalendarDays,
   Clock,
   FileText,
@@ -208,6 +210,7 @@ function NavItemWithChildren({ entry, orgSlug, pathname, collapsed }: NavItemPro
                   )}
                   aria-current={active ? 'page' : undefined}
                 >
+                  <NavIcon name={child.icon} className="h-3.5 w-3.5 shrink-0" />
                   {child.label}
                 </Link>
               )
@@ -294,6 +297,7 @@ function NavItemWithChildren({ entry, orgSlug, pathname, collapsed }: NavItemPro
                   )}
                   aria-current={active ? 'page' : undefined}
                 >
+                  <NavIcon name={child.icon} className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{child.label}</span>
                 </Link>
               </li>
