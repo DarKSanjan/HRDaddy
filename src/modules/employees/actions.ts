@@ -205,8 +205,44 @@ export async function updateEmployee(
     }
   }
 
+  // managerId is validated by the schema but was never copied into updateData
+  // below — the Manager field on the edit form submitted successfully and
+  // silently changed nothing. Same manager-exists + cycle-detection checks
+  // as assignManager, since this is the same mutation reachable two ways.
+  if (input.managerId !== undefined && input.managerId !== before.managerId) {
+    if (input.managerId) {
+      const managerExists = await dbAs(userId, async (tx) => {
+        return tx.employee.findFirst({
+          where: { id: input.managerId, orgId: org.id },
+          select: { id: true },
+        })
+      })
+      if (!managerExists) {
+        return { success: false, fieldErrors: { managerId: 'Manager not found' } }
+      }
+
+      const hasCycle = await wouldCreateCycle(
+        employeeId,
+        input.managerId,
+        async (id: string) => {
+          const emp = await dbAs(userId, async (tx) => {
+            return tx.employee.findFirst({
+              where: { id, orgId: org.id },
+              select: { managerId: true },
+            })
+          })
+          return emp?.managerId ?? null
+        }
+      )
+      if (hasCycle) {
+        return { success: false, fieldErrors: { managerId: 'This would create a circular reporting relationship' } }
+      }
+    }
+  }
+
   // Build update data — only include fields that were provided
   const updateData: Record<string, unknown> = {}
+  if (input.managerId !== undefined) updateData.managerId = input.managerId || null
   if (input.firstName !== undefined) updateData.firstName = input.firstName
   if (input.lastName !== undefined) updateData.lastName = input.lastName
   if (input.workEmail !== undefined) updateData.workEmail = input.workEmail
