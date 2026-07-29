@@ -42,10 +42,10 @@ test.describe('Leave request and approval', () => {
     const reason = `E2E test — ${date.inputValue}`
 
     // Marcus Lee (EMPLOYEE, reports to Daniel Chen) submits a request.
-    // Sick Leave rather than Annual Leave: this test's own submission
-    // permanently consumes one day of balance once approved (no self-service
-    // cancel/withdraw is wired up anywhere in the UI yet — see the follow-up
-    // task on that), and Sick Leave starts with a much larger allocation.
+    // Sick Leave rather than Annual Leave: it starts with a larger
+    // allocation, giving more headroom before the self-cancel step below
+    // (added specifically to keep repeat local runs from exhausting the
+    // jitter pool) actually executes.
     await signIn(page, 'employee')
     await page.goto('/northstar-studios/leave/request')
     await page.getByLabel('Leave Type').selectOption({ label: 'Sick Leave' })
@@ -55,8 +55,13 @@ test.describe('Leave request and approval', () => {
     await page.getByRole('button', { name: 'Submit Request' }).click()
 
     await expect(page).toHaveURL(/\/leave$/)
-    const myRequestRow = page.getByRole('row', { name: new RegExp(date.display) })
-    await expect(myRequestRow).toBeVisible()
+    // The table sorts by createdAt desc, so the request just submitted is
+    // always the first data row — matching by date text is ambiguous once
+    // enough runs accumulate history that shares the same jitter-drawn date
+    // (an old cancelled request doesn't block a new one on the same date,
+    // so two rows can legitimately show the same date).
+    const myRequestRow = page.locator('table tbody tr').first()
+    await expect(myRequestRow).toContainText(date.display)
     await expect(myRequestRow.getByText('PENDING')).toBeVisible()
 
     // Daniel Chen (MANAGER, Marcus's manager) approves it.
@@ -72,10 +77,21 @@ test.describe('Leave request and approval', () => {
     await approvalRow.getByRole('button', { name: 'Confirm Approval' }).click()
     await expect(page.getByText(reason)).not.toBeVisible()
 
-    // Marcus Lee sees the request reflect as approved.
+    // Marcus Lee sees the request reflect as approved. Still the first row —
+    // approving doesn't change createdAt, so sort order is unaffected.
     await signIn(page, 'employee')
     await page.goto('/northstar-studios/leave')
-    const approvedRow = page.getByRole('row', { name: new RegExp(date.display) })
+    const approvedRow = page.locator('table tbody tr').first()
+    await expect(approvedRow).toContainText(date.display)
     await expect(approvedRow.getByText('APPROVED')).toBeVisible()
+
+    // Self-cleanup: cancel the request (it hasn't started yet, so Cancel is
+    // available) to release the date and restore the balance for future runs
+    // — otherwise every successful run permanently shrinks the jitter pool
+    // futureWeekday() draws from, and repeat runs eventually collide.
+    await approvedRow.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByPlaceholder('Reason for cancellation (required)').fill('E2E test cleanup')
+    await page.getByRole('button', { name: 'Confirm Cancellation' }).click()
+    await expect(approvedRow.getByText('CANCELLED')).toBeVisible()
   })
 })
