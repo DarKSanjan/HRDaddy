@@ -1,7 +1,7 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { Breadcrumb, Button, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
-import { getEmployeeIdForUser } from '@/core/employees'
+import { getEmployeeIdForUser, getOrgSettings } from '@/core/employees'
 import { getEmployeeBalances, listOwnLeaveRequests } from '@/modules/leave/queries'
 import { leaveListParamsSchema } from '@/modules/leave/schemas'
 import { LeaveRequestTable } from './_components/leave-request-table'
@@ -46,11 +46,13 @@ export default async function LeavePage({
   })
   const validParams = listParams.success ? listParams.data : { page: 1, pageSize: 20 }
 
-  const [balances, { requests, total }] = await Promise.all([
+  const [balances, { requests, total }, settings] = await Promise.all([
     getEmployeeBalances(session.userId, org.id, employeeId),
     listOwnLeaveRequests(session.userId, org.id, employeeId, validParams),
+    getOrgSettings(org.id),
   ])
 
+  const orgTimezone = settings?.timezone ?? 'UTC'
   const currentPage = validParams.page
   const pageSize = validParams.pageSize
   const totalPages = Math.ceil(total / pageSize)
@@ -90,6 +92,7 @@ export default async function LeavePage({
               totalPages={totalPages}
               pageSize={pageSize}
               orgSlug={orgSlug}
+              orgTimezone={orgTimezone}
               showEmployee={false}
             />
           )}

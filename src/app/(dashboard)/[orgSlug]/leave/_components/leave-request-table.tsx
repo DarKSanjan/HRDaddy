@@ -1,9 +1,15 @@
 'use client'
 
+import { useActionState, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge, Button } from '@/core/ui'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { withdrawLeaveRequest, cancelLeaveRequest } from '@/modules/leave/actions'
+import type { ActionResult } from '@/modules/leave/actions'
 import type { LeaveRequestStatus } from '@prisma/client'
+import { toOrgDate } from '@/core/calendar'
+import { TZDate } from '@date-fns/tz'
+import { isBefore } from 'date-fns'
 
 interface LeaveRequest {
   id: string
@@ -29,6 +35,7 @@ interface LeaveRequestTableProps {
   totalPages: number
   pageSize: number
   orgSlug: string
+  orgTimezone: string
   showEmployee?: boolean
 }
 
@@ -49,6 +56,209 @@ function formatDate(date: Date): string {
   })
 }
 
+/**
+ * Check if the leave start date is strictly after today in the org timezone.
+ * Used to determine if an approved leave can still be cancelled.
+ */
+function leaveHasNotStarted(startDate: Date, timezone: string): boolean {
+  const today = new TZDate(Date.now(), timezone)
+  const todayStart = new TZDate(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+    0,
+    0,
+    0,
+    0,
+    timezone
+  )
+  const leaveStart = toOrgDate(startDate, timezone)
+  // Leave hasn't started if its start date is after today (i.e. today is before leaveStart)
+  return isBefore(todayStart, leaveStart)
+}
+
+const initialState: ActionResult = { success: false }
+
+// ─────────────────────────────────────────────
+// Withdraw action row (PENDING requests)
+// ─────────────────────────────────────────────
+
+function WithdrawAction({ requestId, orgSlug }: { requestId: string; orgSlug: string }) {
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  const [state, formAction, isPending] = useActionState(
+    async (_prev: ActionResult, formData: FormData) => {
+      return withdrawLeaveRequest(orgSlug, formData)
+    },
+    initialState
+  )
+
+  if (state.error) {
+    return (
+      <div className="text-[12px] text-danger">{state.error}</div>
+    )
+  }
+
+  if (!showConfirm) {
+    return (
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => setShowConfirm(true)}
+      >
+        Withdraw
+      </Button>
+    )
+  }
+
+  return (
+    <form action={formAction} className="flex items-center gap-2">
+      <input type="hidden" name="requestId" value={requestId} />
+      <Button type="submit" variant="danger" size="sm" loading={isPending}>
+        Confirm Withdraw
+      </Button>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => setShowConfirm(false)}
+      >
+        Cancel
+      </Button>
+    </form>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Cancel action row (APPROVED requests not yet started)
+// ─────────────────────────────────────────────
+
+function CancelAction({ requestId, orgSlug }: { requestId: string; orgSlug: string }) {
+  const [showForm, setShowForm] = useState(false)
+  const [reason, setReason] = useState('')
+
+  const [state, formAction, isPending] = useActionState(
+    async (_prev: ActionResult, formData: FormData) => {
+      return cancelLeaveRequest(orgSlug, formData)
+    },
+    initialState
+  )
+
+  if (state.error) {
+    return (
+      <div className="text-[12px] text-danger">{state.error}</div>
+    )
+  }
+
+  if (!showForm) {
+    return (
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => setShowForm(true)}
+      >
+        Cancel
+      </Button>
+    )
+  }
+
+  return (
+    <form action={formAction} className="mt-2 space-y-2">
+      <input type="hidden" name="requestId" value={requestId} />
+      <textarea
+        name="reason"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="Reason for cancellation (required)"
+        required
+        rows={2}
+        className="w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-[13px] text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+      />
+      <div className="flex gap-2">
+        <Button type="submit" variant="danger" size="sm" loading={isPending}>
+          Confirm Cancellation
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            setShowForm(false)
+            setReason('')
+          }}
+        >
+          Back
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Table row
+// ─────────────────────────────────────────────
+
+function LeaveRequestRow({
+  request,
+  orgSlug,
+  orgTimezone,
+  showEmployee,
+}: {
+  request: LeaveRequest
+  orgSlug: string
+  orgTimezone: string
+  showEmployee: boolean
+}) {
+  const showWithdraw = request.status === 'PENDING'
+  const showCancel =
+    request.status === 'APPROVED' && leaveHasNotStarted(request.startDate, orgTimezone)
+
+  return (
+    <tr className="border-b border-border last:border-b-0 hover:bg-surface-hover transition-colors">
+      {showEmployee && (
+        <td className="px-3 py-2 font-medium text-text">
+          {request.employeeFirstName} {request.employeeLastName}
+        </td>
+      )}
+      <td className="px-3 py-2">
+        <span className="text-text">{request.leaveTypeName}</span>
+      </td>
+      <td className="px-3 py-2 text-text-muted">
+        {formatDate(request.startDate)}
+        {request.startDate !== request.endDate && (
+          <> — {formatDate(request.endDate)}</>
+        )}
+        {request.isHalfDay && (
+          <span className="ml-1 text-[11px]">({request.halfDayPeriod})</span>
+        )}
+      </td>
+      <td className="px-3 py-2 text-text-muted">{request.totalDays}</td>
+      <td className="px-3 py-2">
+        <Badge variant={STATUS_VARIANT[request.status]}>
+          {request.status}
+        </Badge>
+      </td>
+      <td className="px-3 py-2 text-text-muted">
+        {formatDate(request.createdAt)}
+      </td>
+      <td className="px-3 py-2">
+        {showWithdraw && (
+          <WithdrawAction requestId={request.id} orgSlug={orgSlug} />
+        )}
+        {showCancel && (
+          <CancelAction requestId={request.id} orgSlug={orgSlug} />
+        )}
+      </td>
+    </tr>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Main table
+// ─────────────────────────────────────────────
+
 export function LeaveRequestTable({
   requests,
   total,
@@ -56,9 +266,16 @@ export function LeaveRequestTable({
   totalPages,
   pageSize,
   orgSlug,
+  orgTimezone,
   showEmployee = false,
 }: LeaveRequestTableProps) {
   const router = useRouter()
+
+  const hasActions = requests.some(
+    (r) =>
+      r.status === 'PENDING' ||
+      (r.status === 'APPROVED' && leaveHasNotStarted(r.startDate, orgTimezone))
+  )
 
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(window.location.search)
@@ -80,41 +297,20 @@ export function LeaveRequestTable({
               <th className="px-3 py-2 text-left font-medium text-text-muted">Days</th>
               <th className="px-3 py-2 text-left font-medium text-text-muted">Status</th>
               <th className="px-3 py-2 text-left font-medium text-text-muted">Submitted</th>
+              {hasActions && (
+                <th className="px-3 py-2 text-left font-medium text-text-muted">Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {requests.map((request) => (
-              <tr
+              <LeaveRequestRow
                 key={request.id}
-                className="border-b border-border last:border-b-0 hover:bg-surface-hover transition-colors"
-              >
-                {showEmployee && (
-                  <td className="px-3 py-2 font-medium text-text">
-                    {request.employeeFirstName} {request.employeeLastName}
-                  </td>
-                )}
-                <td className="px-3 py-2">
-                  <span className="text-text">{request.leaveTypeName}</span>
-                </td>
-                <td className="px-3 py-2 text-text-muted">
-                  {formatDate(request.startDate)}
-                  {request.startDate !== request.endDate && (
-                    <> — {formatDate(request.endDate)}</>
-                  )}
-                  {request.isHalfDay && (
-                    <span className="ml-1 text-[11px]">({request.halfDayPeriod})</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-text-muted">{request.totalDays}</td>
-                <td className="px-3 py-2">
-                  <Badge variant={STATUS_VARIANT[request.status]}>
-                    {request.status}
-                  </Badge>
-                </td>
-                <td className="px-3 py-2 text-text-muted">
-                  {formatDate(request.createdAt)}
-                </td>
-              </tr>
+                request={request}
+                orgSlug={orgSlug}
+                orgTimezone={orgTimezone}
+                showEmployee={showEmployee}
+              />
             ))}
           </tbody>
         </table>
