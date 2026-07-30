@@ -142,20 +142,22 @@ export async function getEnabledModules(orgId: string): Promise<ModuleManifest[]
 
 /**
  * Resolve nav entries filtered by permission and enabled state.
+ * Iterates the registry (Map insertion order = import order in register.ts)
+ * so sidebar ordering is deterministic and controlled by register.ts,
+ * regardless of the order enabledModules arrives in from the DB.
  */
 export function resolveNav(
   role: OrgRole,
   enabledModules: string[]
 ): NavEntry[] {
+  const enabledSet = new Set(enabledModules)
   const userPermissions = resolvePermissions(role, enabledModules)
   const entries: NavEntry[] = []
 
-  for (const moduleId of enabledModules) {
-    const manifest = manifests.get(moduleId)
-    if (!manifest) continue
+  for (const manifest of manifests.values()) {
+    if (!enabledSet.has(manifest.id)) continue
     for (const nav of manifest.nav) {
       if (!nav.permission || userPermissions.has(nav.permission)) {
-        // Filter children by permission as well
         const children = nav.children
           ?.filter((child) => !child.permission || userPermissions.has(child.permission))
         entries.push(children && children.length > 0 ? { ...nav, children } : { ...nav, children: undefined })

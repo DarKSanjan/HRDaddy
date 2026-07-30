@@ -1,7 +1,7 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { hasPermission } from '@/core/permissions'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { listCategories } from '@/modules/documents/queries'
 import { SettingsNav } from '../_components/settings-nav'
 import { CategoryManager } from './_components/category-manager'
@@ -31,20 +31,16 @@ export default async function DocumentsSettingsPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
+      <PageHeader
+        breadcrumbItems={[
           { label: 'Settings', href: `/${orgSlug}/settings` },
           { label: 'Documents' },
         ]}
+        title="Document Categories"
+        subtitle="Manage document categories for organising employee files. Categories flagged as sensitive require elevated permissions to access."
       />
 
       <SettingsNav orgSlug={orgSlug} enabledModules={enabledModules} />
-
-      <h1 className="text-[20px] font-bold text-text">Document Categories</h1>
-      <p className="text-[13px] text-text-muted">
-        Manage document categories for organising employee files. Categories flagged as sensitive
-        require elevated permissions to access.
-      </p>
 
       <CategoryManager
         orgSlug={orgSlug}

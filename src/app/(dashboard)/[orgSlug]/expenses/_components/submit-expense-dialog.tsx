@@ -13,6 +13,7 @@ import {
   DialogFooter,
   FormField,
   Input,
+  Select,
 } from '@/core/ui'
 import { submitExpenseClaim, uploadExpenseReceipt } from '@/modules/expenses/actions'
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from '@/modules/documents/schemas'
@@ -120,10 +121,9 @@ export function SubmitExpenseDialog({ orgSlug, categories, defaultCurrency }: Su
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <FormField label="Category" htmlFor="categoryId" error={fieldErrors.categoryId}>
-              <select
+              <Select
                 id="categoryId"
                 name="categoryId"
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text"
                 required
               >
                 <option value="">Select a category</option>
@@ -132,7 +132,7 @@ export function SubmitExpenseDialog({ orgSlug, categories, defaultCurrency }: Su
                     {cat.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
 
             <FormField label="Amount" htmlFor="amount" error={fieldErrors.amountCents}>
@@ -167,7 +167,6 @@ export function SubmitExpenseDialog({ orgSlug, categories, defaultCurrency }: Su
                 id="description"
                 name="description"
                 rows={3}
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text"
                 placeholder="Describe the expense..."
                 required
               />

@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Card, CardContent, CardHeader, CardTitle, FormField, Input } from '@/core/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, FormField, Input, Select } from '@/core/ui'
 import { submitLeaveRequest } from '@/modules/leave/actions'
 import type { ActionResult } from '@/modules/leave/actions'
 
@@ -47,11 +47,10 @@ export function LeaveRequestForm({ orgSlug, leaveTypes }: LeaveRequestFormProps)
           )}
 
           <FormField label="Leave Type" htmlFor="leaveTypeId" error={state.fieldErrors?.leaveTypeId}>
-            <select
+            <Select
               id="leaveTypeId"
               name="leaveTypeId"
               required
-              className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text focus:outline-none focus:ring-2 focus:ring-accent-500"
             >
               <option value="">Select leave type</option>
               {leaveTypes.map((type) => (
@@ -59,7 +58,7 @@ export function LeaveRequestForm({ orgSlug, leaveTypes }: LeaveRequestFormProps)
                   {type.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </FormField>
 
           <div className="grid grid-cols-2 gap-4">
@@ -76,13 +75,12 @@ export function LeaveRequestForm({ orgSlug, leaveTypes }: LeaveRequestFormProps)
               <input type="checkbox" name="isHalfDay" value="true" className="rounded" />
               Half day
             </label>
-            <select
+            <Select
               name="halfDayPeriod"
-              className="h-8 rounded-[var(--radius-sm)] border border-border bg-surface px-2 text-[12px] text-text"
             >
               <option value="AM">Morning (AM)</option>
               <option value="PM">Afternoon (PM)</option>
-            </select>
+            </Select>
           </div>
 
           <FormField label="Reason (optional)" htmlFor="reason" error={state.fieldErrors?.reason}>

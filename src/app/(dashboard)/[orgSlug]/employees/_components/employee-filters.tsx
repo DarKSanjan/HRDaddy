@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Input, Button } from '@/core/ui'
+import { Input, Button, Select } from '@/core/ui'
 import { Search, X } from 'lucide-react'
 import type { EmployeeListParams } from '@/modules/employees/schemas'
 
@@ -93,10 +93,10 @@ export function EmployeeFilters({
         </div>
 
         {/* Department filter */}
-        <select
+        <Select
           value={currentParams.departmentId ?? ''}
           onChange={(e) => updateParams({ departmentId: e.target.value || undefined })}
-          className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
+          className="w-auto"
           aria-label="Filter by department"
         >
           <option value="">All Departments</option>
@@ -105,13 +105,13 @@ export function EmployeeFilters({
               {d.name}
             </option>
           ))}
-        </select>
+        </Select>
 
         {/* Status filter */}
-        <select
+        <Select
           value={currentParams.status ?? ''}
           onChange={(e) => updateParams({ status: e.target.value || undefined })}
-          className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
+          className="w-auto"
           aria-label="Filter by status"
         >
           <option value="">All Statuses</option>
@@ -120,13 +120,13 @@ export function EmployeeFilters({
               {s.label}
             </option>
           ))}
-        </select>
+        </Select>
 
         {/* Employment type filter */}
-        <select
+        <Select
           value={currentParams.employmentTypeId ?? ''}
           onChange={(e) => updateParams({ employmentTypeId: e.target.value || undefined })}
-          className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
+          className="w-auto"
           aria-label="Filter by employment type"
         >
           <option value="">All Types</option>
@@ -135,13 +135,13 @@ export function EmployeeFilters({
               {t.name}
             </option>
           ))}
-        </select>
+        </Select>
 
         {/* Location filter */}
-        <select
+        <Select
           value={currentParams.locationId ?? ''}
           onChange={(e) => updateParams({ locationId: e.target.value || undefined })}
-          className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
+          className="w-auto"
           aria-label="Filter by location"
         >
           <option value="">All Locations</option>
@@ -150,7 +150,7 @@ export function EmployeeFilters({
               {l.name}
             </option>
           ))}
-        </select>
+        </Select>
 
         {/* Clear filters */}
         {hasFilters && (

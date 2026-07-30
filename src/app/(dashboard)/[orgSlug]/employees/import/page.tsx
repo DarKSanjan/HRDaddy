@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { ImportWizard } from './_components/import-wizard'
 
 export const dynamic = 'force-dynamic'
@@ -19,19 +19,14 @@ export default async function ImportEmployeesPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
+      <PageHeader
+        breadcrumbItems={[
           { label: 'Employees', href: `/${orgSlug}/employees` },
           { label: 'Import' },
         ]}
+        title="Import Employees"
+        subtitle="Upload a CSV file to bulk-import employees into your organisation."
       />
-
-      <div className="space-y-1">
-        <h1 className="text-[20px] font-bold text-text">Import Employees</h1>
-        <p className="text-[13px] text-text-muted">
-          Upload a CSV file to bulk-import employees into your organisation.
-        </p>
-      </div>
 
       <ImportWizard orgSlug={orgSlug} />
     </div>

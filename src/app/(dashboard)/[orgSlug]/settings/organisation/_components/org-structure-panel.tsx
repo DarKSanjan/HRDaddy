@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge } from '@/core/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Badge, Select } from '@/core/ui'
 import {
   createDepartment,
   archiveDepartment,
@@ -419,11 +419,10 @@ function EmploymentTypesSection({
               >
                 Default Shift Template
               </label>
-              <select
+              <Select
                 id="defaultShiftTemplateId"
                 value={newShiftTemplateId}
                 onChange={(e) => setNewShiftTemplateId(e.target.value)}
-                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
               >
                 <option value="">No default shift</option>
                 {shiftTemplates.map((st) => (
@@ -431,7 +430,7 @@ function EmploymentTypesSection({
                     {st.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={handleAdd}>Save</Button>

@@ -2,7 +2,7 @@ import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { hasPermission } from '@/core/permissions'
 import { notFound } from 'next/navigation'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle, Badge } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, Badge, PageHeader } from '@/core/ui'
 import { getAssetDetail, getAssetAssignmentHistory, listActiveAssetCategories } from '@/modules/assets/queries'
 import { AssetAssignmentHistoryTable } from '../_components/asset-assignment-history'
 import { EditAssetDialog } from '../_components/edit-asset-dialog'
@@ -46,26 +46,26 @@ export default async function AssetDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb
-          items={[
-            { label: 'Assets', href: `/${orgSlug}/assets` },
-            { label: 'Register', href: `/${orgSlug}/assets/register` },
-            { label: asset.name },
-          ]}
-        />
-        <div className="flex items-center gap-3">
-          <h1 className="text-[20px] font-bold text-text">{asset.name}</h1>
-          <Badge variant={statusVariant(asset.status)}>{asset.status.replace('_', ' ')}</Badge>
-          {canManage && (
-            <EditAssetDialog
-              orgSlug={orgSlug}
-              asset={JSON.parse(JSON.stringify(asset))}
-              categories={categories}
-            />
-          )}
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbItems={[
+          { label: 'Assets', href: `/${orgSlug}/assets` },
+          { label: 'Register', href: `/${orgSlug}/assets/register` },
+          { label: asset.name },
+        ]}
+        title={asset.name}
+        actions={
+          <>
+            <Badge variant={statusVariant(asset.status)}>{asset.status.replace('_', ' ')}</Badge>
+            {canManage && (
+              <EditAssetDialog
+                orgSlug={orgSlug}
+                asset={JSON.parse(JSON.stringify(asset))}
+                categories={categories}
+              />
+            )}
+          </>
+        }
+      />
 
       <Card>
         <CardHeader>

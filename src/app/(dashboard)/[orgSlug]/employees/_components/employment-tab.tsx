@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useActionState } from 'react'
 import { Pencil, X } from 'lucide-react'
-import { Button, Input, FormField, Card, CardContent, CardHeader, CardTitle, Badge } from '@/core/ui'
+import { Button, Input, FormField, Card, CardContent, CardHeader, CardTitle, Badge, Select } from '@/core/ui'
 import { updateEmployee, type ActionResult } from '@/modules/employees/actions'
 import type { EmployeeProfile } from '@/modules/employees/queries'
 import type { OrgRole } from '@prisma/client'
@@ -105,56 +105,52 @@ export function EmploymentTab({
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FormField label="Department" htmlFor="departmentId">
-                <select
+                <Select
                   id="departmentId"
                   name="departmentId"
                   defaultValue={employee.department?.id ?? ''}
-                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
                 >
                   <option value="">No department</option>
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
-                </select>
+                </Select>
               </FormField>
               <FormField label="Job Title" htmlFor="jobTitleId">
-                <select
+                <Select
                   id="jobTitleId"
                   name="jobTitleId"
                   defaultValue={employee.jobTitle?.id ?? ''}
-                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
                 >
                   <option value="">No job title</option>
                   {jobTitles.map((j) => (
                     <option key={j.id} value={j.id}>{j.name}</option>
                   ))}
-                </select>
+                </Select>
               </FormField>
               <FormField label="Employment Type" htmlFor="employmentTypeId">
-                <select
+                <Select
                   id="employmentTypeId"
                   name="employmentTypeId"
                   defaultValue={employee.employmentType?.id ?? ''}
-                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
                 >
                   <option value="">Not specified</option>
                   {employmentTypes.map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
-                </select>
+                </Select>
               </FormField>
               <FormField label="Location" htmlFor="locationId">
-                <select
+                <Select
                   id="locationId"
                   name="locationId"
                   defaultValue={employee.workLocation?.id ?? ''}
-                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
                 >
                   <option value="">Not specified</option>
                   {locations.map((l) => (
                     <option key={l.id} value={l.id}>{l.name}</option>
                   ))}
-                </select>
+                </Select>
               </FormField>
               <FormField label="Start Date" htmlFor="startDate">
                 <Input
@@ -169,44 +165,41 @@ export function EmploymentTab({
                 />
               </FormField>
               <FormField label="Manager" htmlFor="managerId">
-                <select
+                <Select
                   id="managerId"
                   name="managerId"
                   defaultValue={employee.manager?.id ?? ''}
-                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
                 >
                   <option value="">No manager</option>
                   {managers.filter((m) => m.id !== employee.id).map((m) => (
                     <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>
                   ))}
-                </select>
+                </Select>
               </FormField>
               {!isSimplePayroll && (
               <FormField label="Shift Template" htmlFor="shiftTemplateId">
-                <select
+                <Select
                   id="shiftTemplateId"
                   name="shiftTemplateId"
                   defaultValue={employee.shiftTemplate?.id ?? ''}
-                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
                 >
                   <option value="">No shift template</option>
                   {shiftTemplates.map((st) => (
                     <option key={st.id} value={st.id}>{st.name}</option>
                   ))}
-                </select>
+                </Select>
               </FormField>
               )}
               {!isSimplePayroll && (
               <FormField label="Pay Type" htmlFor="payType">
-                <select
+                <Select
                   id="payType"
                   name="payType"
                   defaultValue={employee.payType ?? 'SALARIED'}
-                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
                 >
                   <option value="SALARIED">Salaried</option>
                   <option value="HOURLY">Hourly</option>
-                </select>
+                </Select>
               </FormField>
               )}
             </div>

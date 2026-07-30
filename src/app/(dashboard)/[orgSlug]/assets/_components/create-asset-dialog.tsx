@@ -13,6 +13,7 @@ import {
   DialogFooter,
   FormField,
   Input,
+  Select,
 } from '@/core/ui'
 import { createAsset } from '@/modules/assets/actions'
 
@@ -106,18 +107,17 @@ export function CreateAssetDialog({ orgSlug, categories }: CreateAssetDialogProp
               />
             </FormField>
             <FormField label="Category" htmlFor="asset-category" error={fieldErrors.categoryId}>
-              <select
+              <Select
                 id="asset-category"
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text"
                 required
               >
                 <option value="">Select category...</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
-              </select>
+              </Select>
             </FormField>
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Purchase Date" htmlFor="asset-purchase-date">

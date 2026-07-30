@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, FormField, Input } from '@/core/ui'
+import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, FormField, Input, Select } from '@/core/ui'
 import {
   assignAsset,
   returnAsset,
@@ -251,11 +251,10 @@ export function AssetRegisterTable({
             {actionType === 'assign' && (
               <>
                 <FormField label="Employee" htmlFor="assign-employee">
-                  <select
+                  <Select
                     id="assign-employee"
                     value={assignEmployeeId}
                     onChange={(e) => setAssignEmployeeId(e.target.value)}
-                    className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text"
                     required
                   >
                     <option value="">Select employee...</option>
@@ -264,7 +263,7 @@ export function AssetRegisterTable({
                         {emp.firstName} {emp.lastName}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </FormField>
                 <FormField label="Condition at Assignment" htmlFor="assign-condition">
                   <Input

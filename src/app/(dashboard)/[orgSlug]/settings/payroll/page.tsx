@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { getPayrollComplexity } from '@/modules/payroll/settings'
 import { PayrollSettingsPanel } from './_components/payroll-settings-panel'
 import { SettingsNav } from '../_components/settings-nav'
@@ -23,19 +23,16 @@ export default async function PayrollSettingsPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
+      <PageHeader
+        breadcrumbItems={[
           { label: 'Settings', href: `/${orgSlug}/settings` },
           { label: 'Payroll' },
         ]}
+        title="Payroll Settings"
+        subtitle="Configure how payroll calculations work for your organisation."
       />
 
       <SettingsNav orgSlug={orgSlug} enabledModules={enabledModules} />
-
-      <h1 className="text-[20px] font-bold text-text">Payroll Settings</h1>
-      <p className="text-[13px] text-text-muted">
-        Configure how payroll calculations work for your organisation.
-      </p>
 
       <PayrollSettingsPanel
         orgSlug={orgSlug}

@@ -1,5 +1,5 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { getOrgBranding } from '@/core/org/queries'
 import { OrgProfilePanel } from './_components/org-profile-panel'
 import { SettingsNav } from '../_components/settings-nav'
@@ -21,19 +21,16 @@ export default async function OrgProfileSettingsPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
+      <PageHeader
+        breadcrumbItems={[
           { label: 'Settings', href: `/${orgSlug}/settings` },
           { label: 'Profile' },
         ]}
+        title="Organisation Profile"
+        subtitle="Manage your organisation&apos;s display name and branding."
       />
 
       <SettingsNav orgSlug={orgSlug} enabledModules={enabledModules} />
-
-      <h1 className="text-[20px] font-bold text-text">Organisation Profile</h1>
-      <p className="text-[13px] text-text-muted">
-        Manage your organisation&apos;s display name and branding.
-      </p>
 
       <OrgProfilePanel
         orgSlug={orgSlug}

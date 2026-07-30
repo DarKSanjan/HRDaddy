@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { listAllAssetRequests } from '@/modules/assets/queries'
 import { assetRequestListParamsSchema } from '@/modules/assets/schemas'
 import { AssetRequestsTable } from './_components/asset-requests-table'
@@ -39,15 +39,13 @@ export default async function AssetRequestsPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb
-          items={[
-            { label: 'Assets', href: `/${orgSlug}/assets` },
-            { label: 'Asset Requests' },
-          ]}
-        />
-        <h1 className="text-[20px] font-bold text-text">Asset Requests</h1>
-      </div>
+      <PageHeader
+        breadcrumbItems={[
+          { label: 'Assets', href: `/${orgSlug}/assets` },
+          { label: 'Asset Requests' },
+        ]}
+        title="Asset Requests"
+      />
 
       <Card>
         <CardHeader>

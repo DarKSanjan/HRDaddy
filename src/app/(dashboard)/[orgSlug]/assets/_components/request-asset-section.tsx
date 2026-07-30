@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
   FormField,
+  Select,
 } from '@/core/ui'
 import { requestAsset, cancelAssetRequest } from '@/modules/assets/actions'
 import type { AssetRequestItem } from '@/modules/assets/queries'
@@ -191,9 +192,8 @@ export function RequestAssetSection({ orgSlug, categories, myRequests }: Request
             )}
 
             <FormField label="Category" htmlFor="request-category" required>
-              <select
+              <Select
                 id="request-category"
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text"
                 value={categoryId}
                 onChange={(e) => handleCategoryChange(e.target.value)}
               >
@@ -203,14 +203,13 @@ export function RequestAssetSection({ orgSlug, categories, myRequests }: Request
                     {cat.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
 
             {categoryId && (
               <FormField label="Specific Asset (optional)" htmlFor="request-asset">
-                <select
+                <Select
                   id="request-asset"
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text"
                   value={requestedAssetId}
                   onChange={(e) => setRequestedAssetId(e.target.value)}
                   disabled={loadingAssets}
@@ -221,7 +220,7 @@ export function RequestAssetSection({ orgSlug, categories, myRequests }: Request
                       {a.name} ({a.assetTag})
                     </option>
                   ))}
-                </select>
+                </Select>
                 {loadingAssets && (
                   <p className="text-[12px] text-text-muted mt-1">Loading available assets...</p>
                 )}

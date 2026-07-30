@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { listMyAssets, listActiveAssetCategories, listMyAssetRequests } from '@/modules/assets/queries'
 import { RequestAssetSection } from './_components/request-asset-section'
@@ -38,10 +38,10 @@ export default async function AssetsPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb items={[{ label: 'Assets' }]} />
-        <h1 className="text-[20px] font-bold text-text">My Assets</h1>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Assets' }]}
+        title="My Assets"
+      />
 
       <Card>
         <CardHeader>

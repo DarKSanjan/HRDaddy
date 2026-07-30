@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Select } from '@/core/ui'
 import { submitReview, publishReview } from '@/modules/performance/actions'
 import { getRatingLabel } from '@/modules/performance/labels'
 import { DonutChart } from '@/core/ui/charts/donut-chart'
@@ -125,17 +125,16 @@ export function ReviewQueue({
                         <label htmlFor="overallScore" className="text-[12px] font-medium text-text-muted">
                           Overall Score (1–5)
                         </label>
-                        <select
+                        <Select
                           id="overallScore"
                           name="overallScore"
-                          className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-accent-500 focus:outline-none"
                           required
                         >
                           <option value="">Select…</option>
                           {[1, 2, 3, 4, 5].map((n) => (
                             <option key={n} value={n}>{n} — {getRatingLabel(n)}</option>
                           ))}
-                        </select>
+                        </Select>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -151,17 +150,16 @@ export function ReviewQueue({
                               >
                                 {comp.label}
                               </label>
-                              <select
+                              <Select
                                 id={`competency_${comp.key}`}
                                 name={`competency_${comp.key}`}
-                                className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-[12px] text-text focus:border-accent-500 focus:outline-none"
                                 required
                               >
                                 <option value="">—</option>
                                 {[1, 2, 3, 4, 5].map((n) => (
                                   <option key={n} value={n}>{n}</option>
                                 ))}
-                              </select>
+                              </Select>
                             </div>
                           ))}
                         </div>
@@ -176,7 +174,6 @@ export function ReviewQueue({
                         id="strengths"
                         name="strengths"
                         rows={2}
-                        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-accent-500 focus:outline-none"
                         placeholder="Key strengths demonstrated this quarter…"
                       />
                     </div>
@@ -189,7 +186,6 @@ export function ReviewQueue({
                         id="improvements"
                         name="improvements"
                         rows={2}
-                        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-accent-500 focus:outline-none"
                         placeholder="Areas where growth is needed…"
                       />
                     </div>
@@ -202,7 +198,6 @@ export function ReviewQueue({
                         id="goals"
                         name="goals"
                         rows={2}
-                        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-text focus:border-accent-500 focus:outline-none"
                         placeholder="Specific goals and expectations…"
                       />
                     </div>

@@ -36,7 +36,9 @@ export async function AssetOverviewWidget(props: WidgetProps) {
     <ChartCard title="Asset Overview">
       <DonutChart
         data={data}
-        height={180}
+        height={160}
+        innerRadius={48}
+        outerRadius={72}
         label="Total"
         labelValue={total}
       />

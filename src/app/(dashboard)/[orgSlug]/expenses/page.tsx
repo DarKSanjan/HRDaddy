@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { getEmployeeIdForUser, getOrgSettings } from '@/core/employees'
 import { listOwnExpenseClaims, listActiveExpenseCategories } from '@/modules/expenses/queries'
 import { expenseListParamsSchema } from '@/modules/expenses/schemas'
@@ -59,17 +59,17 @@ export default async function ExpensesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <Breadcrumb items={[{ label: 'Expenses' }]} />
-          <h1 className="text-[20px] font-bold text-text">Expenses</h1>
-        </div>
-        <SubmitExpenseDialog
-          orgSlug={orgSlug}
-          categories={categories}
-          defaultCurrency={currency}
-        />
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Expenses' }]}
+        title="Expenses"
+        actions={
+          <SubmitExpenseDialog
+            orgSlug={orgSlug}
+            categories={categories}
+            defaultCurrency={currency}
+          />
+        }
+      />
 
       <Card>
         <CardHeader>

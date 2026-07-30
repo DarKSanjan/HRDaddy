@@ -4,6 +4,7 @@
  */
 export { Button, type ButtonProps } from './button'
 export { Input, type InputProps } from './input'
+export { Select, type SelectProps } from './select'
 export { Textarea, type TextareaProps } from './textarea'
 export { Label } from './label'
 export { FormField } from './form-field'
@@ -14,6 +15,7 @@ export { Skeleton } from './skeleton'
 export { EmptyState, type EmptyStateProps } from './empty-state'
 export { Logo } from './logo'
 export { Breadcrumb, type BreadcrumbItem } from './breadcrumb'
+export { PageHeader, type PageHeaderProps } from './page-header'
 export { HoverCard, HoverCardTrigger, HoverCardContent } from './hover-card'
 export {
   Dialog,

@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { listTeamPendingRequests, listAllLeaveRequests } from '@/modules/leave/queries'
 import { leaveListParamsSchema } from '@/modules/leave/schemas'
@@ -35,10 +35,10 @@ export default async function LeaveApprovalsPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb items={[{ label: 'Leave', href: `/${orgSlug}/leave` }, { label: 'Approvals' }]} />
-        <h1 className="text-[20px] font-bold text-text">Leave Approvals</h1>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Leave', href: `/${orgSlug}/leave` }, { label: 'Approvals' }]}
+        title="Leave Approvals"
+      />
 
       <Card>
         <CardHeader>

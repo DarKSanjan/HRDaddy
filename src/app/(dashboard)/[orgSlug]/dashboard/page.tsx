@@ -5,6 +5,7 @@ import { resolveDashboardContext } from '@/core/dashboard/context'
 import { WidgetShell } from '@/core/dashboard/grid'
 import { CustomizableDashboard } from '@/core/dashboard/customizable-dashboard'
 import { getDashboardLayout } from '@/core/dashboard/layout-actions'
+import { PageHeader } from '@/core/ui'
 import '@/modules/register'
 
 export const dynamic = 'force-dynamic'
@@ -71,10 +72,11 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-[20px] font-bold text-text">Dashboard</h1>
-        <p className="text-[13px] text-text-muted">Welcome back, {session.name}</p>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Dashboard' }]}
+        title="Dashboard"
+        subtitle={`Welcome back, ${session.name}`}
+      />
       <CustomizableDashboard
         orgSlug={orgSlug}
         visibleWidgets={visibleWidgets}

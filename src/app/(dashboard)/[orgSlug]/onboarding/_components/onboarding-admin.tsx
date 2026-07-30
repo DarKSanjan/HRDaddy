@@ -17,6 +17,7 @@ import {
   DialogFooter,
   FormField,
   Textarea,
+  Select,
 } from '@/core/ui'
 import {
   assignOnboarding,
@@ -224,11 +225,10 @@ export function OnboardingAdmin({
           </DialogHeader>
           <form onSubmit={handleAssign} className="space-y-4">
             <FormField label="Employee" htmlFor="assign-employee" required>
-              <select
+              <Select
                 id="assign-employee"
                 value={assignEmployeeId}
                 onChange={(e) => setAssignEmployeeId(e.target.value)}
-                className="flex h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-[13px] text-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
                 required
               >
                 <option value="">Select employee…</option>
@@ -237,15 +237,14 @@ export function OnboardingAdmin({
                     {emp.firstName} {emp.lastName}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
 
             <FormField label="Template" htmlFor="assign-template" required>
-              <select
+              <Select
                 id="assign-template"
                 value={assignTemplateId}
                 onChange={(e) => setAssignTemplateId(e.target.value)}
-                className="flex h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-[13px] text-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
                 required
               >
                 <option value="">Select template…</option>
@@ -254,7 +253,7 @@ export function OnboardingAdmin({
                     {t.name} ({t._count.tasks} tasks)
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
 
             {assignError && <p className="text-[12px] text-danger">{assignError}</p>}

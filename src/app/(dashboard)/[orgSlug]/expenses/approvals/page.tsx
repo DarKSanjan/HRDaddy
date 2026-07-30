@@ -1,7 +1,7 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { hasPermission } from '@/core/permissions'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { listTeamPendingExpenseClaims, listAllExpenseClaims } from '@/modules/expenses/queries'
 import { expenseListParamsSchema } from '@/modules/expenses/schemas'
@@ -47,10 +47,10 @@ export default async function ExpenseApprovalsPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb items={[{ label: 'Expenses', href: `/${orgSlug}/expenses` }, { label: 'Approvals' }]} />
-        <h1 className="text-[20px] font-bold text-text">Expense Approvals</h1>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Expenses', href: `/${orgSlug}/expenses` }, { label: 'Approvals' }]}
+        title="Expense Approvals"
+      />
 
       <Card>
         <CardHeader>

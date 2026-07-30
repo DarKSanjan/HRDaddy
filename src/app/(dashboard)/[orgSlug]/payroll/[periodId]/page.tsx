@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle, Button } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button, PageHeader } from '@/core/ui'
 import { getPayrollRecords } from '@/modules/payroll/queries'
 import {
   processPayroll,
@@ -81,15 +81,15 @@ export default async function PayrollPeriodPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb items={[{ label: 'Payroll', href: `/${orgSlug}/payroll` }, { label: period.name }]} />
-        <div className="flex items-center gap-3">
-          <h1 className="text-[20px] font-bold text-text">{period.name}</h1>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Payroll', href: `/${orgSlug}/payroll` }, { label: period.name }]}
+        title={period.name}
+        actions={
           <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${statusBadge(period.status)}`}>
             {period.status.replace('_', ' ')}
           </span>
-        </div>
-      </div>
+        }
+      />
 
       <div className="rounded-md border border-border bg-surface-warning/10 px-4 py-3">
         <div className="flex items-start gap-2">

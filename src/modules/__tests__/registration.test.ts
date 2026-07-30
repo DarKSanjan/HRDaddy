@@ -14,14 +14,14 @@ import { describe, it, expect, beforeAll } from 'vitest'
 
 const EXPECTED_MODULES = [
   'employees',
-  'leave',
   'attendance',
-  'onboarding',
-  'documents',
-  'payroll',
-  'performance',
-  'expenses',
+  'leave',
   'assets',
+  'expenses',
+  'performance',
+  'payroll',
+  'documents',
+  'onboarding',
 ] as const
 
 beforeAll(async () => {
@@ -106,5 +106,39 @@ describe('module registration', () => {
         ).toBe(true)
       }
     }
+  })
+})
+
+
+describe('resolveNav ordering', () => {
+  it('returns entries in registry-declared order regardless of enabledModules array order', async () => {
+    const { resolveNav, getAllModules } = await import('@/core/modules')
+
+    const allIds = getAllModules().map((m) => m.id)
+    const reversed = [...allIds].reverse()
+    const shuffled = [...allIds].sort(() => Math.random() - 0.5)
+
+    const navFromNormal = resolveNav('OWNER', allIds)
+    const navFromReversed = resolveNav('OWNER', reversed)
+    const navFromShuffled = resolveNav('OWNER', shuffled)
+
+    const labelsNormal = navFromNormal.map((e) => e.label)
+    const labelsReversed = navFromReversed.map((e) => e.label)
+    const labelsShuffled = navFromShuffled.map((e) => e.label)
+
+    expect(labelsReversed).toEqual(labelsNormal)
+    expect(labelsShuffled).toEqual(labelsNormal)
+  })
+
+  it('excludes modules not present in enabledModules', async () => {
+    const { resolveNav, getAllModules } = await import('@/core/modules')
+
+    const allIds = getAllModules().map((m) => m.id)
+    const withoutLeave = allIds.filter((id) => id !== 'leave')
+
+    const nav = resolveNav('OWNER', withoutLeave)
+    const labels = nav.map((e) => e.label)
+
+    expect(labels).not.toContain('Leave')
   })
 })

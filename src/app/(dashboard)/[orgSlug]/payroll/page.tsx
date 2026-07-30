@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { hasPermission } from '@/core/permissions'
 import { getPayrollPeriods } from '@/modules/payroll/queries'
 import { payrollListParamsSchema } from '@/modules/payroll/schemas'
@@ -45,7 +45,10 @@ export default async function PayrollPage({
   if (!canViewAll) {
     return (
       <div className="space-y-6">
-        <Breadcrumb items={[{ label: 'Payroll' }]} />
+        <PageHeader
+          breadcrumbItems={[{ label: 'Payroll' }]}
+          title="Payroll"
+        />
         <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
           <DollarSign className="h-10 w-10 text-text-subtle" aria-hidden="true" />
           <h3 className="mt-4 text-[16px] font-semibold text-text">Payroll</h3>
@@ -72,10 +75,10 @@ export default async function PayrollPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb items={[{ label: 'Payroll' }]} />
-        <h1 className="text-[20px] font-bold text-text">Payroll Periods</h1>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Payroll' }]}
+        title="Payroll Periods"
+      />
 
       <div className="rounded-md border border-border bg-surface-warning/10 px-4 py-3">
         <div className="flex items-start gap-2">

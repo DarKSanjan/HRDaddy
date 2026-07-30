@@ -1,7 +1,7 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { hasPermission } from '@/core/permissions'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { getOrgChart } from '@/modules/employees/org-chart-queries'
 import { OrgChartFlow } from './_components/org-chart-flow'
 import { GitBranch } from 'lucide-react'
@@ -27,15 +27,13 @@ export default async function OrgChartPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb
-          items={[
-            { label: 'Employees', href: `/${orgSlug}/employees` },
-            { label: 'Org Chart' },
-          ]}
-        />
-        <h1 className="text-[20px] font-bold text-text">Organisation Chart</h1>
-      </div>
+      <PageHeader
+        breadcrumbItems={[
+          { label: 'Employees', href: `/${orgSlug}/employees` },
+          { label: 'Org Chart' },
+        ]}
+        title="Organisation Chart"
+      />
 
       {tree.length === 0 ? (
         <div className="py-12 text-center">

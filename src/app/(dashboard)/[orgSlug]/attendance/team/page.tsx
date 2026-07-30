@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import {
   getTeamAttendanceOverview,
@@ -79,15 +79,13 @@ export default async function TeamAttendancePage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb
-          items={[
-            { label: 'Attendance', href: `/${orgSlug}/attendance` },
-            { label: `${scopeLabel} Overview` },
-          ]}
-        />
-        <h1 className="text-[20px] font-bold text-text">{scopeLabel} Attendance</h1>
-      </div>
+      <PageHeader
+        breadcrumbItems={[
+          { label: 'Attendance', href: `/${orgSlug}/attendance` },
+          { label: `${scopeLabel} Overview` },
+        ]}
+        title={`${scopeLabel} Attendance`}
+      />
 
       {/* Dashboard charts */}
       {overview.length > 0 && (

@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { listDepartments, listJobTitles, listWorkLocations, listEmploymentTypes, getShiftTemplates } from '@/modules/employees/queries'
 import { getPayrollComplexity } from '@/modules/payroll/settings'
 import { EmployeeForm } from '../_components/employee-form'
@@ -32,14 +32,13 @@ export default async function NewEmployeePage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
+      <PageHeader
+        breadcrumbItems={[
           { label: 'Employees', href: `/${orgSlug}/employees` },
           { label: 'Add Employee' },
         ]}
+        title="Add Employee"
       />
-
-      <h1 className="text-[20px] font-bold text-text">Add Employee</h1>
 
       <EmployeeForm
         orgSlug={orgSlug}

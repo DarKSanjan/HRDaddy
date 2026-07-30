@@ -2,7 +2,7 @@
 
 import { useState, useActionState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Input, FormField, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Button, Input, FormField, Card, CardContent, CardHeader, CardTitle, Select } from '@/core/ui'
 import { createEmployee, updateEmployee, type ActionResult } from '@/modules/employees/actions'
 
 interface Option {
@@ -198,18 +198,17 @@ export function EmployeeForm({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Gender" htmlFor="gender">
-              <select
+              <Select
                 id="gender"
                 name="gender"
                 defaultValue={defaultValues?.gender ?? ''}
-                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
-              >
+                >
                 <option value="">Not specified</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="non-binary">Non-binary</option>
                 <option value="prefer-not-to-say">Prefer not to say</option>
-              </select>
+              </Select>
             </FormField>
             <FormField label="National ID" htmlFor="nationalId">
               <Input
@@ -250,29 +249,27 @@ export function EmployeeForm({
               />
             </FormField>
             <FormField label="Department" htmlFor="departmentId">
-              <select
+              <Select
                 id="departmentId"
                 name="departmentId"
                 defaultValue={defaultValues?.departmentId ?? ''}
-                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
-              >
+                >
                 <option value="">No department</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Job Title" htmlFor="jobTitleId">
-              <select
+              <Select
                 id="jobTitleId"
                 name="jobTitleId"
                 defaultValue={defaultValues?.jobTitleId ?? ''}
-                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
               >
                 <option value="">No job title</option>
                 {jobTitles.map((j) => (
@@ -280,14 +277,13 @@ export function EmployeeForm({
                     {j.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
             <FormField label="Employment Type" htmlFor="employmentTypeId">
-              <select
+              <Select
                 id="employmentTypeId"
                 name="employmentTypeId"
                 defaultValue={defaultValues?.employmentTypeId ?? ''}
-                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
                 onChange={handleEmploymentTypeChange}
               >
                 <option value="">Not specified</option>
@@ -296,17 +292,16 @@ export function EmployeeForm({
                     {t.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Location" htmlFor="locationId">
-              <select
+              <Select
                 id="locationId"
                 name="locationId"
                 defaultValue={defaultValues?.locationId ?? ''}
-                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
               >
                 <option value="">Not specified</option>
                 {locations.map((l) => (
@@ -314,14 +309,13 @@ export function EmployeeForm({
                     {l.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
             <FormField label="Manager" htmlFor="managerId">
-              <select
+              <Select
                 id="managerId"
                 name="managerId"
                 defaultValue={defaultValues?.managerId ?? ''}
-                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
               >
                 <option value="">No manager</option>
                 {managers.map((m) => (
@@ -329,19 +323,18 @@ export function EmployeeForm({
                     {m.firstName} {m.lastName}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             {!isSimplePayroll && (
             <FormField label="Shift Template" htmlFor="shiftTemplateId">
-              <select
+              <Select
                 id="shiftTemplateId"
                 name="shiftTemplateId"
                 value={shiftTemplateId}
                 onChange={(e) => setShiftTemplateId(e.target.value)}
-                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
               >
                 <option value="">No shift template</option>
                 {shiftTemplates.map((st) => (
@@ -349,21 +342,20 @@ export function EmployeeForm({
                     {st.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
             )}
             {!isSimplePayroll && (
             <FormField label="Pay Type" htmlFor="payType">
-              <select
+              <Select
                 id="payType"
                 name="payType"
                 value={payType}
                 onChange={(e) => setPayType(e.target.value)}
-                className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
               >
                 <option value="SALARIED">Salaried</option>
                 <option value="HOURLY">Hourly</option>
-              </select>
+              </Select>
             </FormField>
             )}
           </div>

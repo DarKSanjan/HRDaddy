@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, retryOnce } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Button, EmptyState } from '@/core/ui'
+import { Button, EmptyState, PageHeader } from '@/core/ui'
 import { listEmployees, listDepartments, listEmploymentTypes, listWorkLocations } from '@/modules/employees/queries'
 import { EmployeeTable } from './_components/employee-table'
 import { EmployeeFilters } from './_components/employee-filters'
@@ -81,26 +81,26 @@ export default async function EmployeesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <Breadcrumb items={[{ label: 'Employees' }]} />
-          <h1 className="text-[20px] font-bold text-text">Employees</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/${orgSlug}/employees/import`}>
-            <Button variant="secondary" size="md">
-              <Upload className="h-4 w-4" />
-              Import CSV
-            </Button>
-          </Link>
-          <Link href={`/${orgSlug}/employees/new`}>
-            <Button size="md">
-              <Plus className="h-4 w-4" />
-              Add Employee
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Employees' }]}
+        title="Employees"
+        actions={
+          <div className="flex items-center gap-2">
+            <Link href={`/${orgSlug}/employees/import`}>
+              <Button variant="secondary" size="md">
+                <Upload className="h-4 w-4" />
+                Import CSV
+              </Button>
+            </Link>
+            <Link href={`/${orgSlug}/employees/new`}>
+              <Button size="md">
+                <Plus className="h-4 w-4" />
+                Add Employee
+              </Button>
+            </Link>
+          </div>
+        }
+      />
 
       <EmployeeFilters
         departments={departments}

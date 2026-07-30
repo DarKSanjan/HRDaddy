@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { AssetImportWizard } from './_components/asset-import-wizard'
 
 export const dynamic = 'force-dynamic'
@@ -19,20 +19,15 @@ export default async function ImportAssetsPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
+      <PageHeader
+        breadcrumbItems={[
           { label: 'Assets', href: `/${orgSlug}/assets` },
           { label: 'Asset Register', href: `/${orgSlug}/assets/register` },
           { label: 'Import' },
         ]}
+        title="Import Assets"
+        subtitle="Upload a CSV file to bulk-import assets into your register."
       />
-
-      <div className="space-y-1">
-        <h1 className="text-[20px] font-bold text-text">Import Assets</h1>
-        <p className="text-[13px] text-text-muted">
-          Upload a CSV file to bulk-import assets into your register.
-        </p>
-      </div>
 
       <AssetImportWizard orgSlug={orgSlug} />
     </div>

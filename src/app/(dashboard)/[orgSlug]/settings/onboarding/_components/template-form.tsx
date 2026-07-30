@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, GripVertical } from 'lucide-react'
-import { Button, Input, Textarea, FormField } from '@/core/ui'
+import { Button, Input, Textarea, FormField, Select } from '@/core/ui'
 import { createTemplate, updateTemplate, fetchTemplateDetail } from '@/modules/onboarding/actions'
 
 interface TaskDraft {
@@ -201,16 +201,15 @@ export function TemplateForm({ orgSlug, templateId, onSuccess, onCancel }: Templ
                 <div className="flex gap-3">
                   <div className="flex-1">
                     <label className="text-[11px] text-text-muted mb-0.5 block">Assignee</label>
-                    <select
+                    <Select
                       value={task.assigneeType}
                       onChange={(e) => updateTask(task.id, 'assigneeType', e.target.value)}
-                      className="flex h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-[13px] text-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
                       aria-label={`Task ${index + 1} assignee type`}
                     >
                       <option value="EMPLOYEE">Employee</option>
                       <option value="MANAGER">Manager</option>
                       <option value="HR">HR</option>
-                    </select>
+                    </Select>
                   </div>
                   <div className="w-24">
                     <label className="text-[11px] text-text-muted mb-0.5 block">Due (days)</label>

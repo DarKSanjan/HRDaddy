@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { getReviewComplexity } from '@/modules/performance/settings'
 import { PerformanceSettingsPanel } from './_components/performance-settings-panel'
 import { SettingsNav } from '../_components/settings-nav'
@@ -23,19 +23,16 @@ export default async function PerformanceSettingsPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
+      <PageHeader
+        breadcrumbItems={[
           { label: 'Settings', href: `/${orgSlug}/settings` },
           { label: 'Performance' },
         ]}
+        title="Performance Settings"
+        subtitle="Configure how performance reviews work for your organisation."
       />
 
       <SettingsNav orgSlug={orgSlug} enabledModules={enabledModules} />
-
-      <h1 className="text-[20px] font-bold text-text">Performance Settings</h1>
-      <p className="text-[13px] text-text-muted">
-        Configure how performance reviews work for your organisation.
-      </p>
 
       <PerformanceSettingsPanel
         orgSlug={orgSlug}

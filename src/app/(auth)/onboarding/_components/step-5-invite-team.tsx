@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Plus, X, UserPlus } from 'lucide-react'
-import { Button, Input } from '@/core/ui'
+import { Button, Input, Select } from '@/core/ui'
 import { completeStep5 } from '../actions'
 import type { Step5Data, WizardData } from '../schemas'
 
@@ -92,18 +92,17 @@ export function Step5InviteTeam({ defaultValues, onBack, onSave }: Step5Props) {
               aria-label={`Invitation ${i + 1} email`}
               className="flex-1"
             />
-            <select
+            <Select
               value={inv.role}
               onChange={(e) => updateInvitation(i, 'role', e.target.value)}
               aria-label={`Invitation ${i + 1} role`}
-              className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-2 text-[13px] text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
             >
               {ROLES.map((role) => (
                 <option key={role.value} value={role.value}>
                   {role.label}
                 </option>
               ))}
-            </select>
+            </Select>
             <button
               type="button"
               onClick={() => removeInvitation(i)}

@@ -1,7 +1,7 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { hasPermission } from '@/core/permissions'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { listAssetCategories } from '@/modules/assets/queries'
 import { SettingsNav } from '../_components/settings-nav'
 import { AssetCategoryManager } from './_components/asset-category-manager'
@@ -30,19 +30,16 @@ export default async function AssetSettingsPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
+      <PageHeader
+        breadcrumbItems={[
           { label: 'Settings', href: `/${orgSlug}/settings` },
           { label: 'Assets' },
         ]}
+        title="Asset Categories"
+        subtitle="Manage asset categories for organising company assets."
       />
 
       <SettingsNav orgSlug={orgSlug} enabledModules={enabledModules} />
-
-      <h1 className="text-[20px] font-bold text-text">Asset Categories</h1>
-      <p className="text-[13px] text-text-muted">
-        Manage asset categories for organising company assets.
-      </p>
 
       <AssetCategoryManager
         orgSlug={orgSlug}

@@ -1,7 +1,7 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { hasPermission } from '@/core/permissions'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { getReviewComplexity } from '@/modules/performance/settings'
 import { listCycles, getCycleReviews, getPerformanceAutoMetrics, getCalibrationData } from '@/modules/performance/queries'
@@ -85,16 +85,11 @@ export default async function PerformancePage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb items={[{ label: 'Performance' }]} />
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[20px] font-bold text-text">Performance Reviews</h1>
-          <p className="text-[13px] text-text-muted">
-            Manage review cycles and submit evaluations for your team.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Performance' }]}
+        title="Performance Reviews"
+        subtitle="Manage review cycles and submit evaluations for your team."
+      />
 
       {canManageCycles && (
         <CycleManager

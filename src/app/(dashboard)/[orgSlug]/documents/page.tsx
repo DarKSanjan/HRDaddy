@@ -16,6 +16,7 @@ import {
   getPerformanceCycleFolders,
   getPerformanceReviewsInCycle,
 } from '@/modules/documents/explorer-queries'
+import { PageHeader } from '@/core/ui'
 import type { ExplorerEntry } from '@/modules/documents/explorer-queries'
 import { DocumentExplorer } from './_components/document-explorer'
 import { PdfDownloadButton } from '@/modules/payroll/pdf-download-button'
@@ -268,12 +269,11 @@ export default async function DocumentsPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-[20px] font-bold text-text">Documents</h1>
-        <p className="text-[13px] text-text-muted">
-          Browse employee documents and payroll records
-        </p>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Documents' }]}
+        title="Documents"
+        subtitle="Browse employee documents and payroll records"
+      />
 
       {/* Download All button for payroll period view */}
       {payrollPeriodId && canViewPayrollAll && (

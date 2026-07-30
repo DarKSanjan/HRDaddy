@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { getPayslipsForEmployee } from '@/modules/payroll/queries'
 import { PdfDownloadButton } from '@/modules/payroll/pdf-download-button'
@@ -40,10 +40,10 @@ export default async function PayslipsPage({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Breadcrumb items={[{ label: 'Payroll', href: `/${orgSlug}/payroll` }, { label: 'My Payslips' }]} />
-        <h1 className="text-[20px] font-bold text-text">My Payslips</h1>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Payroll', href: `/${orgSlug}/payroll` }, { label: 'My Payslips' }]}
+        title="My Payslips"
+      />
 
       <div className="rounded-md border border-border bg-surface-warning/10 px-4 py-3">
         <div className="flex items-start gap-2">

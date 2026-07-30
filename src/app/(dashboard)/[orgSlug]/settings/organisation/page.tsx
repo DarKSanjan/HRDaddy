@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb } from '@/core/ui'
+import { PageHeader } from '@/core/ui'
 import {
   listDepartments,
   listJobTitles,
@@ -35,19 +35,16 @@ export default async function OrgSettingsPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumb
-        items={[
+      <PageHeader
+        breadcrumbItems={[
           { label: 'Settings', href: `/${orgSlug}/settings` },
           { label: 'Organisation' },
         ]}
+        title="Organisation Structure"
+        subtitle="Manage departments, job titles, work locations, and employment types."
       />
 
       <SettingsNav orgSlug={orgSlug} enabledModules={enabledModules} />
-
-      <h1 className="text-[20px] font-bold text-text">Organisation Structure</h1>
-      <p className="text-[13px] text-text-muted">
-        Manage departments, job titles, work locations, and employment types.
-      </p>
 
       <OrgStructurePanel
         orgSlug={orgSlug}

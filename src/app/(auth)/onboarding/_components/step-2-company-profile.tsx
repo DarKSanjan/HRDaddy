@@ -3,7 +3,7 @@
 import { useState, useTransition, useCallback, useRef } from 'react'
 import { Check, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button, Input, FormField } from '@/core/ui'
+import { Button, Input, FormField, Select } from '@/core/ui'
 import { completeStep2, checkSlugAvailability } from '../actions'
 import {
   COMPANY_SIZES,
@@ -65,35 +65,7 @@ const LEAVE_YEAR_OPTIONS = [
   { value: '10-01', label: 'October 1' },
 ] as const
 
-// ─── Select component (styled consistently) ────────────────────
-function Select({
-  id,
-  value,
-  onChange,
-  children,
-  'aria-describedby': ariaDescribedBy,
-  'aria-invalid': ariaInvalid,
-}: {
-  id: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-  'aria-describedby'?: string
-  'aria-invalid'?: boolean
-}) {
-  return (
-    <select
-      id={id}
-      className="flex h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-[14px] text-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-describedby={ariaDescribedBy}
-      aria-invalid={ariaInvalid}
-    >
-      {children}
-    </select>
-  )
-}
+// ─── Select component removed — using shared @/core/ui Select ────────────────────
 
 interface Step2Props {
   defaultValues?: Step2Data
@@ -319,8 +291,8 @@ export function Step2CompanyProfile({
             <Select
               id="companySize"
               value={formValues.companySize}
-              onChange={(v) =>
-                setFormValues((prev) => ({ ...prev, companySize: v as typeof formValues.companySize }))
+              onChange={(e) =>
+                setFormValues((prev) => ({ ...prev, companySize: e.target.value as typeof formValues.companySize }))
               }
             >
               {COMPANY_SIZES.map((size) => (
@@ -339,8 +311,8 @@ export function Step2CompanyProfile({
             <Select
               id="industry"
               value={formValues.industry}
-              onChange={(v) =>
-                setFormValues((prev) => ({ ...prev, industry: v as typeof formValues.industry }))
+              onChange={(e) =>
+                setFormValues((prev) => ({ ...prev, industry: e.target.value as typeof formValues.industry }))
               }
             >
               {INDUSTRIES.map((ind) => (
@@ -362,7 +334,7 @@ export function Step2CompanyProfile({
             <Select
               id="country"
               value={formValues.country}
-              onChange={handleCountryChange}
+              onChange={(e) => handleCountryChange(e.target.value)}
             >
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -380,9 +352,9 @@ export function Step2CompanyProfile({
             <Select
               id="timezone"
               value={formValues.timezone}
-              onChange={(v) => {
+              onChange={(e) => {
                 setManualTimezone(true)
-                setFormValues((prev) => ({ ...prev, timezone: v }))
+                setFormValues((prev) => ({ ...prev, timezone: e.target.value }))
               }}
             >
               {TIMEZONES.map((tz) => (
@@ -401,9 +373,9 @@ export function Step2CompanyProfile({
             <Select
               id="currency"
               value={formValues.currency}
-              onChange={(v) => {
+              onChange={(e) => {
                 setManualCurrency(true)
-                setFormValues((prev) => ({ ...prev, currency: v }))
+                setFormValues((prev) => ({ ...prev, currency: e.target.value }))
               }}
             >
               {CURRENCIES.map((c) => (
@@ -424,8 +396,8 @@ export function Step2CompanyProfile({
           <Select
             id="leaveYearStart"
             value={formValues.leaveYearStart}
-            onChange={(v) =>
-              setFormValues((prev) => ({ ...prev, leaveYearStart: v }))
+            onChange={(e) =>
+              setFormValues((prev) => ({ ...prev, leaveYearStart: e.target.value }))
             }
           >
             {LEAVE_YEAR_OPTIONS.map((opt) => (

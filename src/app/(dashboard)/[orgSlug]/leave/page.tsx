@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Button, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { getEmployeeIdForUser, getOrgSettings } from '@/core/employees'
 import { getEmployeeBalances, listOwnLeaveRequests } from '@/modules/leave/queries'
 import { leaveListParamsSchema } from '@/modules/leave/schemas'
@@ -59,18 +59,18 @@ export default async function LeavePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <Breadcrumb items={[{ label: 'Leave' }]} />
-          <h1 className="text-[20px] font-bold text-text">Leave</h1>
-        </div>
-        <Link href={`/${orgSlug}/leave/request`}>
-          <Button size="md">
-            <Plus className="h-4 w-4" />
-            Request Leave
-          </Button>
-        </Link>
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Leave' }]}
+        title="Leave"
+        actions={
+          <Link href={`/${orgSlug}/leave/request`}>
+            <Button size="md">
+              <Plus className="h-4 w-4" />
+              Request Leave
+            </Button>
+          </Link>
+        }
+      />
 
       <LeaveBalanceCards balances={balances} />
 

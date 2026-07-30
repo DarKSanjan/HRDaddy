@@ -1,6 +1,6 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Button, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, PageHeader } from '@/core/ui'
 import { listAssets, listActiveAssetCategories, listActiveEmployees } from '@/modules/assets/queries'
 import { assetListParamsSchema } from '@/modules/assets/schemas'
 import { AssetRegisterTable } from '../_components/asset-register-table'
@@ -45,13 +45,13 @@ export default async function AssetRegisterPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <Breadcrumb items={[{ label: 'Assets', href: `/${orgSlug}/assets` }, { label: 'Register' }]} />
-          <h1 className="text-[20px] font-bold text-text">Asset Register</h1>
-        </div>
-        <CreateAssetDialog orgSlug={orgSlug} categories={categories} />
-      </div>
+      <PageHeader
+        breadcrumbItems={[{ label: 'Assets', href: `/${orgSlug}/assets` }, { label: 'Register' }]}
+        title="Asset Register"
+        actions={
+          <CreateAssetDialog orgSlug={orgSlug} categories={categories} />
+        }
+      />
 
       <div className="flex justify-end">
         <Link href={`/${orgSlug}/assets/import`}>

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useActionState } from 'react'
 import { Pencil, X } from 'lucide-react'
-import { Button, Input, FormField, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Button, Input, FormField, Card, CardContent, CardHeader, CardTitle, Select } from '@/core/ui'
 import { updateEmployee, type ActionResult } from '@/modules/employees/actions'
 import type { EmployeeProfile } from '@/modules/employees/queries'
 
@@ -109,18 +109,17 @@ export function PersonalTab({ employee, orgSlug, canEdit }: PersonalTabProps) {
                 />
               </FormField>
               <FormField label="Gender" htmlFor="gender">
-                <select
+                <Select
                   id="gender"
                   name="gender"
                   defaultValue={employee.gender ?? ''}
-                  className="h-9 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-[13px] text-text"
                 >
                   <option value="">Not specified</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                   <option value="non-binary">Non-binary</option>
                   <option value="prefer-not-to-say">Prefer not to say</option>
-                </select>
+                </Select>
               </FormField>
               <FormField label="National ID" htmlFor="nationalId">
                 <Input id="nationalId" name="nationalId" defaultValue={employee.nationalId ?? ''} />
