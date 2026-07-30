@@ -94,7 +94,7 @@ export function CalendarFeedButton({ orgSlug }: CalendarFeedButtonProps) {
           <DialogHeader>
             <DialogTitle>Calendar Feed</DialogTitle>
             <DialogDescription>
-              Subscribe to your leave calendar in Google Calendar, Outlook, or Apple Calendar.
+              Subscribe to your calendar (holidays + leave) in Google Calendar, Outlook, or Apple Calendar.
             </DialogDescription>
           </DialogHeader>
 

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Button } from '@/core/ui'
 import { Upload } from 'lucide-react'
 import { AddEventDialog } from './add-event-dialog'
+import { CalendarFeedButton } from './calendar-feed-button'
 
 interface Department {
   id: string
@@ -35,6 +36,7 @@ export function CalendarActions({
 }: CalendarActionsProps) {
   return (
     <>
+      <CalendarFeedButton orgSlug={orgSlug} />
       {canManageHolidays && (
         <Link href={`/${orgSlug}/calendar/import`}>
           <Button variant="secondary" size="sm">

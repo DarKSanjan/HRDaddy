@@ -8,6 +8,7 @@ import { Resend } from 'resend'
 import { dbAdmin } from '@/core/db/admin'
 import { buildSubject, buildHtmlBody } from './email-templates'
 import type { NotificationAdapter, NotificationPayload } from './index'
+import { getAppBaseUrl } from '@/lib/utils'
 
 export class EmailNotificationAdapter implements NotificationAdapter {
   private getClient(): Resend | null {
@@ -42,7 +43,7 @@ export class EmailNotificationAdapter implements NotificationAdapter {
         return
       }
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const appUrl = getAppBaseUrl()
       const absoluteLink = payload.link
         ? payload.link.startsWith('http')
           ? payload.link

@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache'
 import { verifySession, getOrgContext } from '@/core/auth'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { dbAdmin } from '@/core/db/admin'
+import { getAppBaseUrl } from '@/lib/utils'
 
 export interface CalendarFeedActionResult {
   success: boolean
@@ -46,7 +47,7 @@ export async function getOrCreateCalendarFeedToken(
     })
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = getAppBaseUrl()
   const feedUrl = `${baseUrl}/api/calendar/${token}.ics`
 
   return { success: true, feedUrl }
@@ -72,7 +73,7 @@ export async function regenerateCalendarFeedToken(
     data: { calendarFeedToken: token },
   })
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = getAppBaseUrl()
   const feedUrl = `${baseUrl}/api/calendar/${token}.ics`
 
   revalidatePath(`/${orgSlug}/leave`)
