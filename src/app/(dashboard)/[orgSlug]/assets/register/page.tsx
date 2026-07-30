@@ -49,7 +49,7 @@ export default async function AssetRegisterPage({
         breadcrumbItems={[{ label: 'Assets', href: `/${orgSlug}/assets` }, { label: 'Register' }]}
         title="Asset Register"
         actions={
-          <CreateAssetDialog orgSlug={orgSlug} categories={categories} />
+          <CreateAssetDialog orgSlug={orgSlug} categories={categories} employees={employees} />
         }
       />
 

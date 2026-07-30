@@ -80,8 +80,12 @@ model Employee {
   assetAssignments      AssetAssignment[] @relation("EmployeeAssetAssignments")
   assetAssignedBy       AssetAssignment[] @relation("AssetAssignedBy")
   assetReturnedBy       AssetAssignment[] @relation("AssetReturnedBy")
+  assetsInCharge        Asset[]           @relation("AssetPersonInCharge")
   assetRequests         AssetRequest[]    @relation("EmployeeAssetRequests")
   assetRequestsReviewed AssetRequest[]    @relation("AssetRequestReviewer")
+
+  calendarEventsCreated    CalendarEvent[]          @relation("CalendarEventCreator")
+  calendarEventRecipients  CalendarEventRecipient[]
 
   @@index([orgId])
   @@index([orgId, employmentStatus])
@@ -102,6 +106,7 @@ model Department {
   organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
   manager      Employee?    @relation("DepartmentManager", fields: [managerId], references: [id])
   employees    Employee[]   @relation("EmployeeDepartment")
+  calendarEvents CalendarEvent[]
 
   @@index([orgId])
   @@map("departments")

@@ -88,6 +88,10 @@ vi.mock('@/core/auth', () => ({
   verifySession: vi.fn(async () => ({ userId: 'user-1', email: 'test@test.com', name: 'Test' })),
 }))
 
+vi.mock('@/core/permissions', () => ({
+  hasPermission: vi.fn(() => true),
+}))
+
 vi.mock('@/core/employees', () => ({
   getEmployeeIdForUser: vi.fn(async () => callerEmployeeId),
 }))

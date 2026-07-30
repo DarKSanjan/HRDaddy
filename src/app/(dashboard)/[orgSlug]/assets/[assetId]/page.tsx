@@ -3,7 +3,7 @@ import { moduleGuard } from '@/core/modules'
 import { hasPermission } from '@/core/permissions'
 import { notFound } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, Badge, PageHeader } from '@/core/ui'
-import { getAssetDetail, getAssetAssignmentHistory, listActiveAssetCategories } from '@/modules/assets/queries'
+import { getAssetDetail, getAssetAssignmentHistory, listActiveAssetCategories, listActiveEmployees } from '@/modules/assets/queries'
 import { AssetAssignmentHistoryTable } from '../_components/asset-assignment-history'
 import { EditAssetDialog } from '../_components/edit-asset-dialog'
 import type { AssetStatus } from '@prisma/client'
@@ -40,8 +40,10 @@ export default async function AssetDetailPage({
 
   const canManage = hasPermission(membership.role, enabledModules, 'asset.manage')
   let categories: { id: string; name: string }[] = []
+  let employees: { id: string; firstName: string; lastName: string }[] = []
   if (canManage) {
     categories = await listActiveAssetCategories(session.userId, org.id)
+    employees = await listActiveEmployees(session.userId, org.id)
   }
 
   return (
@@ -61,6 +63,7 @@ export default async function AssetDetailPage({
                 orgSlug={orgSlug}
                 asset={JSON.parse(JSON.stringify(asset))}
                 categories={categories}
+                employees={employees}
               />
             )}
           </>
@@ -103,6 +106,12 @@ export default async function AssetDetailPage({
               <div className="sm:col-span-2">
                 <dt className="text-text-muted">Notes</dt>
                 <dd className="mt-1 text-text whitespace-pre-wrap">{asset.notes}</dd>
+              </div>
+            )}
+            {asset.personInChargeName && (
+              <div>
+                <dt className="text-text-muted">Person in Charge</dt>
+                <dd className="mt-1 text-text">{asset.personInChargeName}</dd>
               </div>
             )}
           </dl>

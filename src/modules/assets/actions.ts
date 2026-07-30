@@ -18,7 +18,8 @@ import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { getNotificationAdapter } from '@/core/notifications'
 import { getEmployeeIdForUser } from '@/core/employees'
-import { listAvailableAssetsByCategory } from './queries'
+import { hasPermission } from '@/core/permissions'
+import { listAvailableAssetsByCategory, isInAssetAssignChain } from './queries'
 import {
   createAssetCategorySchema,
   updateAssetCategorySchema,
@@ -177,7 +178,7 @@ export async function createAsset(
     return { success: false, fieldErrors }
   }
 
-  const { categoryId, name, assetTag, purchaseDate, purchaseValueCents, notes } = parsed.data
+  const { categoryId, name, assetTag, purchaseDate, purchaseValueCents, notes, personInChargeId } = parsed.data
 
   // Validate category exists and is not archived
   const category = await dbAs(userId, async (tx) => {
@@ -212,6 +213,7 @@ export async function createAsset(
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
         purchaseValueCents: purchaseValueCents ?? null,
         notes: notes || null,
+        personInChargeId: personInChargeId || null,
         updatedAt: new Date(),
       },
     })
@@ -246,7 +248,7 @@ export async function updateAsset(
     return { success: false, fieldErrors }
   }
 
-  const { assetId, categoryId, name, assetTag, purchaseDate, purchaseValueCents, notes } = parsed.data
+  const { assetId, categoryId, name, assetTag, purchaseDate, purchaseValueCents, notes, personInChargeId } = parsed.data
 
   const existing = await dbAs(userId, async (tx) => {
     return tx.asset.findFirst({
@@ -288,6 +290,7 @@ export async function updateAsset(
   if (purchaseDate !== undefined) updateData.purchaseDate = purchaseDate ? new Date(purchaseDate) : null
   if (purchaseValueCents !== undefined) updateData.purchaseValueCents = purchaseValueCents
   if (notes !== undefined) updateData.notes = notes
+  if (personInChargeId !== undefined) updateData.personInChargeId = personInChargeId || null
 
   await dbAs(userId, async (tx) => {
     await tx.asset.update({
@@ -355,8 +358,9 @@ export async function assignAsset(
   orgSlug: string,
   input: unknown
 ): Promise<ActionResult> {
-  const { org } = await getOrgContext(orgSlug)
-  const { userId } = await requirePermission(org.id, 'asset.assign')
+  const { org, membership, enabledModules } = await getOrgContext(orgSlug)
+  const session = await verifySession()
+  const userId = session.userId
 
   const parsed = assignAssetSchema.safeParse(input)
   if (!parsed.success) {
@@ -377,10 +381,21 @@ export async function assignAsset(
   const asset = await dbAs(userId, async (tx) => {
     return tx.asset.findFirst({
       where: { id: assetId, orgId: org.id },
-      select: { id: true, status: true, name: true, assetTag: true },
+      select: { id: true, status: true, name: true, assetTag: true, personInChargeId: true },
     })
   })
   if (!asset) return { success: false, error: 'Asset not found.' }
+
+  const hasRolePermission = hasPermission(membership.role, enabledModules, 'asset.assign')
+  if (!hasRolePermission) {
+    if (!asset.personInChargeId) {
+      return { success: false, error: 'You do not have permission to assign this asset.' }
+    }
+    const inChain = await isInAssetAssignChain(userId, org.id, asset.personInChargeId, assignerEmployeeId)
+    if (!inChain) {
+      return { success: false, error: 'You do not have permission to assign this asset.' }
+    }
+  }
 
   if (asset.status !== 'AVAILABLE') {
     return { success: false, error: `Cannot assign asset — current status is ${asset.status}. Only AVAILABLE assets can be assigned.` }
@@ -1052,8 +1067,9 @@ export async function fulfillAssetRequest(
   orgSlug: string,
   input: unknown
 ): Promise<ActionResult> {
-  const { org } = await getOrgContext(orgSlug)
-  const { userId } = await requirePermission(org.id, 'asset.assign')
+  const { org, membership, enabledModules } = await getOrgContext(orgSlug)
+  const session = await verifySession()
+  const userId = session.userId
 
   const parsed = fulfillAssetRequestSchema.safeParse(input)
   if (!parsed.success) {
@@ -1093,12 +1109,23 @@ export async function fulfillAssetRequest(
   const asset = await dbAs(userId, async (tx) => {
     return tx.asset.findFirst({
       where: { id: assetId, orgId: org.id },
-      select: { id: true, status: true, categoryId: true, name: true, assetTag: true },
+      select: { id: true, status: true, categoryId: true, name: true, assetTag: true, personInChargeId: true },
     })
   })
 
   if (!asset) {
     return { success: false, error: 'Asset not found.' }
+  }
+
+  const hasRolePermission = hasPermission(membership.role, enabledModules, 'asset.assign')
+  if (!hasRolePermission) {
+    if (!asset.personInChargeId) {
+      return { success: false, error: 'You do not have permission to assign this asset.' }
+    }
+    const inChain = await isInAssetAssignChain(userId, org.id, asset.personInChargeId, assignerEmployeeId)
+    if (!inChain) {
+      return { success: false, error: 'You do not have permission to assign this asset.' }
+    }
   }
 
   if (asset.status !== 'AVAILABLE') {

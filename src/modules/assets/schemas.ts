@@ -28,6 +28,7 @@ export const createAssetSchema = z.object({
   purchaseDate: z.string().optional(),
   purchaseValueCents: z.coerce.number().int().min(0).optional(),
   notes: z.string().max(2000).optional(),
+  personInChargeId: z.string().optional(),
 })
 
 export const updateAssetSchema = z.object({
@@ -38,6 +39,7 @@ export const updateAssetSchema = z.object({
   purchaseDate: z.string().nullable().optional(),
   purchaseValueCents: z.coerce.number().int().min(0).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  personInChargeId: z.string().nullable().optional(),
 })
 
 // ─────────────────────────────────────────────

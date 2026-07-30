@@ -26,6 +26,7 @@ export interface AssetListItem {
   categoryId: string
   categoryName: string
   currentHolder: { id: string; firstName: string; lastName: string } | null
+  personInCharge: { id: string; firstName: string; lastName: string } | null
   purchaseDate: Date | null
   purchaseValueCents: number | null
   createdAt: Date
@@ -41,6 +42,8 @@ export interface AssetDetail {
   purchaseDate: Date | null
   purchaseValueCents: number | null
   notes: string | null
+  personInChargeId: string | null
+  personInChargeName: string | null
   currentAssignmentId: string | null
   createdAt: Date
   updatedAt: Date
@@ -150,6 +153,7 @@ export async function listAssets(
             employee: { select: { id: true, firstName: true, lastName: true } },
           },
         },
+        personInCharge: { select: { id: true, firstName: true, lastName: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (params.page - 1) * params.pageSize,
@@ -172,6 +176,13 @@ export async function listAssets(
               lastName: a.currentAssignment.employee.lastName,
             }
           : null,
+        personInCharge: a.personInCharge
+          ? {
+              id: a.personInCharge.id,
+              firstName: a.personInCharge.firstName,
+              lastName: a.personInCharge.lastName,
+            }
+          : null,
         purchaseDate: a.purchaseDate,
         purchaseValueCents: a.purchaseValueCents,
         createdAt: a.createdAt,
@@ -192,7 +203,10 @@ export async function getAssetDetail(
   return dbAs(userId, async (tx) => {
     const asset = await tx.asset.findFirst({
       where: { id: assetId, orgId },
-      include: { category: { select: { name: true } } },
+      include: {
+        category: { select: { name: true } },
+        personInCharge: { select: { id: true, firstName: true, lastName: true } },
+      },
     })
     if (!asset) return null
     return {
@@ -205,6 +219,10 @@ export async function getAssetDetail(
       purchaseDate: asset.purchaseDate,
       purchaseValueCents: asset.purchaseValueCents,
       notes: asset.notes,
+      personInChargeId: asset.personInChargeId,
+      personInChargeName: asset.personInCharge
+        ? `${asset.personInCharge.firstName} ${asset.personInCharge.lastName}`
+        : null,
       currentAssignmentId: asset.currentAssignmentId,
       createdAt: asset.createdAt,
       updatedAt: asset.updatedAt,
@@ -446,4 +464,36 @@ export async function listAvailableAssetsByCategory(
       orderBy: { name: 'asc' },
     })
   })
+}
+
+// ─────────────────────────────────────────────
+// Person-in-charge chain check
+// ─────────────────────────────────────────────
+
+const MAX_CHAIN_DEPTH = 25
+
+export async function isInAssetAssignChain(
+  userId: string,
+  orgId: string,
+  personInChargeId: string,
+  callerEmployeeId: string
+): Promise<boolean> {
+  let currentId: string | null = personInChargeId
+
+  for (let depth = 0; depth < MAX_CHAIN_DEPTH; depth++) {
+    if (!currentId) return false
+    if (currentId === callerEmployeeId) return true
+
+    const employee = await dbAs(userId, async (tx) => {
+      return tx.employee.findFirst({
+        where: { id: currentId!, orgId },
+        select: { managerId: true },
+      })
+    })
+
+    if (!employee) return false
+    currentId = employee.managerId
+  }
+
+  return false
 }

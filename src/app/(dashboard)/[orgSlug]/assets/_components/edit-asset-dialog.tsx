@@ -27,11 +27,13 @@ interface EditAssetDialogProps {
     purchaseDate: string | null
     purchaseValueCents: number | null
     notes: string | null
+    personInChargeId: string | null
   }
   categories: { id: string; name: string }[]
+  employees: { id: string; firstName: string; lastName: string }[]
 }
 
-export function EditAssetDialog({ orgSlug, asset, categories }: EditAssetDialogProps) {
+export function EditAssetDialog({ orgSlug, asset, categories, employees }: EditAssetDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -48,6 +50,7 @@ export function EditAssetDialog({ orgSlug, asset, categories }: EditAssetDialogP
     asset.purchaseValueCents != null ? (asset.purchaseValueCents / 100).toFixed(2) : ''
   )
   const [notes, setNotes] = useState(asset.notes ?? '')
+  const [personInChargeId, setPersonInChargeId] = useState(asset.personInChargeId ?? '')
 
   const reset = () => {
     setName(asset.name)
@@ -56,6 +59,7 @@ export function EditAssetDialog({ orgSlug, asset, categories }: EditAssetDialogP
     setPurchaseDate(asset.purchaseDate ? new Date(asset.purchaseDate).toISOString().split('T')[0] : '')
     setPurchaseValue(asset.purchaseValueCents != null ? (asset.purchaseValueCents / 100).toFixed(2) : '')
     setNotes(asset.notes ?? '')
+    setPersonInChargeId(asset.personInChargeId ?? '')
     setError(null)
     setFieldErrors({})
   }
@@ -74,6 +78,7 @@ export function EditAssetDialog({ orgSlug, asset, categories }: EditAssetDialogP
       purchaseDate: purchaseDate || null,
       purchaseValueCents: purchaseValue ? Math.round(parseFloat(purchaseValue) * 100) : null,
       notes: notes || null,
+      personInChargeId: personInChargeId || null,
     })
 
     if (result.success) {
@@ -157,6 +162,18 @@ export function EditAssetDialog({ orgSlug, asset, categories }: EditAssetDialogP
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Optional notes"
               />
+            </FormField>
+            <FormField label="Person in Charge" htmlFor="edit-asset-person-in-charge">
+              <Select
+                id="edit-asset-person-in-charge"
+                value={personInChargeId}
+                onChange={(e) => setPersonInChargeId(e.target.value)}
+              >
+                <option value="">None</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                ))}
+              </Select>
             </FormField>
             {error && <p className="text-[13px] text-danger">{error}</p>}
             <DialogFooter>

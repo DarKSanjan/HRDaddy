@@ -34,12 +34,14 @@ model Asset {
   purchaseValueCents  Int?        @map("purchase_value_cents")
   notes               String?
   currentAssignmentId String?     @unique @map("current_assignment_id")
+  personInChargeId    String?     @map("person_in_charge_id")
   createdAt           DateTime    @default(now()) @map("created_at")
   updatedAt           DateTime    @updatedAt @map("updated_at")
 
   organisation      Organisation     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   category          AssetCategory    @relation(fields: [categoryId], references: [id])
   currentAssignment AssetAssignment? @relation("CurrentAssignment", fields: [currentAssignmentId], references: [id])
+  personInCharge    Employee?        @relation("AssetPersonInCharge", fields: [personInChargeId], references: [id], onDelete: SetNull)
   assignments       AssetAssignment[] @relation("AssetAssignments")
   requestedIn       AssetRequest[]   @relation("RequestedAsset")
   fulfilledIn       AssetRequest[]   @relation("FulfilledAsset")

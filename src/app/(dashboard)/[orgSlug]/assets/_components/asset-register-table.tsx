@@ -21,6 +21,7 @@ interface AssetListItem {
   status: AssetStatus
   categoryName: string
   currentHolder: { id: string; firstName: string; lastName: string } | null
+  personInCharge: { id: string; firstName: string; lastName: string } | null
   purchaseDate: string | null
   purchaseValueCents: number | null
   createdAt: string
@@ -176,6 +177,7 @@ export function AssetRegisterTable({
               <th className="px-3 py-2 font-medium">Category</th>
               <th className="px-3 py-2 font-medium">Status</th>
               <th className="px-3 py-2 font-medium">Current Holder</th>
+              <th className="px-3 py-2 font-medium">Person in Charge</th>
               <th className="px-3 py-2 font-medium">Actions</th>
             </tr>
           </thead>
@@ -200,6 +202,11 @@ export function AssetRegisterTable({
                 <td className="px-3 py-2 text-text">
                   {asset.currentHolder
                     ? `${asset.currentHolder.firstName} ${asset.currentHolder.lastName}`
+                    : '—'}
+                </td>
+                <td className="px-3 py-2 text-text">
+                  {asset.personInCharge
+                    ? `${asset.personInCharge.firstName} ${asset.personInCharge.lastName}`
                     : '—'}
                 </td>
                 <td className="px-3 py-2">

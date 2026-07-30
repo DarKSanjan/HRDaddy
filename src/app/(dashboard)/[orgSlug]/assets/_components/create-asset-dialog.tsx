@@ -20,9 +20,10 @@ import { createAsset } from '@/modules/assets/actions'
 interface CreateAssetDialogProps {
   orgSlug: string
   categories: { id: string; name: string }[]
+  employees: { id: string; firstName: string; lastName: string }[]
 }
 
-export function CreateAssetDialog({ orgSlug, categories }: CreateAssetDialogProps) {
+export function CreateAssetDialog({ orgSlug, categories, employees }: CreateAssetDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -35,6 +36,7 @@ export function CreateAssetDialog({ orgSlug, categories }: CreateAssetDialogProp
   const [purchaseDate, setPurchaseDate] = useState('')
   const [purchaseValue, setPurchaseValue] = useState('')
   const [notes, setNotes] = useState('')
+  const [personInChargeId, setPersonInChargeId] = useState('')
 
   const reset = () => {
     setName('')
@@ -43,6 +45,7 @@ export function CreateAssetDialog({ orgSlug, categories }: CreateAssetDialogProp
     setPurchaseDate('')
     setPurchaseValue('')
     setNotes('')
+    setPersonInChargeId('')
     setError(null)
     setFieldErrors({})
   }
@@ -60,6 +63,7 @@ export function CreateAssetDialog({ orgSlug, categories }: CreateAssetDialogProp
       purchaseDate: purchaseDate || undefined,
       purchaseValueCents: purchaseValue ? Math.round(parseFloat(purchaseValue) * 100) : undefined,
       notes: notes || undefined,
+      personInChargeId: personInChargeId || undefined,
     })
 
     if (result.success) {
@@ -147,6 +151,18 @@ export function CreateAssetDialog({ orgSlug, categories }: CreateAssetDialogProp
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Optional notes"
               />
+            </FormField>
+            <FormField label="Person in Charge" htmlFor="asset-person-in-charge">
+              <Select
+                id="asset-person-in-charge"
+                value={personInChargeId}
+                onChange={(e) => setPersonInChargeId(e.target.value)}
+              >
+                <option value="">None</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                ))}
+              </Select>
             </FormField>
             {error && <p className="text-[13px] text-danger">{error}</p>}
             <DialogFooter>
