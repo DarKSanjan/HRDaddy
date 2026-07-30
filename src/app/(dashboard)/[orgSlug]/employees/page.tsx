@@ -5,7 +5,7 @@ import { listEmployees, listDepartments, listEmploymentTypes, listWorkLocations 
 import { EmployeeTable } from './_components/employee-table'
 import { EmployeeFilters } from './_components/employee-filters'
 import { employeeListParamsSchema } from '@/modules/employees/schemas'
-import { Users, Plus } from 'lucide-react'
+import { Users, Plus, Upload } from 'lucide-react'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -86,12 +86,20 @@ export default async function EmployeesPage({
           <Breadcrumb items={[{ label: 'Employees' }]} />
           <h1 className="text-[20px] font-bold text-text">Employees</h1>
         </div>
-        <Link href={`/${orgSlug}/employees/new`}>
-          <Button size="md">
-            <Plus className="h-4 w-4" />
-            Add Employee
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/${orgSlug}/employees/import`}>
+            <Button variant="secondary" size="md">
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
+          </Link>
+          <Link href={`/${orgSlug}/employees/new`}>
+            <Button size="md">
+              <Plus className="h-4 w-4" />
+              Add Employee
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <EmployeeFilters

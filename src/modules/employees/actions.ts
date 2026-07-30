@@ -37,6 +37,7 @@ import {
 } from './schemas'
 import { validateTransition, requiresReassignment, requiresReason } from './lifecycle'
 import { wouldCreateCycle } from './reporting-lines'
+import { createEmployeeCore } from './create-employee-core'
 import type { EmploymentStatus } from '@prisma/client'
 
 // ─────────────────────────────────────────────
@@ -80,78 +81,19 @@ export async function createEmployee(
     return { success: false, fieldErrors }
   }
 
-  const input = parsed.data
-
-  // Check work email uniqueness within org
-  const exists = await dbAs(userId, async (tx) => {
-    return tx.employee.findFirst({
-      where: { orgId: org.id, workEmail: input.workEmail },
-      select: { id: true },
-    })
-  })
-
-  if (exists) {
-    return { success: false, fieldErrors: { workEmail: 'An employee with this email already exists' } }
-  }
-
-  // Validate manager cycle if managerId provided
-  if (input.managerId) {
-    // For a new employee there's no cycle possible, but validate manager exists
-    const managerExists = await dbAs(userId, async (tx) => {
-      return tx.employee.findFirst({
-        where: { id: input.managerId!, orgId: org.id },
-        select: { id: true },
-      })
-    })
-    if (!managerExists) {
-      return { success: false, fieldErrors: { managerId: 'Manager not found' } }
-    }
-  }
-
-  const employee = await dbAs(userId, async (tx) => {
-    return tx.employee.create({
-      data: {
-        orgId: org.id,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        workEmail: input.workEmail,
-        personalEmail: input.personalEmail || null,
-        phone: input.phone || null,
-        dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
-        gender: input.gender || null,
-        nationalId: input.nationalId || null,
-        address: input.address || null,
-        startDate: input.startDate ? new Date(input.startDate) : null,
-        departmentId: input.departmentId || null,
-        jobTitleId: input.jobTitleId || null,
-        locationId: input.locationId || null,
-        employmentTypeId: input.employmentTypeId || null,
-        managerId: input.managerId || null,
-        compensationAmountCents: input.compensationAmountCents ?? null,
-        compensationCurrency: input.compensationCurrency || null,
-        payType: input.payType ?? 'SALARIED',
-        isWorkman: input.isWorkman ?? false,
-        shiftTemplateId: input.shiftTemplateId || null,
-        bankName: input.bankName || null,
-        bankAccountNumber: input.bankAccountNumber || null,
-        employmentStatus: 'DRAFT',
-      },
-    })
-  })
-
-  await writeAudit({
+  const result = await createEmployeeCore({
     orgId: org.id,
-    actorId: userId,
-    action: 'employee.created',
-    targetType: 'employee',
-    targetId: employee.id,
-    after: { firstName: input.firstName, lastName: input.lastName, workEmail: input.workEmail },
+    orgSlug,
+    userId,
+    input: parsed.data,
   })
 
-  await emit('employee.created', { employeeId: employee.id }, { orgId: org.id, userId })
+  if (!result.success) {
+    return { success: false, error: result.error, fieldErrors: result.fieldErrors }
+  }
 
   revalidatePath(`/${orgSlug}/employees`)
-  return { success: true, data: { id: employee.id } }
+  return { success: true, data: { id: result.employeeId } }
 }
 
 export async function updateEmployee(
