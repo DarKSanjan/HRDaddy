@@ -36,8 +36,6 @@ model Employee {
   isWorkman       Boolean          @default(false) @map("is_workman")
   shiftTemplateId String?          @map("shift_template_id")
 
-  calendarFeedToken String? @unique @map("calendar_feed_token")
-
   residencyStatus ResidencyStatus? @map("residency_status")
   prStartDate     DateTime?        @map("pr_start_date")
   prArrangement   PrArrangement?   @map("pr_arrangement")
@@ -86,6 +84,7 @@ model Employee {
 
   calendarEventsCreated    CalendarEvent[]          @relation("CalendarEventCreator")
   calendarEventRecipients  CalendarEventRecipient[]
+  calendarFeedTokens       CalendarFeedToken[]
 
   @@index([orgId])
   @@index([orgId, employmentStatus])

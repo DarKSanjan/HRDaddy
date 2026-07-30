@@ -261,3 +261,16 @@ export async function deleteHoliday(userId: string, orgId: string, holidayId: st
     })
   })
 }
+
+export async function hasDirectReports(
+  userId: string,
+  orgId: string,
+  employeeId: string
+): Promise<boolean> {
+  const count = await dbAs(userId, async (tx) => {
+    return tx.employee.count({
+      where: { orgId, managerId: employeeId, employmentStatus: 'ACTIVE' },
+    })
+  })
+  return count > 0
+}

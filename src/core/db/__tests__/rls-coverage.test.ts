@@ -45,6 +45,7 @@ const TENANT_OWNED_TABLES = [
   'asset_requests',
   'holidays',
   'calendar_events',
+  'calendar_feed_tokens',
 ]
 
 /**

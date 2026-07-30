@@ -22,6 +22,7 @@ interface CalendarActionsProps {
   canManageHolidays: boolean
   canCreateEvents: boolean
   isAdmin: boolean
+  hasDirectReports: boolean
   departments: Department[]
   employees: EmployeeOption[]
 }
@@ -31,12 +32,13 @@ export function CalendarActions({
   canManageHolidays,
   canCreateEvents,
   isAdmin,
+  hasDirectReports,
   departments,
   employees,
 }: CalendarActionsProps) {
   return (
     <>
-      <CalendarFeedButton orgSlug={orgSlug} />
+      <CalendarFeedButton orgSlug={orgSlug} hasDirectReports={hasDirectReports} isAdmin={isAdmin} />
       {canManageHolidays && (
         <Link href={`/${orgSlug}/calendar/import`}>
           <Button variant="secondary" size="sm">

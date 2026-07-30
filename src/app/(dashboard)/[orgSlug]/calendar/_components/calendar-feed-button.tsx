@@ -12,29 +12,60 @@ import {
 } from '@/core/ui'
 import { Rss, Copy, Check, RefreshCw } from 'lucide-react'
 
+type FeedScope = 'PERSONAL' | 'TEAM' | 'COMPANY'
+
 interface CalendarFeedButtonProps {
   orgSlug: string
+  hasDirectReports: boolean
+  isAdmin: boolean
 }
 
-export function CalendarFeedButton({ orgSlug }: CalendarFeedButtonProps) {
+const SCOPE_LABELS: Record<FeedScope, string> = {
+  PERSONAL: 'My Calendar',
+  TEAM: 'My Team',
+  COMPANY: 'Whole Company',
+}
+
+export function CalendarFeedButton({ orgSlug, hasDirectReports, isAdmin }: CalendarFeedButtonProps) {
   const [open, setOpen] = useState(false)
-  const [feedUrl, setFeedUrl] = useState<string | null>(null)
+  const [activeScope, setActiveScope] = useState<FeedScope>('PERSONAL')
+  const [feedUrls, setFeedUrls] = useState<Partial<Record<FeedScope, string>>>({})
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [regenerateOpen, setRegenerateOpen] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
 
-  const handleOpen = async () => {
+  const availableScopes: FeedScope[] = [
+    'PERSONAL',
+    ...(hasDirectReports ? (['TEAM'] as const) : []),
+    ...(isAdmin ? (['COMPANY'] as const) : []),
+  ]
+
+  const handleOpen = () => {
     setOpen(true)
-    if (feedUrl) return
+    if (!feedUrls[activeScope]) {
+      fetchFeedUrl(activeScope)
+    }
+  }
+
+  const handleScopeChange = (scope: FeedScope) => {
+    setActiveScope(scope)
+    setError(null)
+    setCopied(false)
+    if (!feedUrls[scope]) {
+      fetchFeedUrl(scope)
+    }
+  }
+
+  const fetchFeedUrl = async (scope: FeedScope) => {
     setLoading(true)
     setError(null)
     try {
       const { getOrCreateCalendarFeedToken } = await import('@/core/calendar-feed/actions')
-      const result = await getOrCreateCalendarFeedToken(orgSlug)
+      const result = await getOrCreateCalendarFeedToken(orgSlug, scope)
       if (result.success && result.feedUrl) {
-        setFeedUrl(result.feedUrl)
+        setFeedUrls((prev) => ({ ...prev, [scope]: result.feedUrl }))
       } else {
         setError(result.error ?? 'Failed to generate feed URL.')
       }
@@ -46,14 +77,15 @@ export function CalendarFeedButton({ orgSlug }: CalendarFeedButtonProps) {
   }
 
   const handleCopy = async () => {
-    if (!feedUrl) return
+    const url = feedUrls[activeScope]
+    if (!url) return
     try {
-      await navigator.clipboard.writeText(feedUrl)
+      await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
       const textarea = document.createElement('textarea')
-      textarea.value = feedUrl
+      textarea.value = url
       document.body.appendChild(textarea)
       textarea.select()
       document.execCommand('copy')
@@ -68,9 +100,9 @@ export function CalendarFeedButton({ orgSlug }: CalendarFeedButtonProps) {
     setError(null)
     try {
       const { regenerateCalendarFeedToken } = await import('@/core/calendar-feed/actions')
-      const result = await regenerateCalendarFeedToken(orgSlug)
+      const result = await regenerateCalendarFeedToken(orgSlug, activeScope)
       if (result.success && result.feedUrl) {
-        setFeedUrl(result.feedUrl)
+        setFeedUrls((prev) => ({ ...prev, [activeScope]: result.feedUrl }))
         setRegenerateOpen(false)
       } else {
         setError(result.error ?? 'Failed to regenerate feed URL.')
@@ -81,6 +113,8 @@ export function CalendarFeedButton({ orgSlug }: CalendarFeedButtonProps) {
       setRegenerating(false)
     }
   }
+
+  const feedUrl = feedUrls[activeScope]
 
   return (
     <>
@@ -94,11 +128,26 @@ export function CalendarFeedButton({ orgSlug }: CalendarFeedButtonProps) {
           <DialogHeader>
             <DialogTitle>Calendar Feed</DialogTitle>
             <DialogDescription>
-              Subscribe to your calendar (holidays + leave) in Google Calendar, Outlook, or Apple Calendar.
+              Subscribe to calendars (holidays + leave) in Google Calendar, Outlook, or Apple Calendar.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
+            {availableScopes.length > 1 && (
+              <div className="flex gap-1">
+                {availableScopes.map((scope) => (
+                  <Button
+                    key={scope}
+                    variant={activeScope === scope ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => handleScopeChange(scope)}
+                  >
+                    {SCOPE_LABELS[scope]}
+                  </Button>
+                ))}
+              </div>
+            )}
+
             {loading ? (
               <p className="text-[13px] text-text-muted">Generating your link…</p>
             ) : feedUrl ? (
@@ -145,15 +194,14 @@ export function CalendarFeedButton({ orgSlug }: CalendarFeedButtonProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Regenerate confirmation — nested dialog, opened from within the feed dialog */}
       <Dialog open={regenerateOpen} onOpenChange={setRegenerateOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Regenerate Calendar Link</DialogTitle>
             <DialogDescription>
-              This will invalidate your current subscription URL. Any calendar app using the old
-              URL will stop receiving updates. You&apos;ll need to re-add the new URL in your
-              calendar app.
+              This will invalidate your current subscription URL for &ldquo;{SCOPE_LABELS[activeScope]}&rdquo;.
+              Any calendar app using the old URL will stop receiving updates. You&apos;ll need to
+              re-add the new URL in your calendar app.
             </DialogDescription>
           </DialogHeader>
 

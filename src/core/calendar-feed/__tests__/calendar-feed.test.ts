@@ -1,25 +1,23 @@
-/**
- * Unit tests for the calendar-feed core module.
- * Tests: ICS generation, VEVENT count, holiday inclusion, half-day summary text,
- * token-miss returns null.
- */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock dbAdmin
-const mockFindUnique = vi.fn()
-const mockFindMany = vi.fn()
+const mockCalendarFeedTokenFindUnique = vi.fn()
+const mockLeaveRequestFindMany = vi.fn()
 const mockHolidayFindMany = vi.fn()
+const mockOrganisationFindUnique = vi.fn()
 
 vi.mock('@/core/db/admin', () => ({
   dbAdmin: {
-    employee: {
-      findUnique: (...args: unknown[]) => mockFindUnique(...args),
+    calendarFeedToken: {
+      findUnique: (...args: unknown[]) => mockCalendarFeedTokenFindUnique(...args),
     },
     leaveRequest: {
-      findMany: (...args: unknown[]) => mockFindMany(...args),
+      findMany: (...args: unknown[]) => mockLeaveRequestFindMany(...args),
     },
     holiday: {
       findMany: (...args: unknown[]) => mockHolidayFindMany(...args),
+    },
+    organisation: {
+      findUnique: (...args: unknown[]) => mockOrganisationFindUnique(...args),
     },
   },
 }))
@@ -56,27 +54,29 @@ describe('Calendar feed module', () => {
   })
 
   describe('generateCalendarFeed', () => {
-    it('returns null when token does not match any employee', async () => {
-      mockFindUnique.mockResolvedValue(null)
+    it('returns null when token does not match any feed token', async () => {
+      mockCalendarFeedTokenFindUnique.mockResolvedValue(null)
 
       const result = await generateCalendarFeed('nonexistent-token')
 
       expect(result).toBeNull()
-      expect(mockFindUnique).toHaveBeenCalledWith({
-        where: { calendarFeedToken: 'nonexistent-token' },
-        select: { id: true, firstName: true, lastName: true, orgId: true },
+      expect(mockCalendarFeedTokenFindUnique).toHaveBeenCalledWith({
+        where: { token: 'nonexistent-token' },
+        include: {
+          employee: {
+            select: { id: true, firstName: true, lastName: true, orgId: true },
+          },
+        },
       })
     })
 
-    it('generates valid ICS with leave events and holidays', async () => {
-      mockFindUnique.mockResolvedValue({
-        id: 'emp-1',
-        firstName: 'Alice',
-        lastName: 'Tan',
-        orgId: 'org-1',
+    it('PERSONAL scope generates ICS with own leave events and holidays', async () => {
+      mockCalendarFeedTokenFindUnique.mockResolvedValue({
+        scope: 'PERSONAL',
+        employee: { id: 'emp-1', firstName: 'Alice', lastName: 'Tan', orgId: 'org-1' },
       })
 
-      mockFindMany.mockResolvedValue([
+      mockLeaveRequestFindMany.mockResolvedValue([
         {
           id: 'lr-1',
           startDate: new Date('2026-03-15'),
@@ -100,13 +100,12 @@ describe('Calendar feed module', () => {
         { date: new Date('2026-08-09'), name: 'National Day' },
       ])
 
-      const result = await generateCalendarFeed('valid-token-abc')
+      const result = await generateCalendarFeed('personal-token-abc')
 
       expect(result).not.toBeNull()
       expect(result!.employeeName).toBe('Alice Tan')
 
       const ics = result!.icsBody
-
       expect(ics).toContain('BEGIN:VCALENDAR')
       expect(ics).toContain('END:VCALENDAR')
       expect(ics).toContain('Annual Leave')
@@ -117,15 +116,167 @@ describe('Calendar feed module', () => {
       expect(ics).toContain('HRDaddy Leave & Holidays')
     })
 
-    it('includes correct number of VEVENTs', async () => {
-      mockFindUnique.mockResolvedValue({
-        id: 'emp-1',
-        firstName: 'Bob',
-        lastName: 'Lee',
-        orgId: 'org-1',
+    it('PERSONAL scope event titles are NOT name-prefixed', async () => {
+      mockCalendarFeedTokenFindUnique.mockResolvedValue({
+        scope: 'PERSONAL',
+        employee: { id: 'emp-1', firstName: 'Alice', lastName: 'Tan', orgId: 'org-1' },
       })
 
-      mockFindMany.mockResolvedValue([
+      mockLeaveRequestFindMany.mockResolvedValue([
+        {
+          id: 'lr-1',
+          startDate: new Date('2026-06-01'),
+          endDate: new Date('2026-06-02'),
+          isHalfDay: false,
+          halfDayPeriod: null,
+          leaveType: { name: 'Annual Leave' },
+        },
+      ])
+
+      mockHolidayFindMany.mockResolvedValue([])
+
+      const result = await generateCalendarFeed('personal-token')
+      const ics = result!.icsBody
+
+      expect(ics).toContain('Annual Leave')
+      expect(ics).not.toContain('Alice Tan — Annual Leave')
+    })
+
+    it('TEAM scope only includes direct reports leave, not the managers own', async () => {
+      mockCalendarFeedTokenFindUnique.mockResolvedValue({
+        scope: 'TEAM',
+        employee: { id: 'manager-1', firstName: 'Bob', lastName: 'Lee', orgId: 'org-1' },
+      })
+
+      mockLeaveRequestFindMany.mockResolvedValue([
+        {
+          id: 'lr-report-1',
+          startDate: new Date('2026-06-01'),
+          endDate: new Date('2026-06-02'),
+          isHalfDay: false,
+          halfDayPeriod: null,
+          leaveType: { name: 'Annual Leave' },
+          employee: { firstName: 'Charlie', lastName: 'Wong' },
+        },
+      ])
+
+      mockHolidayFindMany.mockResolvedValue([])
+
+      const result = await generateCalendarFeed('team-token')
+
+      expect(result).not.toBeNull()
+      const ics = result!.icsBody
+
+      expect(ics).toContain('Charlie Wong — Annual Leave')
+
+      const leaveCall = mockLeaveRequestFindMany.mock.calls[0][0]
+      expect(leaveCall.where.employee).toEqual({ managerId: 'manager-1' })
+    })
+
+    it('TEAM scope event titles are name-prefixed', async () => {
+      mockCalendarFeedTokenFindUnique.mockResolvedValue({
+        scope: 'TEAM',
+        employee: { id: 'manager-1', firstName: 'Bob', lastName: 'Lee', orgId: 'org-1' },
+      })
+
+      mockLeaveRequestFindMany.mockResolvedValue([
+        {
+          id: 'lr-1',
+          startDate: new Date('2026-04-10'),
+          endDate: new Date('2026-04-10'),
+          isHalfDay: true,
+          halfDayPeriod: 'PM',
+          leaveType: { name: 'Sick Leave' },
+          employee: { firstName: 'Dana', lastName: 'Lim' },
+        },
+      ])
+
+      mockHolidayFindMany.mockResolvedValue([])
+
+      const result = await generateCalendarFeed('team-token-2')
+      const ics = result!.icsBody
+
+      expect(ics).toContain('Dana Lim — Sick Leave (half day')
+    })
+
+    it('COMPANY scope includes all org-wide leave', async () => {
+      mockCalendarFeedTokenFindUnique.mockResolvedValue({
+        scope: 'COMPANY',
+        employee: { id: 'admin-1', firstName: 'Eve', lastName: 'Ng', orgId: 'org-1' },
+      })
+
+      mockLeaveRequestFindMany.mockResolvedValue([
+        {
+          id: 'lr-a',
+          startDate: new Date('2026-07-01'),
+          endDate: new Date('2026-07-03'),
+          isHalfDay: false,
+          halfDayPeriod: null,
+          leaveType: { name: 'Annual Leave' },
+          employee: { firstName: 'Frank', lastName: 'Chia' },
+        },
+        {
+          id: 'lr-b',
+          startDate: new Date('2026-07-10'),
+          endDate: new Date('2026-07-10'),
+          isHalfDay: false,
+          halfDayPeriod: null,
+          leaveType: { name: 'Annual Leave' },
+          employee: { firstName: 'Grace', lastName: 'Ho' },
+        },
+      ])
+
+      mockHolidayFindMany.mockResolvedValue([])
+      mockOrganisationFindUnique.mockResolvedValue({ name: 'Acme Corp' })
+
+      const result = await generateCalendarFeed('company-token')
+      const ics = result!.icsBody
+
+      expect(ics).toContain('Frank Chia — Annual Leave')
+      expect(ics).toContain('Grace Ho — Annual Leave')
+      expect(ics).toContain('Acme Corp')
+      expect(ics).toContain('HRDaddy Calendar')
+
+      const leaveCall = mockLeaveRequestFindMany.mock.calls[0][0]
+      expect(leaveCall.where.orgId).toBe('org-1')
+      expect(leaveCall.where.employee).toBeUndefined()
+      expect(leaveCall.where.employeeId).toBeUndefined()
+    })
+
+    it('COMPANY scope event titles are name-prefixed', async () => {
+      mockCalendarFeedTokenFindUnique.mockResolvedValue({
+        scope: 'COMPANY',
+        employee: { id: 'admin-1', firstName: 'Eve', lastName: 'Ng', orgId: 'org-1' },
+      })
+
+      mockLeaveRequestFindMany.mockResolvedValue([
+        {
+          id: 'lr-x',
+          startDate: new Date('2026-09-01'),
+          endDate: new Date('2026-09-01'),
+          isHalfDay: false,
+          halfDayPeriod: null,
+          leaveType: { name: 'Compassionate Leave' },
+          employee: { firstName: 'Hank', lastName: 'Teo' },
+        },
+      ])
+
+      mockHolidayFindMany.mockResolvedValue([])
+      mockOrganisationFindUnique.mockResolvedValue({ name: 'Acme Corp' })
+
+      const result = await generateCalendarFeed('company-token-2')
+      const ics = result!.icsBody
+
+      expect(ics).toContain('Hank Teo — Compassionate Leave')
+    })
+
+    it('includes correct number of VEVENTs', async () => {
+      mockCalendarFeedTokenFindUnique.mockResolvedValue({
+        scope: 'PERSONAL',
+        employee: { id: 'emp-1', firstName: 'Bob', lastName: 'Lee', orgId: 'org-1' },
+      })
+
+      mockLeaveRequestFindMany.mockResolvedValue([
         {
           id: 'lr-1',
           startDate: new Date('2026-06-01'),
@@ -147,20 +298,16 @@ describe('Calendar feed module', () => {
 
       const ics = result!.icsBody
       const veventCount = (ics.match(/BEGIN:VEVENT/g) || []).length
-
-      // 1 leave request + 3 holidays = 4
       expect(veventCount).toBe(4)
     })
 
     it('generates ICS with no leave requests but still includes holidays', async () => {
-      mockFindUnique.mockResolvedValue({
-        id: 'emp-1',
-        firstName: 'Charlie',
-        lastName: 'Wong',
-        orgId: 'org-1',
+      mockCalendarFeedTokenFindUnique.mockResolvedValue({
+        scope: 'PERSONAL',
+        employee: { id: 'emp-1', firstName: 'Charlie', lastName: 'Wong', orgId: 'org-1' },
       })
 
-      mockFindMany.mockResolvedValue([])
+      mockLeaveRequestFindMany.mockResolvedValue([])
 
       mockHolidayFindMany.mockResolvedValue([
         { date: new Date('2026-01-01'), name: "New Year's Day" },
@@ -172,8 +319,6 @@ describe('Calendar feed module', () => {
 
       const ics = result!.icsBody
       const veventCount = (ics.match(/BEGIN:VEVENT/g) || []).length
-
-      // Only 2 holidays
       expect(veventCount).toBe(2)
     })
   })

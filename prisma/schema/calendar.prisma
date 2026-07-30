@@ -1,10 +1,31 @@
 // HR Daddy - Calendar schema
-// Holiday, CalendarEvent, CalendarEventRecipient
+// Holiday, CalendarEvent, CalendarEventRecipient, CalendarFeedToken
 
 enum CalendarEventAudience {
   COMPANY
   DEPARTMENT
   SPECIFIC_EMPLOYEES
+}
+
+enum CalendarFeedScope {
+  PERSONAL
+  TEAM
+  COMPANY
+}
+
+model CalendarFeedToken {
+  id         String            @id @default(cuid())
+  orgId      String            @map("org_id")
+  employeeId String            @map("employee_id")
+  scope      CalendarFeedScope
+  token      String            @unique
+  createdAt  DateTime          @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, scope])
+  @@map("calendar_feed_tokens")
 }
 
 model Holiday {

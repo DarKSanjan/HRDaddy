@@ -1,12 +1,3 @@
-/**
- * Calendar feed core module — generates ICS (RFC 5545) calendar bodies.
- *
- * Uses `dbAdmin` for the token-lookup path. This is the fourth legitimate case
- * for bypassing RLS: an unauthenticated public endpoint whose "authentication"
- * is an unguessable token embedded in the URL (analogous to a signed URL or a
- * background-job context). There is no user session to scope with — the token
- * IS the credential. See also the comment in src/core/db/admin.ts.
- */
 import 'server-only'
 import { dbAdmin } from '@/core/db/admin'
 import { createEvents, type EventAttributes } from 'ics'
@@ -24,82 +15,99 @@ export interface CalendarFeedResult {
 // Token lookup & feed generation
 // ─────────────────────────────────────────────
 
-/**
- * Look up an employee by their calendar feed token and generate an ICS body.
- * Returns null if the token doesn't match any employee (bad/regenerated token).
- */
 export async function generateCalendarFeed(
   token: string
 ): Promise<CalendarFeedResult | null> {
-  const employee = await dbAdmin.employee.findUnique({
-    where: { calendarFeedToken: token },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      orgId: true,
+  const feedToken = await dbAdmin.calendarFeedToken.findUnique({
+    where: { token },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          orgId: true,
+        },
+      },
     },
   })
 
-  if (!employee) {
+  if (!feedToken) {
     return null
   }
 
-  // Window: ±1 year from today
+  const { employee, scope } = feedToken
+
   const now = new Date()
   const startYear = now.getFullYear() - 1
   const endYear = now.getFullYear() + 1
   const windowStart = new Date(startYear, 0, 1)
   const windowEnd = new Date(endYear, 11, 31, 23, 59, 59)
 
-  // Fetch approved leave requests in the window
-  const leaveRequests = await dbAdmin.leaveRequest.findMany({
-    where: {
-      employeeId: employee.id,
-      orgId: employee.orgId,
-      status: 'APPROVED',
-      startDate: { lte: windowEnd },
-      endDate: { gte: windowStart },
-    },
-    include: {
-      leaveType: { select: { name: true } },
-    },
-    orderBy: { startDate: 'asc' },
-  })
-
-  // Build ICS events
   const events: EventAttributes[] = []
 
-  // Leave request events
-  for (const lr of leaveRequests) {
-    const summary = formatLeaveSummary(lr.leaveType.name, lr.isHalfDay, lr.halfDayPeriod)
-    const start = dateToArray(lr.startDate)
+  if (scope === 'PERSONAL') {
+    const leaveRequests = await dbAdmin.leaveRequest.findMany({
+      where: {
+        employeeId: employee.id,
+        orgId: employee.orgId,
+        status: 'APPROVED',
+        startDate: { lte: windowEnd },
+        endDate: { gte: windowStart },
+      },
+      include: {
+        leaveType: { select: { name: true } },
+      },
+      orderBy: { startDate: 'asc' },
+    })
 
-    if (lr.isHalfDay) {
-      // Half-day: single-day event with time markers
-      events.push({
-        title: summary,
-        start,
-        end: start, // Same day
-        startOutputType: 'local',
-        status: 'CONFIRMED',
-        uid: `leave-${lr.id}@hrdaddy`,
-      })
-    } else {
-      // All-day event: end date in ICS is exclusive, so add 1 day
-      const endExclusive = addOneDay(lr.endDate)
-      events.push({
-        title: summary,
-        start,
-        end: dateToArray(endExclusive),
-        startOutputType: 'local',
-        status: 'CONFIRMED',
-        uid: `leave-${lr.id}@hrdaddy`,
-      })
+    for (const lr of leaveRequests) {
+      const summary = formatLeaveSummary(lr.leaveType.name, lr.isHalfDay, lr.halfDayPeriod)
+      events.push(buildLeaveEvent(lr, summary))
+    }
+  } else if (scope === 'TEAM') {
+    const leaveRequests = await dbAdmin.leaveRequest.findMany({
+      where: {
+        orgId: employee.orgId,
+        employee: { managerId: employee.id },
+        status: 'APPROVED',
+        startDate: { lte: windowEnd },
+        endDate: { gte: windowStart },
+      },
+      include: {
+        leaveType: { select: { name: true } },
+        employee: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { startDate: 'asc' },
+    })
+
+    for (const lr of leaveRequests) {
+      const suffix = formatLeaveSummary(lr.leaveType.name, lr.isHalfDay, lr.halfDayPeriod)
+      const summary = `${lr.employee.firstName} ${lr.employee.lastName} — ${suffix}`
+      events.push(buildLeaveEvent(lr, summary))
+    }
+  } else {
+    const leaveRequests = await dbAdmin.leaveRequest.findMany({
+      where: {
+        orgId: employee.orgId,
+        status: 'APPROVED',
+        startDate: { lte: windowEnd },
+        endDate: { gte: windowStart },
+      },
+      include: {
+        leaveType: { select: { name: true } },
+        employee: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { startDate: 'asc' },
+    })
+
+    for (const lr of leaveRequests) {
+      const suffix = formatLeaveSummary(lr.leaveType.name, lr.isHalfDay, lr.halfDayPeriod)
+      const summary = `${lr.employee.firstName} ${lr.employee.lastName} — ${suffix}`
+      events.push(buildLeaveEvent(lr, summary))
     }
   }
 
-  // Public holiday events from org's Holiday table
   const holidays = await dbAdmin.holiday.findMany({
     where: {
       orgId: employee.orgId,
@@ -123,16 +131,26 @@ export async function generateCalendarFeed(
     })
   }
 
-  // Generate ICS body
   const employeeName = `${employee.firstName} ${employee.lastName}`
-  const { error, value } = createEvents(events, {
-    calName: `${employeeName} — HRDaddy Leave & Holidays`,
-  })
+  let calName: string
+
+  if (scope === 'PERSONAL') {
+    calName = `${employeeName} — HRDaddy Leave & Holidays`
+  } else if (scope === 'TEAM') {
+    calName = `${employeeName}'s Team — HRDaddy Calendar`
+  } else {
+    const org = await dbAdmin.organisation.findUnique({
+      where: { id: employee.orgId },
+      select: { name: true },
+    })
+    calName = `${org?.name ?? 'Company'} — HRDaddy Calendar`
+  }
+
+  const { error, value } = createEvents(events, { calName })
 
   if (error || !value) {
-    // Fallback: empty valid calendar if generation fails for some reason
     return {
-      icsBody: buildEmptyCalendar(employeeName),
+      icsBody: buildEmptyCalendar(calName),
       employeeName,
     }
   }
@@ -144,10 +162,6 @@ export async function generateCalendarFeed(
 // Helpers
 // ─────────────────────────────────────────────
 
-/**
- * Format leave type name into a natural summary.
- * e.g. "Annual Leave", "Sick Leave (half day - AM)"
- */
 export function formatLeaveSummary(
   leaveTypeName: string,
   isHalfDay: boolean,
@@ -160,6 +174,38 @@ export function formatLeaveSummary(
   return period ? `${leaveTypeName} (half day — ${period})` : `${leaveTypeName} (half day)`
 }
 
+interface LeaveRow {
+  id: string
+  startDate: Date
+  endDate: Date
+  isHalfDay: boolean
+}
+
+function buildLeaveEvent(lr: LeaveRow, summary: string): EventAttributes {
+  const start = dateToArray(lr.startDate)
+
+  if (lr.isHalfDay) {
+    return {
+      title: summary,
+      start,
+      end: start,
+      startOutputType: 'local',
+      status: 'CONFIRMED',
+      uid: `leave-${lr.id}@hrdaddy`,
+    }
+  }
+
+  const endExclusive = addOneDay(lr.endDate)
+  return {
+    title: summary,
+    start,
+    end: dateToArray(endExclusive),
+    startOutputType: 'local',
+    status: 'CONFIRMED',
+    uid: `leave-${lr.id}@hrdaddy`,
+  }
+}
+
 function dateToArray(date: Date): [number, number, number] {
   return [date.getFullYear(), date.getMonth() + 1, date.getDate()]
 }
@@ -170,12 +216,12 @@ function addOneDay(date: Date): Date {
   return d
 }
 
-function buildEmptyCalendar(name: string): string {
+function buildEmptyCalendar(calName: string): string {
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//HRDaddy//Calendar Feed//EN',
-    `X-WR-CALNAME:${name} — HRDaddy Leave & Holidays`,
+    `X-WR-CALNAME:${calName}`,
     'END:VCALENDAR',
   ].join('\r\n')
 }

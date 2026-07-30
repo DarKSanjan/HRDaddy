@@ -8,6 +8,7 @@ import {
   getImportantDatesForViewer,
   getBirthdaysAndAnniversaries,
   listVisibleCalendarEvents,
+  hasDirectReports,
 } from '@/modules/calendar/queries'
 import { calendarMonthParamsSchema } from '@/modules/calendar/schemas'
 import { listDepartments } from '@/modules/employees/queries'
@@ -55,6 +56,10 @@ export default async function CalendarPage({
   const canCreateEvents = hasPermission(membership.role, enabledModules, 'calendar.event.create')
   const isAdmin = membership.role === 'OWNER' || membership.role === 'HR_ADMIN'
 
+  const employeeHasDirectReports = employeeId
+    ? await hasDirectReports(session.userId, org.id, employeeId)
+    : false
+
   const departments = canCreateEvents && isAdmin
     ? await listDepartments(session.userId, org.id)
     : []
@@ -73,6 +78,7 @@ export default async function CalendarPage({
             canManageHolidays={canManageHolidays}
             canCreateEvents={canCreateEvents}
             isAdmin={isAdmin}
+            hasDirectReports={employeeHasDirectReports}
             departments={departments}
             employees={employees}
           />
