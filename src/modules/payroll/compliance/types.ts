@@ -3,15 +3,78 @@
  *
  * This is the "seam" for multi-country support — each country implements this
  * interface, and the payroll engine calls through it rather than hardcoding
- * SG-specific logic. Currently only Singapore is implemented.
+ * country-specific logic. Currently only Singapore is implemented.
+ *
+ * The generic engine (actions.ts) builds a StatutoryContributionContext from
+ * raw employee/wage/period data using country-neutral field names. Each
+ * provider maps that context into whatever internal shape its statutory scheme
+ * requires (e.g. SG maps to CpfComputeInput, MY would map to EpfInput, etc).
  */
-import type { CpfComputeInput, CpfResult } from '../cpf/types'
+
+// ─────────────────────────────────────────────
+// Generic statutory contribution types
+// ─────────────────────────────────────────────
+
+/**
+ * Country-agnostic context that the payroll engine builds and passes to
+ * the compliance provider. Contains raw employee and wage data — the
+ * provider is responsible for interpreting these in its own statutory context.
+ */
+export interface StatutoryContributionContext {
+  employee: {
+    dateOfBirth: Date
+    /** Country-specific status string — SG uses 'CITIZEN' | 'PR' | 'FOREIGNER'. */
+    residencyStatus: string | null
+    /** Date permanent residency began (SG-specific concept; null for other countries). */
+    prStartDate: Date | null
+    /** PR contribution arrangement (SG-specific; null for other countries). */
+    prArrangement: string | null
+  }
+  /** Gross regular wages for this period (cents). Excludes bonuses. */
+  grossWageCents: number
+  /** Bonus / additional wages for this period (cents). */
+  bonusWageCents: number
+  /** End date of the pay period (determines applicable rates/age). */
+  payPeriodEndDate: Date
+  /** Year-to-date figures for ceiling/cap calculations. */
+  yearToDate: {
+    /** YTD regular wages already subject to statutory contributions (cents). */
+    regularWageCents: number
+    /** YTD total wages (regular + bonus) already subject to statutory contributions (cents). */
+    totalWageCents: number
+  }
+}
+
+/**
+ * Country-agnostic result from statutory contribution computation.
+ * The payroll engine uses only these fields for net pay and record persistence.
+ */
+export interface StatutoryContributionResult {
+  totalCents: number
+  employeeCents: number
+  employerCents: number
+  /**
+   * Provider-specific detail values the engine persists to country-flavored
+   * DB columns. Keys are provider-defined; the engine reads specific known
+   * keys (e.g. 'cappedRegularWageCents') without branching on country code.
+   *
+   * For SG: { cappedRegularWageCents, cappedBonusWageCents }
+   */
+  details: Record<string, number>
+}
+
+// ─────────────────────────────────────────────
+// Provider interface
+// ─────────────────────────────────────────────
 
 export interface PayrollComplianceProvider {
   countryCode: string
 
-  /** Statutory contribution engine (CPF for SG). */
-  computeStatutoryContribution(input: CpfComputeInput): CpfResult
+  /**
+   * Compute statutory contributions (CPF for SG, EPF for MY, etc).
+   * The provider maps the generic context into its own internal input shape.
+   */
+  computeStatutoryContribution(ctx: StatutoryContributionContext): StatutoryContributionResult
 
   /**
    * Is this employee within scope for statutory OT pay?
@@ -20,19 +83,15 @@ export interface PayrollComplianceProvider {
   isOvertimeEligible(basicMonthlyCents: number, isWorkman: boolean): boolean
 
   /**
-   * MOM-prescribed hourly rate derivation from monthly basic salary.
-   * Formula: (12 × monthly basic) / (52 × 44)
+   * Statutory hourly rate derivation from monthly basic salary.
+   * Formula: (12 × monthly basic) / (52 × 44) for SG.
    */
   hourlyRateFromMonthlyCents(monthlyCents: number): number
 
   /**
-   * OW vs AW classification for a wage component.
-   * OW if paid by the 14th of the month following the period it was earned in;
-   * otherwise AW.
-   *
-   * Edge case note: OT paid late (after 14th of following month) should be
-   * reclassified as AW. Full remediation flow is out of scope for M12 — flagged
-   * here for future implementation.
+   * Classify a wage component's timing (e.g. OW vs AW for SG).
+   * Returns a string — the engine does not interpret the value; it's used
+   * by the provider's own computeStatutoryContribution logic.
    */
   classifyWageTiming(earnedPeriodEnd: Date, paidDate: Date): 'OW' | 'AW'
 }

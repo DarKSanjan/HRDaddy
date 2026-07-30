@@ -2,15 +2,19 @@
  * Compliance provider registry.
  *
  * Adding a new country means:
- * 1. Write a new file (e.g. ./my.ts) implementing PayrollComplianceProvider
- * 2. Add one case to the switch below
+ * 1. Write a new file (e.g. ./my.ts) implementing PayrollComplianceProvider.
+ *    Your provider receives a StatutoryContributionContext (generic employee/
+ *    wage/period data) and returns a StatutoryContributionResult.
+ * 2. Add one case to the switch below.
  *
- * No other file in the payroll engine needs to change.
+ * No other file in the payroll engine needs to change — the generic engine
+ * builds a StatutoryContributionContext from raw employee data and reads only
+ * the standard result fields (totalCents, employeeCents, employerCents, details).
  */
 import type { PayrollComplianceProvider } from './types'
 import { sgComplianceProvider } from './sg'
 
-export type { PayrollComplianceProvider } from './types'
+export type { PayrollComplianceProvider, StatutoryContributionContext, StatutoryContributionResult } from './types'
 
 /**
  * Get the compliance provider for a given country code.

@@ -21,12 +21,12 @@ import { getOrgContext, requirePermission } from '@/core/auth'
 import { writeAudit } from '@/core/audit'
 import { dbAs } from '@/core/db'
 import { getComplianceProvider } from './compliance'
+import type { StatutoryContributionContext } from './compliance'
 import { MOM_OT_CAP_HOURS } from './compliance/sg'
 import { resolveShift, computeShiftMetrics } from '../attendance/shift-helpers'
 import { getPayrollComplexity } from './settings'
 import { computeEmployeeBasePay } from './compute'
 import { momPayslipSchema } from './schemas'
-import type { CpfComputeInput, ResidencyStatus, PrArrangement } from './cpf/types'
 import {
   processPayrollSchema,
   submitForReviewSchema,
@@ -307,16 +307,20 @@ export async function processPayroll(
         0
       )
 
-      const cpfInput: CpfComputeInput = {
-        owCents,
-        awCents: 0, // AW handled separately during bonus processing
-        dateOfBirth: emp.dateOfBirth,
-        payPeriodDate: period.endDate,
-        residencyStatus: (emp.residencyStatus ?? 'CITIZEN') as ResidencyStatus,
-        prStartDate: emp.prStartDate ?? null,
-        prArrangement: (emp.prArrangement ?? null) as PrArrangement | null,
-        ytdOwCents,
-        ytdTotalCents: ytdOwCents,
+      const cpfInput: StatutoryContributionContext = {
+        employee: {
+          dateOfBirth: emp.dateOfBirth,
+          residencyStatus: emp.residencyStatus ?? null,
+          prStartDate: emp.prStartDate ?? null,
+          prArrangement: emp.prArrangement ?? null,
+        },
+        grossWageCents: owCents,
+        bonusWageCents: 0, // AW/bonus handled separately during bonus processing
+        payPeriodEndDate: period.endDate,
+        yearToDate: {
+          regularWageCents: ytdOwCents,
+          totalWageCents: ytdOwCents,
+        },
       }
 
       const cpfResult = compliance.computeStatutoryContribution(cpfInput)
@@ -330,10 +334,12 @@ export async function processPayroll(
           employeeId: emp.id,
           grossAmountCents: grossCents,
           netAmountCents: netCents,
+          // Column names predate multi-country support; values are now populated
+          // generically via the compliance provider's StatutoryContributionResult.
           cpfTotalCents: cpfResult.totalCents,
           cpfEmployeeCents: cpfResult.employeeCents,
           cpfEmployerCents: cpfResult.employerCents,
-          ytdOwCents: cpfResult.cappedOwCents,
+          ytdOwCents: cpfResult.details.cappedRegularWageCents ?? 0,
           isPublished: false,
         },
       })

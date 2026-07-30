@@ -12,8 +12,8 @@
  * - MOM overtime pay guidance (mom.gov.sg)
  * - CPF Board OW/AW guidance (ask.gov.sg/cpf)
  */
-import type { PayrollComplianceProvider } from './types'
-import type { CpfComputeInput, CpfResult } from '../cpf/types'
+import type { PayrollComplianceProvider, StatutoryContributionContext, StatutoryContributionResult } from './types'
+import type { CpfComputeInput, ResidencyStatus, PrArrangement } from '../cpf/types'
 import { computeCpf } from '../cpf/calculate'
 
 /**
@@ -47,8 +47,32 @@ const OW_DEADLINE_DAY = 14
 export const sgComplianceProvider: PayrollComplianceProvider = {
   countryCode: 'SG',
 
-  computeStatutoryContribution(input: CpfComputeInput): CpfResult {
-    return computeCpf(input)
+  computeStatutoryContribution(ctx: StatutoryContributionContext): StatutoryContributionResult {
+    // Map generic context → SG-specific CpfComputeInput
+    const cpfInput: CpfComputeInput = {
+      owCents: ctx.grossWageCents,
+      awCents: ctx.bonusWageCents,
+      dateOfBirth: ctx.employee.dateOfBirth,
+      payPeriodDate: ctx.payPeriodEndDate,
+      residencyStatus: (ctx.employee.residencyStatus ?? 'CITIZEN') as ResidencyStatus,
+      prStartDate: ctx.employee.prStartDate ?? null,
+      prArrangement: (ctx.employee.prArrangement ?? null) as PrArrangement | null,
+      ytdOwCents: ctx.yearToDate.regularWageCents,
+      ytdTotalCents: ctx.yearToDate.totalWageCents,
+    }
+
+    const cpfResult = computeCpf(cpfInput)
+
+    // Map CpfResult → generic StatutoryContributionResult
+    return {
+      totalCents: cpfResult.totalCents,
+      employeeCents: cpfResult.employeeCents,
+      employerCents: cpfResult.employerCents,
+      details: {
+        cappedRegularWageCents: cpfResult.cappedOwCents,
+        cappedBonusWageCents: cpfResult.cappedAwCents,
+      },
+    }
   },
 
   isOvertimeEligible(basicMonthlyCents: number, isWorkman: boolean): boolean {

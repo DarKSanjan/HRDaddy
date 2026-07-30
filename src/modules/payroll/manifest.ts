@@ -15,7 +15,7 @@ export const payrollModule = defineModule({
   id: 'payroll',
   name: 'Payroll',
   version: '1.0.0',
-  description: 'Payroll processing with CPF calculations and compliant payslips',
+  description: 'Payroll processing with statutory contribution calculations and compliant payslips',
   dependsOn: ['employees'],
 
   permissions: [
