@@ -5,6 +5,7 @@ import { Button, Badge, HoverCard, HoverCardTrigger, HoverCardContent } from '@/
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ExternalLink } from 'lucide-react'
 import type { LeaveRequestStatus } from '@prisma/client'
 import Link from 'next/link'
+import { CalendarFeedButton } from './calendar-feed-button'
 
 interface CalendarEntry {
   employeeId: string
@@ -276,9 +277,12 @@ export function TeamCalendarView({ entries, holidays = [], month, year, orgSlug 
             {new Date(year, month - 1).toLocaleDateString('en-SG', { month: 'long', year: 'numeric' })}
           </h2>
         </div>
-        <Button variant="secondary" size="sm" onClick={goToToday}>
-          Today
-        </Button>
+        <div className="flex items-center gap-2">
+          <CalendarFeedButton orgSlug={orgSlug} />
+          <Button variant="secondary" size="sm" onClick={goToToday}>
+            Today
+          </Button>
+        </div>
       </div>
 
       {/* Legend */}

@@ -20,6 +20,9 @@ import {
   DollarSign,
   ClipboardCheck,
   TrendingUp,
+  Receipt,
+  Package,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -43,6 +46,9 @@ const iconMap: Record<string, LucideIcon> = {
   DollarSign,
   ClipboardCheck,
   TrendingUp,
+  Receipt,
+  Package,
+  ClipboardList,
 }
 
 /**
