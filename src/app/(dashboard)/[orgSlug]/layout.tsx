@@ -16,7 +16,7 @@ import { hasPermission } from '@/core/permissions'
 import { AppShell } from '@/core/ui/shell'
 import { getOrgBranding } from '@/core/org/queries'
 import { getUserNotifications } from '@/core/notifications/queries'
-import { getStorageUsedBytes, FREE_PLAN_STORAGE_LIMIT_BYTES } from '@/modules/documents/storage-queries'
+import { getStorageUsedBytes, FREE_PLAN_STORAGE_LIMIT_BYTES } from '@/core/documents'
 
 export default async function OrgDashboardLayout({
   children,
@@ -39,7 +39,7 @@ export default async function OrgDashboardLayout({
   const [branding, { notifications, unreadCount }, storageUsedBytes] = await Promise.all([
     getOrgBranding(org.id),
     getUserNotifications(session.userId, org.id),
-    getStorageUsedBytes(session.userId, org.id),
+    getStorageUsedBytes(org.id),
   ])
 
   return (

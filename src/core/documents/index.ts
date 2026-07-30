@@ -12,6 +12,27 @@ export interface DocumentExpiryJobResult {
   errors: string[]
 }
 
+/** Free plan storage limit — placeholder until billing system exists */
+export const FREE_PLAN_STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024 // 1 GB
+
+/**
+ * Get total storage used by an organisation (sum of all employee document file sizes).
+ * Payslip PDFs are generated on-demand and never stored, so they don't count.
+ *
+ * Org-wide aggregate, not scoped to any one employee's own records, so it doesn't
+ * need dbAs()'s per-request RLS transaction — that would cost a pooled connection
+ * and a semaphore slot on every single page load (this runs from the root org
+ * layout, wrapping every route). dbAdmin with a manual orgId filter is equivalent
+ * here since the query never varied by caller identity in the first place.
+ */
+export async function getStorageUsedBytes(orgId: string): Promise<number> {
+  const aggregate = await dbAdmin.employeeDocument.aggregate({
+    where: { orgId, isArchived: false },
+    _sum: { fileSize: true },
+  })
+  return aggregate._sum.fileSize ?? 0
+}
+
 /**
  * Check all organisations for documents expiring within `withinDays`.
  * Sends a notification to the HR admin or owner for each expiring document.
