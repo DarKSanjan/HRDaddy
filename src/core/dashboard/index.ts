@@ -152,6 +152,67 @@ export function resolveWidgets(
 /**
  * Reset registry (for testing).
  */
+/**
+ * Layout JSON shape stored in dashboard_layouts.layout.
+ */
+export interface SavedLayoutWidget {
+  id: string
+  hidden: boolean
+}
+
+export interface SavedLayout {
+  widgets: SavedLayoutWidget[]
+}
+
+/**
+ * Apply a user's saved layout on top of the already-permitted widget set.
+ *
+ * SECURITY INVARIANT: The saved layout can only reorder or hide widgets from
+ * the permitted set — it can NEVER surface a widget the viewer isn't entitled
+ * to see. Any widget ID in the saved layout that isn't in `permittedWidgets`
+ * is silently dropped (defense-in-depth against stale layouts from role
+ * changes or module disablement).
+ *
+ * Ordering algorithm:
+ * 1. Widgets present in saved layout (still in permitted set, not hidden) — in array order
+ * 2. Permitted widgets NOT mentioned in saved layout — in default priority order
+ * 3. Widgets marked hidden: true are excluded entirely
+ */
+export function applyLayout(
+  permittedWidgets: DashboardWidget[],
+  savedLayout: SavedLayout | null
+): DashboardWidget[] {
+  if (!savedLayout || !savedLayout.widgets || savedLayout.widgets.length === 0) {
+    return permittedWidgets
+  }
+
+  const permittedMap = new Map(permittedWidgets.map((w) => [w.id, w]))
+  const result: DashboardWidget[] = []
+  const mentioned = new Set<string>()
+
+  for (const entry of savedLayout.widgets) {
+    mentioned.add(entry.id)
+
+    // Defense-in-depth: drop any widget not in the current permitted set
+    const widget = permittedMap.get(entry.id)
+    if (!widget) continue
+
+    // Skip hidden widgets
+    if (entry.hidden) continue
+
+    result.push(widget)
+  }
+
+  // Append any permitted widgets not mentioned in the layout, in default priority order
+  for (const widget of permittedWidgets) {
+    if (!mentioned.has(widget.id)) {
+      result.push(widget)
+    }
+  }
+
+  return result
+}
+
 export function _resetWidgets(): void {
   legacyWidgets.length = 0
 }

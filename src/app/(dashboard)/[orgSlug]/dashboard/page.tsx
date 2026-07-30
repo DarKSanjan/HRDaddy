@@ -1,15 +1,10 @@
-/**
- * Dashboard page — the most-loaded page in the product.
- *
- * Assembles from widgets declared in module manifests, filtered by the
- * org's enabled modules and the viewer's permissions.
- */
 import { verifySession, getOrgContext } from '@/core/auth'
-import { resolveWidgets } from '@/core/dashboard'
+import { resolveWidgets, applyLayout } from '@/core/dashboard'
+import type { SavedLayout } from '@/core/dashboard'
 import { resolveDashboardContext } from '@/core/dashboard/context'
-import { DashboardGrid, WidgetShell } from '@/core/dashboard/grid'
-
-// Side-effect import: populates the module registry (including widgets)
+import { WidgetShell } from '@/core/dashboard/grid'
+import { CustomizableDashboard } from '@/core/dashboard/customizable-dashboard'
+import { getDashboardLayout } from '@/core/dashboard/layout-actions'
 import '@/modules/register'
 
 export const dynamic = 'force-dynamic'
@@ -23,11 +18,29 @@ export default async function DashboardPage({
   const session = await verifySession()
   const { org, membership, enabledModules } = await getOrgContext(orgSlug)
 
-  // Resolve dashboard context (timezone, employee, managed reports)
   const dashCtx = await resolveDashboardContext(org.id, session.userId, membership.role)
+  const permittedWidgets = resolveWidgets(membership.role, enabledModules)
 
-  // Resolve which widgets to show for this viewer
-  const widgets = resolveWidgets(membership.role, enabledModules)
+  // Fetch user's saved layout
+  const layoutResult = await getDashboardLayout(orgSlug)
+  const savedLayout: SavedLayout | null = layoutResult.layout
+
+  // Apply layout ordering/hiding (defense-in-depth: drops unpermitted widget IDs)
+  const orderedWidgets = applyLayout(permittedWidgets, savedLayout)
+
+  // Determine hidden widgets (in layout, permitted, but marked hidden)
+  const hiddenWidgetIds = new Set<string>()
+  if (savedLayout?.widgets) {
+    const permittedIds = new Set(permittedWidgets.map((w) => w.id))
+    for (const entry of savedLayout.widgets) {
+      if (entry.hidden && permittedIds.has(entry.id)) {
+        hiddenWidgetIds.add(entry.id)
+      }
+    }
+  }
+  const hiddenWidgets = permittedWidgets
+    .filter((w) => hiddenWidgetIds.has(w.id))
+    .map((w) => ({ id: w.id, title: w.title, size: w.size }))
 
   const widgetProps = {
     orgId: org.id,
@@ -39,25 +52,33 @@ export default async function DashboardPage({
     managedEmployeeIds: dashCtx.managedEmployeeIds,
   }
 
+  // Pre-render each widget's content server-side (widgets are server components)
+  const visibleWidgets = orderedWidgets.map((widget) => {
+    const Widget = widget.component
+    return {
+      id: widget.id,
+      title: widget.title,
+      size: widget.size,
+      content: (
+        <WidgetShell key={widget.id} id={widget.id} size={widget.size}>
+          <Widget {...widgetProps} />
+        </WidgetShell>
+      ),
+    }
+  })
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-[20px] font-bold text-text">Dashboard</h1>
-        <p className="text-[13px] text-text-muted">
-          Welcome back, {session.name}
-        </p>
+        <p className="text-[13px] text-text-muted">Welcome back, {session.name}</p>
       </div>
-
-      <DashboardGrid>
-        {widgets.map((widget) => {
-          const Widget = widget.component
-          return (
-            <WidgetShell key={widget.id} id={widget.id} size={widget.size}>
-              <Widget {...widgetProps} />
-            </WidgetShell>
-          )
-        })}
-      </DashboardGrid>
+      <CustomizableDashboard
+        orgSlug={orgSlug}
+        visibleWidgets={visibleWidgets}
+        hiddenWidgets={hiddenWidgets}
+        hasLayout={savedLayout !== null}
+      />
     </div>
   )
 }

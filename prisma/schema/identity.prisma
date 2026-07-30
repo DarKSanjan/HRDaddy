@@ -10,10 +10,11 @@ model User {
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
-  memberships     OrganisationMembership[]
-  notifications   Notification[]
-  auditLogs       AuditLog[]
-  setupProgresses OrgSetupProgress[]
+  memberships      OrganisationMembership[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  setupProgresses  OrgSetupProgress[]
+  dashboardLayouts DashboardLayout[]
 
   @@map("users")
 }

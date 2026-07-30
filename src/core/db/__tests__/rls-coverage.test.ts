@@ -49,7 +49,7 @@ const TENANT_OWNED_TABLES = [
  * policy. `organisations` is keyed by id; `users` and `org_setup_progress` are
  * user-scoped. Omitting these was the original gap.
  */
-const NON_ORG_SCOPED_TABLES = ['organisations', 'users', 'org_setup_progress']
+const NON_ORG_SCOPED_TABLES = ['organisations', 'users', 'org_setup_progress', 'dashboard_layouts']
 
 /**
  * Tables reachable through PostgREST that carry no org_id and so were missed by

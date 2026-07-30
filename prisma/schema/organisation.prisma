@@ -46,8 +46,9 @@ model Organisation {
   assets           Asset[]
   assetAssignments AssetAssignment[]
 
-  notifications Notification[]
-  auditLogs     AuditLog[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  dashboardLayouts DashboardLayout[]
 
   onboardingTasks  EmployeeOnboardingTask[]
   payrollLineItems PayrollLineItem[]
