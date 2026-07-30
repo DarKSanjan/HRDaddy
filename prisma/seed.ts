@@ -54,7 +54,7 @@ async function main() {
     console.log('\n📦 Seeding Organisation A: Northstar Studios')
 
     const orgA = await seedOrganisation(db, ORG_A, [
-      'employees', 'leave', 'attendance', 'onboarding', 'documents', 'payroll',
+      'employees', 'leave', 'attendance', 'onboarding', 'documents', 'payroll', 'performance', 'expenses',
     ])
     console.log('  ✓ Organisation created')
 
