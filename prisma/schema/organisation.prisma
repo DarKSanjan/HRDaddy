@@ -54,6 +54,9 @@ model Organisation {
   onboardingTasks  EmployeeOnboardingTask[]
   payrollLineItems PayrollLineItem[]
 
+  holidays       Holiday[]
+  calendarEvents CalendarEvent[]
+
   @@map("organisations")
 }
 

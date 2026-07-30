@@ -10,7 +10,6 @@
 import 'server-only'
 import { dbAdmin } from '@/core/db/admin'
 import { createEvents, type EventAttributes } from 'ics'
-import { getHolidaysForRange } from '@/core/calendar/holidays-sg'
 
 // ─────────────────────────────────────────────
 // Types
@@ -100,18 +99,27 @@ export async function generateCalendarFeed(
     }
   }
 
-  // Public holiday events
-  const holidays = getHolidaysForRange(startYear, endYear)
+  // Public holiday events from org's Holiday table
+  const holidays = await dbAdmin.holiday.findMany({
+    where: {
+      orgId: employee.orgId,
+      date: { gte: windowStart, lte: windowEnd },
+    },
+    select: { date: true, name: true },
+    orderBy: { date: 'asc' },
+  })
   for (const h of holidays) {
-    const [y, m, d] = h.date.split('-').map(Number)
+    const y = h.date.getUTCFullYear()
+    const m = h.date.getUTCMonth() + 1
+    const d = h.date.getUTCDate()
     const holidayDate = new Date(y, m - 1, d)
     events.push({
-      title: `🇸🇬 ${h.name}`,
+      title: `🏖️ ${h.name}`,
       start: [y, m, d],
-      end: dateToArray(addOneDay(holidayDate)), // All-day: exclusive end, month/year-safe
+      end: dateToArray(addOneDay(holidayDate)),
       startOutputType: 'local',
       status: 'CONFIRMED',
-      uid: `holiday-${h.date}@hrdaddy`,
+      uid: `holiday-${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}-${h.name.replace(/\s+/g, '-').toLowerCase()}@hrdaddy`,
     })
   }
 

@@ -120,6 +120,20 @@ export function getModule(moduleId: string): ModuleManifest | undefined {
 }
 
 /**
+ * IDs of modules marked `required: true` — always enabled regardless of
+ * an org's organisation_module rows. Callers that compute an org's enabled
+ * module list directly from the DB (rather than via getEnabledModules())
+ * must union this in, or a required module added after an org already
+ * exists — with no organisation_module row for it — silently loses every
+ * permission it declares (resolvePermissions only grants from enabledModules).
+ */
+export function getRequiredModuleIds(): string[] {
+  return Array.from(manifests.values())
+    .filter((m) => m.required)
+    .map((m) => m.id)
+}
+
+/**
  * Get enabled modules for an org.
  * `required` modules are always included.
  */

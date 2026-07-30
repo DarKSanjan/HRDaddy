@@ -16,6 +16,7 @@ const EXPECTED_MODULES = [
   'employees',
   'attendance',
   'leave',
+  'calendar',
   'assets',
   'expenses',
   'performance',
@@ -36,12 +37,15 @@ describe('module registration', () => {
     expect(ids).toEqual([...EXPECTED_MODULES].sort())
   })
 
-  it('marks employees as required so it cannot be disabled', async () => {
+  it('marks employees and calendar as required so they cannot be disabled', async () => {
     const { getAllModules } = await import('@/core/modules')
     const employees = getAllModules().find((m) => m.id === 'employees')
+    const calendar = getAllModules().find((m) => m.id === 'calendar')
 
     expect(employees).toBeDefined()
     expect(employees!.required).toBe(true)
+    expect(calendar).toBeDefined()
+    expect(calendar!.required).toBe(true)
   })
 
   it('declares only dependencies that actually exist', async () => {

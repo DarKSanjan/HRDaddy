@@ -6,7 +6,7 @@ import 'server-only'
 
 import { dbAs } from '@/core/db/client'
 import { TZDate } from '@date-fns/tz'
-import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns'
+import { subMonths, startOfMonth, endOfMonth, format, addDays } from 'date-fns'
 
 // ─────────────────────────────────────────────
 // Assets
@@ -243,4 +243,67 @@ export async function getMyPendingReviewCount(
     `
     return Number(result[0]?.count ?? 0)
   })
+}
+
+// ─────────────────────────────────────────────
+// Calendar
+// ─────────────────────────────────────────────
+
+import type { OrgRole } from '@prisma/client'
+
+export interface UpcomingCalendarItem {
+  date: Date
+  label: string
+  type: 'holiday' | 'birthday' | 'anniversary' | 'event' | 'performance' | 'payroll' | 'leave'
+}
+
+export async function getUpcomingCalendarItems(
+  orgId: string,
+  userId: string,
+  role: OrgRole,
+  timezone: string
+): Promise<UpcomingCalendarItem[]> {
+  const now = new TZDate(Date.now(), timezone)
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const end = addDays(start, 14)
+
+  const items: UpcomingCalendarItem[] = []
+
+  const holidays = await dbAs(userId, async (tx) => {
+    return tx.holiday.findMany({
+      where: { orgId, date: { gte: start, lte: end } },
+      select: { date: true, name: true },
+      orderBy: { date: 'asc' },
+    })
+  })
+
+  for (const h of holidays) {
+    items.push({ date: h.date, label: h.name, type: 'holiday' })
+  }
+
+  const myLeave = await dbAs(userId, async (tx) => {
+    const emp = await tx.employee.findFirst({
+      where: { orgId, userId },
+      select: { id: true },
+    })
+    if (!emp) return []
+    return tx.leaveRequest.findMany({
+      where: {
+        employeeId: emp.id,
+        status: 'APPROVED',
+        startDate: { lte: end },
+        endDate: { gte: start },
+      },
+      include: { leaveType: { select: { name: true } } },
+      orderBy: { startDate: 'asc' },
+      take: 3,
+    })
+  })
+
+  for (const lr of myLeave) {
+    items.push({ date: lr.startDate, label: lr.leaveType.name, type: 'leave' })
+  }
+
+  items.sort((a, b) => a.date.getTime() - b.date.getTime())
+  return items.slice(0, 5)
 }

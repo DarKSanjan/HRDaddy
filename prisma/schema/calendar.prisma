@@ -1,0 +1,53 @@
+// HR Daddy - Calendar schema
+// Holiday, CalendarEvent, CalendarEventRecipient
+
+enum CalendarEventAudience {
+  COMPANY
+  DEPARTMENT
+  SPECIFIC_EMPLOYEES
+}
+
+model Holiday {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  date      DateTime @map("date")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, date, name])
+  @@index([orgId, date])
+  @@map("holidays")
+}
+
+model CalendarEvent {
+  id           String                @id @default(cuid())
+  orgId        String                @map("org_id")
+  title        String
+  date         DateTime
+  audience     CalendarEventAudience
+  departmentId String?               @map("department_id")
+  createdById  String                @map("created_by_id")
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  organisation Organisation           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  department   Department?            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdBy    Employee               @relation("CalendarEventCreator", fields: [createdById], references: [id])
+  recipients   CalendarEventRecipient[]
+
+  @@index([orgId, date])
+  @@map("calendar_events")
+}
+
+model CalendarEventRecipient {
+  id         String @id @default(cuid())
+  eventId    String @map("event_id")
+  employeeId String @map("employee_id")
+
+  event    CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, employeeId])
+  @@map("calendar_event_recipients")
+}

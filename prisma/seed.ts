@@ -34,6 +34,7 @@ import { seedDocuments } from './seed-documents'
 import { seedPayroll } from './seed-payroll'
 import { seedNotifications, seedAuditLog } from './seed-notifications'
 import { seedAssets, seedExpenses } from './seed-assets-expenses'
+import { seedCalendar } from './seed-calendar'
 
 async function main() {
   console.log('🌱 HR Daddy Demo Seed')
@@ -55,7 +56,7 @@ async function main() {
     console.log('\n📦 Seeding Organisation A: Northstar Studios')
 
     const orgA = await seedOrganisation(db, ORG_A, [
-      'employees', 'leave', 'attendance', 'onboarding', 'documents', 'payroll', 'performance', 'expenses', 'assets',
+      'employees', 'leave', 'attendance', 'onboarding', 'documents', 'payroll', 'performance', 'expenses', 'assets', 'calendar',
     ])
     console.log('  ✓ Organisation created')
 
@@ -138,12 +139,17 @@ async function main() {
     await seedExpenses(db, orgA.id, employeeIdMapA)
     console.log('  ✓ Expense categories and claims')
 
+    // Calendar
+    const employeeIdObjA = Object.fromEntries(employeeIdMapA.entries())
+    await seedCalendar(db, orgA.id, employeeIdObjA)
+    console.log('  ✓ Calendar holidays and events')
+
     // ═══════════════════════════════════════════
     // ORGANISATION B — Harbour Logistics (minimal)
     // ═══════════════════════════════════════════
     console.log('\n📦 Seeding Organisation B: Harbour Logistics')
 
-    const orgB = await seedOrganisation(db, ORG_B, ['employees', 'leave'])
+    const orgB = await seedOrganisation(db, ORG_B, ['employees', 'leave', 'calendar'])
     console.log('  ✓ Organisation created (employees + leave only)')
 
     const userIdMapB = new Map<string, string>()

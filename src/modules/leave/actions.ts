@@ -22,7 +22,7 @@ import { writeAudit } from '@/core/audit'
 import { getNotificationAdapter } from '@/core/notifications'
 import { getEmployeeIdForUser, getOrgSettings } from '@/core/employees'
 import { calculateLeaveDays } from '@/core/calendar'
-import { getHolidaysForRange } from '@/core/calendar/holidays-sg'
+import { getHolidaysForDateRange } from '@/modules/calendar/queries'
 import {
   getLeaveBalance,
   findOverlappingRequest,
@@ -97,7 +97,13 @@ export async function submitLeaveRequest(
 
   const startYear = new Date(input.startDate).getFullYear()
   const endYear = new Date(input.endDate).getFullYear()
-  const holidays = getHolidaysForRange(startYear, endYear)
+  const startOfRange = new Date(Date.UTC(startYear, 0, 1))
+  const endOfRange = new Date(Date.UTC(endYear, 11, 31, 23, 59, 59))
+  const holidayRows = await getHolidaysForDateRange(userId, org.id, startOfRange, endOfRange)
+  const holidays = holidayRows.map((h) => ({
+    date: `${h.date.getUTCFullYear()}-${String(h.date.getUTCMonth() + 1).padStart(2, '0')}-${String(h.date.getUTCDate()).padStart(2, '0')}`,
+    name: h.name,
+  }))
 
   const totalDays = calculateLeaveDays(
     input.startDate,

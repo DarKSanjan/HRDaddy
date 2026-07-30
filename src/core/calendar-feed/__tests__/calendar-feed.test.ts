@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Mock dbAdmin
 const mockFindUnique = vi.fn()
 const mockFindMany = vi.fn()
+const mockHolidayFindMany = vi.fn()
 
 vi.mock('@/core/db/admin', () => ({
   dbAdmin: {
@@ -16,6 +17,9 @@ vi.mock('@/core/db/admin', () => ({
     },
     leaveRequest: {
       findMany: (...args: unknown[]) => mockFindMany(...args),
+    },
+    holiday: {
+      findMany: (...args: unknown[]) => mockHolidayFindMany(...args),
     },
   },
 }))
@@ -91,6 +95,11 @@ describe('Calendar feed module', () => {
         },
       ])
 
+      mockHolidayFindMany.mockResolvedValue([
+        { date: new Date('2026-01-01'), name: "New Year's Day" },
+        { date: new Date('2026-08-09'), name: 'National Day' },
+      ])
+
       const result = await generateCalendarFeed('valid-token-abc')
 
       expect(result).not.toBeNull()
@@ -98,19 +107,12 @@ describe('Calendar feed module', () => {
 
       const ics = result!.icsBody
 
-      // Should be valid ICS format
       expect(ics).toContain('BEGIN:VCALENDAR')
       expect(ics).toContain('END:VCALENDAR')
-
-      // Should contain leave events
       expect(ics).toContain('Annual Leave')
       expect(ics).toContain('Sick Leave (half day')
-
-      // Should contain public holidays (2026 Singapore holidays are in the fixture)
       expect(ics).toContain("New Year's Day")
       expect(ics).toContain('National Day')
-
-      // Should have the calendar name
       expect(ics).toContain('Alice Tan')
       expect(ics).toContain('HRDaddy Leave & Holidays')
     })
@@ -134,15 +136,20 @@ describe('Calendar feed module', () => {
         },
       ])
 
+      mockHolidayFindMany.mockResolvedValue([
+        { date: new Date('2026-01-01'), name: "New Year's Day" },
+        { date: new Date('2026-08-09'), name: 'National Day' },
+        { date: new Date('2026-12-25'), name: 'Christmas Day' },
+      ])
+
       const result = await generateCalendarFeed('token-xyz')
       expect(result).not.toBeNull()
 
       const ics = result!.icsBody
       const veventCount = (ics.match(/BEGIN:VEVENT/g) || []).length
 
-      // 1 leave request + all holidays for 2025, 2026, 2027
-      // 2025 has no fixture (0), 2026 has 11, 2027 has 11 = 22 holidays + 1 leave = 23
-      expect(veventCount).toBe(23)
+      // 1 leave request + 3 holidays = 4
+      expect(veventCount).toBe(4)
     })
 
     it('generates ICS with no leave requests but still includes holidays', async () => {
@@ -155,14 +162,19 @@ describe('Calendar feed module', () => {
 
       mockFindMany.mockResolvedValue([])
 
+      mockHolidayFindMany.mockResolvedValue([
+        { date: new Date('2026-01-01'), name: "New Year's Day" },
+        { date: new Date('2026-08-09'), name: 'National Day' },
+      ])
+
       const result = await generateCalendarFeed('token-empty')
       expect(result).not.toBeNull()
 
       const ics = result!.icsBody
       const veventCount = (ics.match(/BEGIN:VEVENT/g) || []).length
 
-      // Only holidays: 0 (2025) + 11 (2026) + 11 (2027) = 22
-      expect(veventCount).toBe(22)
+      // Only 2 holidays
+      expect(veventCount).toBe(2)
     })
   })
 })

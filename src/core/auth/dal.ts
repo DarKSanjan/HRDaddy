@@ -8,6 +8,7 @@ import { createSupabaseServer } from './supabase-server'
 import { dbAdmin } from '@/core/db/admin'
 import { PermissionDeniedError } from '@/core/auth/errors'
 import { hasPermission } from '@/core/permissions'
+import { getRequiredModuleIds } from '@/core/modules'
 import type { OrgRole } from '@prisma/client'
 
 export interface VerifiedSession {
@@ -132,7 +133,9 @@ export const getOrgContext = cache(
         }),
       (result) => result.length === 0
     )
-    const enabledModules = orgModules.map((m) => m.moduleId)
+    const enabledModules = Array.from(
+      new Set([...getRequiredModuleIds(), ...orgModules.map((m) => m.moduleId)])
+    )
 
     return { org, membership, enabledModules }
   }
@@ -172,7 +175,9 @@ export async function requirePermission(
       }),
     (result) => result.length === 0
   )
-  const enabledModules = orgModules.map((m) => m.moduleId)
+  const enabledModules = Array.from(
+    new Set([...getRequiredModuleIds(), ...orgModules.map((m) => m.moduleId)])
+  )
 
   if (!hasPermission(membership.role, enabledModules, key)) {
     throw new PermissionDeniedError(key)

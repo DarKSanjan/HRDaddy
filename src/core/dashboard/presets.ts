@@ -41,6 +41,7 @@ const focusedPreset: DashboardPreset = {
     { id: 'on-leave-today', hidden: false },
     { id: 'pending-leave', hidden: false },
     { id: 'upcoming-events', hidden: false },
+    { id: 'calendar-upcoming', hidden: false },
     { id: 'employee-leave-balance', hidden: false },
     { id: 'employee-pending-requests', hidden: false },
     // Hide the rest

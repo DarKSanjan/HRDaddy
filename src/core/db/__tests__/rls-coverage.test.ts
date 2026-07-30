@@ -43,6 +43,8 @@ const TENANT_OWNED_TABLES = [
   'assets',
   'asset_assignments',
   'asset_requests',
+  'holidays',
+  'calendar_events',
 ]
 
 /**
@@ -59,7 +61,7 @@ const NON_ORG_SCOPED_TABLES = ['organisations', 'users', 'org_setup_progress', '
  * performance_competency_scores is keyed only by review_id — same shape,
  * scoped via performance_reviews.org_id.
  */
-const INDIRECTLY_SCOPED_TABLES = ['onboarding_template_tasks', 'performance_competency_scores']
+const INDIRECTLY_SCOPED_TABLES = ['onboarding_template_tasks', 'performance_competency_scores', 'calendar_event_recipients']
 
 /**
  * Reads every migration, not just the first. Policies added in later migrations
