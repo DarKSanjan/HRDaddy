@@ -72,6 +72,9 @@ model Employee {
   performanceReviewsReceived PerformanceReview[] @relation("PerformanceReviewSubject")
   performanceReviewsGiven    PerformanceReview[] @relation("PerformanceReviewer")
 
+  expenseClaims         ExpenseClaim[] @relation("EmployeeExpenseClaims")
+  reviewedExpenseClaims ExpenseClaim[] @relation("ExpenseReviewer")
+
   @@index([orgId])
   @@index([orgId, employmentStatus])
   @@index([userId])

@@ -37,6 +37,8 @@ const TENANT_OWNED_TABLES = [
   'shift_templates',
   'performance_cycles',
   'performance_reviews',
+  'expense_categories',
+  'expense_claims',
 ]
 
 /**

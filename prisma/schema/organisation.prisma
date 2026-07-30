@@ -39,6 +39,9 @@ model Organisation {
   performanceCycles  PerformanceCycle[]
   performanceReviews PerformanceReview[]
 
+  expenseCategories ExpenseCategory[]
+  expenseClaims     ExpenseClaim[]
+
   notifications Notification[]
   auditLogs     AuditLog[]
 
