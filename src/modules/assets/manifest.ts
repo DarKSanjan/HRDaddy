@@ -18,6 +18,7 @@ export const assetsModule = defineModule({
   permissions: [
     { key: 'asset.manage', description: 'Create, edit, and archive assets and categories', defaultRoles: ADMIN_ROLES },
     { key: 'asset.assign', description: 'Assign and return assets to employees', defaultRoles: ADMIN_ROLES },
+    { key: 'asset.request', description: 'Request an asset to be assigned', defaultRoles: ALL_ROLES },
     { key: 'asset.view_all', description: 'View the full asset register', defaultRoles: ADMIN_ROLES },
     { key: 'asset.view_own', description: 'View own assigned assets', defaultRoles: ALL_ROLES },
   ],
@@ -30,6 +31,7 @@ export const assetsModule = defineModule({
       permission: 'asset.view_own',
       children: [
         { label: 'Asset Register', href: '/assets/register', icon: 'ClipboardList', permission: 'asset.view_all' },
+        { label: 'Asset Requests', href: '/assets/requests', icon: 'FileQuestion', permission: 'asset.assign' },
       ],
     },
   ],

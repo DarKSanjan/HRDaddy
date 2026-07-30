@@ -42,6 +42,7 @@ const TENANT_OWNED_TABLES = [
   'asset_categories',
   'assets',
   'asset_assignments',
+  'asset_requests',
 ]
 
 /**

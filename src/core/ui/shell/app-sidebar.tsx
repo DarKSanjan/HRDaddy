@@ -23,6 +23,7 @@ import {
   Receipt,
   Package,
   ClipboardList,
+  FileQuestion,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -49,6 +50,7 @@ const iconMap: Record<string, LucideIcon> = {
   Receipt,
   Package,
   ClipboardList,
+  FileQuestion,
 }
 
 /**

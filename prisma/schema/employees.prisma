@@ -80,6 +80,8 @@ model Employee {
   assetAssignments      AssetAssignment[] @relation("EmployeeAssetAssignments")
   assetAssignedBy       AssetAssignment[] @relation("AssetAssignedBy")
   assetReturnedBy       AssetAssignment[] @relation("AssetReturnedBy")
+  assetRequests         AssetRequest[]    @relation("EmployeeAssetRequests")
+  assetRequestsReviewed AssetRequest[]    @relation("AssetRequestReviewer")
 
   @@index([orgId])
   @@index([orgId, employmentStatus])

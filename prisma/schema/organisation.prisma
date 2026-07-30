@@ -45,6 +45,7 @@ model Organisation {
   assetCategories  AssetCategory[]
   assets           Asset[]
   assetAssignments AssetAssignment[]
+  assetRequests    AssetRequest[]
 
   notifications    Notification[]
   auditLogs        AuditLog[]

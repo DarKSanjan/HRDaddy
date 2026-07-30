@@ -2,7 +2,8 @@ import { verifySession, getOrgContext } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
 import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
-import { listMyAssets } from '@/modules/assets/queries'
+import { listMyAssets, listActiveAssetCategories, listMyAssetRequests } from '@/modules/assets/queries'
+import { RequestAssetSection } from './_components/request-asset-section'
 import { Package } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -32,6 +33,8 @@ export default async function AssetsPage({
   }
 
   const myAssets = await listMyAssets(session.userId, org.id, employeeId)
+  const categories = await listActiveAssetCategories(session.userId, org.id)
+  const myRequests = await listMyAssetRequests(session.userId, org.id, employeeId)
 
   return (
     <div className="space-y-6">
@@ -80,6 +83,16 @@ export default async function AssetsPage({
               </table>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <RequestAssetSection
+            orgSlug={orgSlug}
+            categories={categories}
+            myRequests={myRequests}
+          />
         </CardContent>
       </Card>
     </div>

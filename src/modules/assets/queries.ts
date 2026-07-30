@@ -301,3 +301,149 @@ export async function listActiveEmployees(
     })
   })
 }
+
+// ─────────────────────────────────────────────
+// Asset request queries
+// ─────────────────────────────────────────────
+
+export interface AssetRequestItem {
+  id: string
+  employeeId: string
+  employeeFirstName: string
+  employeeLastName: string
+  categoryId: string
+  categoryName: string
+  requestedAssetId: string | null
+  requestedAssetName: string | null
+  requestedAssetTag: string | null
+  reason: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FULFILLED'
+  requestedAt: Date
+  reviewedById: string | null
+  reviewedByFirstName: string | null
+  reviewedByLastName: string | null
+  reviewedAt: Date | null
+  reviewNote: string | null
+  fulfilledAssetId: string | null
+  fulfilledAssetName: string | null
+  fulfilledAssetTag: string | null
+}
+
+/**
+ * List the caller's own asset requests.
+ */
+export async function listMyAssetRequests(
+  userId: string,
+  orgId: string,
+  employeeId: string
+): Promise<AssetRequestItem[]> {
+  return dbAs(userId, async (tx) => {
+    const requests = await tx.assetRequest.findMany({
+      where: { orgId, employeeId },
+      include: {
+        employee: { select: { firstName: true, lastName: true } },
+        category: { select: { name: true } },
+        requestedAsset: { select: { name: true, assetTag: true } },
+        reviewedBy: { select: { firstName: true, lastName: true } },
+        fulfilledAsset: { select: { name: true, assetTag: true } },
+      },
+      orderBy: { requestedAt: 'desc' },
+    })
+    return requests.map((r) => ({
+      id: r.id,
+      employeeId: r.employeeId,
+      employeeFirstName: r.employee.firstName,
+      employeeLastName: r.employee.lastName,
+      categoryId: r.categoryId,
+      categoryName: r.category.name,
+      requestedAssetId: r.requestedAssetId,
+      requestedAssetName: r.requestedAsset?.name ?? null,
+      requestedAssetTag: r.requestedAsset?.assetTag ?? null,
+      reason: r.reason,
+      status: r.status,
+      requestedAt: r.requestedAt,
+      reviewedById: r.reviewedById,
+      reviewedByFirstName: r.reviewedBy?.firstName ?? null,
+      reviewedByLastName: r.reviewedBy?.lastName ?? null,
+      reviewedAt: r.reviewedAt,
+      reviewNote: r.reviewNote,
+      fulfilledAssetId: r.fulfilledAssetId,
+      fulfilledAssetName: r.fulfilledAsset?.name ?? null,
+      fulfilledAssetTag: r.fulfilledAsset?.assetTag ?? null,
+    }))
+  })
+}
+
+/**
+ * List all asset requests for admin approvals view.
+ */
+export async function listAllAssetRequests(
+  userId: string,
+  orgId: string,
+  params: { status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FULFILLED'; page: number; pageSize: number }
+): Promise<{ requests: AssetRequestItem[]; total: number }> {
+  return dbAs(userId, async (tx) => {
+    const where = {
+      orgId,
+      ...(params.status ? { status: params.status } : {}),
+    }
+
+    const requests = await tx.assetRequest.findMany({
+      where,
+      include: {
+        employee: { select: { firstName: true, lastName: true } },
+        category: { select: { name: true } },
+        requestedAsset: { select: { name: true, assetTag: true } },
+        reviewedBy: { select: { firstName: true, lastName: true } },
+        fulfilledAsset: { select: { name: true, assetTag: true } },
+      },
+      orderBy: { requestedAt: 'desc' },
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+    })
+    const total = await tx.assetRequest.count({ where })
+
+    return {
+      requests: requests.map((r) => ({
+        id: r.id,
+        employeeId: r.employeeId,
+        employeeFirstName: r.employee.firstName,
+        employeeLastName: r.employee.lastName,
+        categoryId: r.categoryId,
+        categoryName: r.category.name,
+        requestedAssetId: r.requestedAssetId,
+        requestedAssetName: r.requestedAsset?.name ?? null,
+        requestedAssetTag: r.requestedAsset?.assetTag ?? null,
+        reason: r.reason,
+        status: r.status,
+        requestedAt: r.requestedAt,
+        reviewedById: r.reviewedById,
+        reviewedByFirstName: r.reviewedBy?.firstName ?? null,
+        reviewedByLastName: r.reviewedBy?.lastName ?? null,
+        reviewedAt: r.reviewedAt,
+        reviewNote: r.reviewNote,
+        fulfilledAssetId: r.fulfilledAssetId,
+        fulfilledAssetName: r.fulfilledAsset?.name ?? null,
+        fulfilledAssetTag: r.fulfilledAsset?.assetTag ?? null,
+      })),
+      total,
+    }
+  })
+}
+
+/**
+ * List available assets in a category (for request/fulfill dropdowns).
+ */
+export async function listAvailableAssetsByCategory(
+  userId: string,
+  orgId: string,
+  categoryId: string
+): Promise<{ id: string; name: string; assetTag: string }[]> {
+  return dbAs(userId, async (tx) => {
+    return tx.asset.findMany({
+      where: { orgId, categoryId, status: 'AVAILABLE' },
+      select: { id: true, name: true, assetTag: true },
+      orderBy: { name: 'asc' },
+    })
+  })
+}

@@ -33,6 +33,7 @@ import { seedOnboarding } from './seed-onboarding'
 import { seedDocuments } from './seed-documents'
 import { seedPayroll } from './seed-payroll'
 import { seedNotifications, seedAuditLog } from './seed-notifications'
+import { seedAssets, seedExpenses } from './seed-assets-expenses'
 
 async function main() {
   console.log('🌱 HR Daddy Demo Seed')
@@ -130,6 +131,12 @@ async function main() {
     await seedNotifications(db, orgA.id, userIdMapA)
     await seedAuditLog(db, orgA.id, userIdMapA, employeeIdMapA)
     console.log('  ✓ Notifications and audit log')
+
+    // Assets & Expenses
+    await seedAssets(db, orgA.id, employeeIdMapA)
+    console.log('  ✓ Asset categories, register, assignments, and requests')
+    await seedExpenses(db, orgA.id, employeeIdMapA)
+    console.log('  ✓ Expense categories and claims')
 
     // ═══════════════════════════════════════════
     // ORGANISATION B — Harbour Logistics (minimal)

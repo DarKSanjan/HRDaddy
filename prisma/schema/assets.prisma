@@ -15,8 +15,9 @@ model AssetCategory {
   isArchived Boolean  @default(false) @map("is_archived")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  assets       Asset[]
+  organisation  Organisation   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assets        Asset[]
+  assetRequests AssetRequest[]
 
   @@index([orgId])
   @@map("asset_categories")
@@ -40,6 +41,8 @@ model Asset {
   category          AssetCategory    @relation(fields: [categoryId], references: [id])
   currentAssignment AssetAssignment? @relation("CurrentAssignment", fields: [currentAssignmentId], references: [id])
   assignments       AssetAssignment[] @relation("AssetAssignments")
+  requestedIn       AssetRequest[]   @relation("RequestedAsset")
+  fulfilledIn       AssetRequest[]   @relation("FulfilledAsset")
 
   @@unique([orgId, assetTag])
   @@index([orgId])
@@ -71,4 +74,38 @@ model AssetAssignment {
   @@index([assetId])
   @@index([employeeId])
   @@map("asset_assignments")
+}
+
+enum AssetRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+}
+
+model AssetRequest {
+  id               String             @id @default(cuid())
+  orgId            String             @map("org_id")
+  employeeId       String             @map("employee_id")
+  categoryId       String             @map("category_id")
+  requestedAssetId String?            @map("requested_asset_id")
+  reason           String
+  status           AssetRequestStatus @default(PENDING)
+  requestedAt      DateTime           @default(now()) @map("requested_at")
+  reviewedById     String?            @map("reviewed_by_id")
+  reviewedAt       DateTime?          @map("reviewed_at")
+  reviewNote       String?            @map("review_note")
+  fulfilledAssetId String?            @map("fulfilled_asset_id")
+
+  organisation   Organisation  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employee       Employee      @relation("EmployeeAssetRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  category       AssetCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  requestedAsset Asset?        @relation("RequestedAsset", fields: [requestedAssetId], references: [id], onDelete: SetNull)
+  reviewedBy     Employee?     @relation("AssetRequestReviewer", fields: [reviewedById], references: [id])
+  fulfilledAsset Asset?        @relation("FulfilledAsset", fields: [fulfilledAssetId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([orgId, status])
+  @@index([employeeId])
+  @@map("asset_requests")
 }

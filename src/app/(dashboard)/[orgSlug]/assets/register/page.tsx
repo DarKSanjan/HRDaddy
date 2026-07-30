@@ -1,11 +1,12 @@
 import { verifySession, getOrgContext, requirePermission } from '@/core/auth'
 import { moduleGuard } from '@/core/modules'
-import { Breadcrumb, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
+import { Breadcrumb, Button, Card, CardContent, CardHeader, CardTitle } from '@/core/ui'
 import { listAssets, listActiveAssetCategories, listActiveEmployees } from '@/modules/assets/queries'
 import { assetListParamsSchema } from '@/modules/assets/schemas'
 import { AssetRegisterTable } from '../_components/asset-register-table'
 import { CreateAssetDialog } from '../_components/create-asset-dialog'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, Upload } from 'lucide-react'
+import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,6 +51,15 @@ export default async function AssetRegisterPage({
           <h1 className="text-[20px] font-bold text-text">Asset Register</h1>
         </div>
         <CreateAssetDialog orgSlug={orgSlug} categories={categories} />
+      </div>
+
+      <div className="flex justify-end">
+        <Link href={`/${orgSlug}/assets/import`}>
+          <Button variant="ghost" size="sm">
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+        </Link>
       </div>
 
       <Card>

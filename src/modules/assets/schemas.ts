@@ -95,6 +95,41 @@ export const assetListParamsSchema = z.object({
 })
 
 // ─────────────────────────────────────────────
+// Asset request schemas
+// ─────────────────────────────────────────────
+
+export const requestAssetSchema = z.object({
+  categoryId: z.string().min(1, 'Category is required'),
+  requestedAssetId: z.string().optional(),
+  reason: z.string().min(1, 'Reason is required').max(2000),
+})
+
+export const cancelAssetRequestSchema = z.object({
+  requestId: z.string().min(1),
+})
+
+export const approveAssetRequestSchema = z.object({
+  requestId: z.string().min(1),
+  reviewNote: z.string().max(1000).optional(),
+})
+
+export const rejectAssetRequestSchema = z.object({
+  requestId: z.string().min(1),
+  reviewNote: z.string().min(1, 'Rejection reason is required').max(1000),
+})
+
+export const fulfillAssetRequestSchema = z.object({
+  requestId: z.string().min(1),
+  assetId: z.string().min(1, 'Asset is required'),
+})
+
+export const assetRequestListParamsSchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'FULFILLED']).optional(),
+  page: z.coerce.number().min(1).default(1),
+  pageSize: z.coerce.number().min(1).max(100).default(20),
+})
+
+// ─────────────────────────────────────────────
 // Type exports
 // ─────────────────────────────────────────────
 
@@ -109,3 +144,9 @@ export type MarkAssetAvailableInput = z.infer<typeof markAssetAvailableSchema>
 export type RetireAssetInput = z.infer<typeof retireAssetSchema>
 export type ReportAssetLostInput = z.infer<typeof reportAssetLostSchema>
 export type AssetListParams = z.infer<typeof assetListParamsSchema>
+export type RequestAssetInput = z.infer<typeof requestAssetSchema>
+export type CancelAssetRequestInput = z.infer<typeof cancelAssetRequestSchema>
+export type ApproveAssetRequestInput = z.infer<typeof approveAssetRequestSchema>
+export type RejectAssetRequestInput = z.infer<typeof rejectAssetRequestSchema>
+export type FulfillAssetRequestInput = z.infer<typeof fulfillAssetRequestSchema>
+export type AssetRequestListParams = z.infer<typeof assetRequestListParamsSchema>
