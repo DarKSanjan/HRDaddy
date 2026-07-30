@@ -24,8 +24,14 @@ interface CalendarEntry {
   reviewNote: string | null
 }
 
+interface PublicHoliday {
+  date: string // YYYY-MM-DD
+  name: string
+}
+
 interface TeamCalendarViewProps {
   entries: CalendarEntry[]
+  holidays?: PublicHoliday[]
   month: number
   year: number
   orgSlug: string
@@ -165,7 +171,7 @@ function LeaveChipHoverCard({
   )
 }
 
-export function TeamCalendarView({ entries, month, year, orgSlug }: TeamCalendarViewProps) {
+export function TeamCalendarView({ entries, holidays = [], month, year, orgSlug }: TeamCalendarViewProps) {
   const router = useRouter()
 
   const navigateMonth = (direction: -1 | 1) => {
@@ -243,6 +249,15 @@ export function TeamCalendarView({ entries, month, year, orgSlug }: TeamCalendar
     }
   }
 
+  // Build a map of day -> holiday name for quick lookup
+  const dayHolidayMap = new Map<number, string>()
+  for (const h of holidays) {
+    const [hYear, hMonth, hDay] = h.date.split('-').map(Number)
+    if (hYear === year && hMonth === month) {
+      dayHolidayMap.set(hDay, h.name)
+    }
+  }
+
   const today = new Date()
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month
 
@@ -267,7 +282,7 @@ export function TeamCalendarView({ entries, month, year, orgSlug }: TeamCalendar
       </div>
 
       {/* Legend */}
-      {leaveTypeMap.size > 0 && (
+      {(leaveTypeMap.size > 0 || holidays.length > 0) && (
         <div className="flex flex-wrap gap-3">
           {Array.from(leaveTypeMap.entries()).map(([name, color]) => (
             <div key={name} className="flex items-center gap-1.5">
@@ -282,6 +297,12 @@ export function TeamCalendarView({ entries, month, year, orgSlug }: TeamCalendar
             <div className="h-2.5 w-2.5 rounded-full border border-border bg-surface opacity-50" />
             <span className="text-[11px] text-text-muted">Pending</span>
           </div>
+          {holidays.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="h-2.5 w-2.5 rounded-sm bg-warning/10 border border-warning/30" />
+              <span className="text-[11px] text-text-muted">Public Holiday</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -315,20 +336,38 @@ export function TeamCalendarView({ entries, month, year, orgSlug }: TeamCalendar
               const dayEntries = dayEntriesMap.get(day) ?? []
               const isToday = isCurrentMonth && today.getDate() === day
               const isWeekend = dayIndex >= 5
+              const holidayName = dayHolidayMap.get(day)
 
               return (
                 <div
                   key={day}
                   className={[
                     'min-h-[100px] border-r border-border last:border-r-0 p-1 transition-colors',
-                    isWeekend ? 'bg-surface-hover/30' : 'bg-surface',
+                    holidayName
+                      ? 'bg-warning/5'
+                      : isWeekend
+                        ? 'bg-surface-hover/30'
+                        : 'bg-surface',
                   ].join(' ')}
                 >
                   {/* Day number */}
-                  <div className="mb-1 flex items-center justify-end">
+                  <div className="mb-1 flex items-center justify-between">
+                    {holidayName && (
+                      <HoverCard openDelay={200} closeDelay={100}>
+                        <HoverCardTrigger asChild>
+                          <span className="inline-block max-w-[70%] truncate rounded-[var(--radius-xs)] bg-warning/10 px-1 py-0.5 text-[9px] font-medium text-warning cursor-default">
+                            {holidayName}
+                          </span>
+                        </HoverCardTrigger>
+                        <HoverCardContent side="top" className="w-48 text-[12px]">
+                          <p className="font-semibold text-text">{holidayName}</p>
+                          <p className="text-text-muted">Public Holiday</p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    )}
                     <span
                       className={[
-                        'flex h-6 w-6 items-center justify-center rounded-full text-[12px]',
+                        'flex h-6 w-6 items-center justify-center rounded-full text-[12px] ml-auto',
                         isToday
                           ? 'bg-accent-500 font-semibold text-white'
                           : 'font-medium text-text',

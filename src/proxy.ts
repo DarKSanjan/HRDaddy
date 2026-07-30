@@ -25,6 +25,9 @@ const AUTH_FLOW_PATHS = [
   // Vercel Cron invocations carry no Supabase session — these routes gate
   // themselves with their own CRON_SECRET bearer-token check instead.
   '/api/cron',
+  // Calendar apps (Google/Outlook/Apple) poll this URL with no cookies —
+  // the unguessable token in the path is the credential instead.
+  '/api/calendar',
 ]
 
 function matches(pathname: string, paths: string[]): boolean {

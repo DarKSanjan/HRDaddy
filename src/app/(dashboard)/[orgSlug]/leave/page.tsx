@@ -6,6 +6,7 @@ import { getEmployeeBalances, listOwnLeaveRequests } from '@/modules/leave/queri
 import { leaveListParamsSchema } from '@/modules/leave/schemas'
 import { LeaveRequestTable } from './_components/leave-request-table'
 import { LeaveBalanceCards } from './_components/leave-balance-cards'
+import { CalendarFeedSection } from './_components/calendar-feed-section'
 import { CalendarDays, Plus } from 'lucide-react'
 import Link from 'next/link'
 
@@ -98,6 +99,8 @@ export default async function LeavePage({
           )}
         </CardContent>
       </Card>
+
+      <CalendarFeedSection orgSlug={orgSlug} />
     </div>
   )
 }

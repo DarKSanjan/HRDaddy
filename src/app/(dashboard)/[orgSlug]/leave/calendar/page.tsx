@@ -4,6 +4,7 @@ import { Breadcrumb, Card, CardContent } from '@/core/ui'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { getTeamLeaveCalendar } from '@/modules/leave/queries'
 import { leaveCalendarParamsSchema } from '@/modules/leave/schemas'
+import { getHolidaysForYear } from '@/core/calendar/holidays-sg'
 import { TeamCalendarView } from '../_components/team-calendar-view'
 
 export const dynamic = 'force-dynamic'
@@ -44,6 +45,9 @@ export default async function LeaveCalendarPage({
     validParams
   )
 
+  // Holidays for the displayed month's year (cheap synchronous fixture)
+  const holidays = getHolidaysForYear(validParams.year)
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -55,6 +59,7 @@ export default async function LeaveCalendarPage({
         <CardContent className="pt-6">
           <TeamCalendarView
             entries={entries}
+            holidays={holidays}
             month={validParams.month}
             year={validParams.year}
             orgSlug={orgSlug}

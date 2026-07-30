@@ -2,8 +2,15 @@
  * Service-role Prisma client. Bypasses RLS.
  *
  * Import restricted to src/core/** by an ESLint boundary rule. Legitimate uses
- * are exactly three: the signup transaction before a membership exists,
- * background jobs, and migrations. Everything else goes through dbAs().
+ * are exactly four:
+ *   1. The signup transaction before a membership exists.
+ *   2. Background jobs (cron handlers, async event processors).
+ *   3. Migrations / seed scripts.
+ *   4. Token-authenticated public endpoints (e.g. ICS calendar feed) where
+ *      there is no user session — the unguessable URL token IS the credential,
+ *      analogous to a signed URL. See src/core/calendar-feed/index.ts.
+ *
+ * Everything else goes through dbAs().
  *
  * Constructed lazily. Prisma 7 requires a driver adapter, and building the
  * client eagerly at import time makes this module throw in any context that has
