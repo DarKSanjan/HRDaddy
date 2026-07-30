@@ -1,8 +1,10 @@
 /**
  * Notification adapter interface and in-app implementation.
- * Email is a later swap — define the seam, do not build the sender.
+ * The composite adapter fans out to both in-app and email.
  */
 import { dbAdmin } from '@/core/db/admin'
+import { CompositeNotificationAdapter } from './composite-adapter'
+import { EmailNotificationAdapter } from './email-adapter'
 
 export interface NotificationPayload {
   orgId: string
@@ -33,13 +35,21 @@ export class InAppNotificationAdapter implements NotificationAdapter {
   }
 }
 
-// TODO(M2) Email notification adapter — define the seam here
-
 let notificationInstance: NotificationAdapter | null = null
 
 export function getNotificationAdapter(): NotificationAdapter {
   if (!notificationInstance) {
-    notificationInstance = new InAppNotificationAdapter()
+    notificationInstance = new CompositeNotificationAdapter([
+      new InAppNotificationAdapter(),
+      new EmailNotificationAdapter(),
+    ])
   }
   return notificationInstance
+}
+
+/**
+ * Reset the singleton (for testing).
+ */
+export function _resetNotificationAdapter(): void {
+  notificationInstance = null
 }
