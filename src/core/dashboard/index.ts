@@ -38,6 +38,7 @@ export interface DashboardWidget {
   id: string
   moduleId: string
   title: string
+  description?: string
   permission?: string
   roles: WidgetRole[]
   size: WidgetSize
@@ -93,6 +94,7 @@ function collectWidgets(): DashboardWidget[] {
         id: w.id,
         moduleId: manifest.id,
         title: w.title,
+        description: w.description,
         permission: w.permission,
         roles: w.roles,
         size: w.size as WidgetSize,

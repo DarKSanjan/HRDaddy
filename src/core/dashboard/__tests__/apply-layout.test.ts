@@ -15,6 +15,7 @@ import {
 } from '@/core/dashboard'
 import type { DashboardWidget, SavedLayout } from '@/core/dashboard'
 import { registerPermissions, _resetPermissions } from '@/core/permissions'
+import { DASHBOARD_PRESETS } from '@/core/dashboard/presets'
 
 // Mock component for testing
 function MockWidget() {
@@ -249,5 +250,127 @@ describe('resolveWidgets + applyLayout integration', () => {
 
     // leave-balance is dropped (module disabled), headcount stays
     expect(result.map((w) => w.id)).toEqual(['headcount', 'admin-chart'])
+  })
+})
+
+
+describe('preset security invariant', () => {
+  beforeEach(() => {
+    _resetWidgets()
+    _resetPermissions()
+
+    registerPermissions('employees', [
+      { key: 'employee.view_all', description: 'View all', defaultRoles: ['OWNER', 'HR_ADMIN'] },
+    ])
+    registerPermissions('leave', [
+      { key: 'leave.balance.view_own', description: 'View own balance', defaultRoles: ['OWNER', 'HR_ADMIN', 'MANAGER', 'EMPLOYEE'] },
+      { key: 'leave.request.approve', description: 'Approve leave', defaultRoles: ['OWNER', 'HR_ADMIN', 'MANAGER'] },
+    ])
+    registerPermissions('expenses', [
+      { key: 'expense.approve', description: 'Approve expenses', defaultRoles: ['OWNER', 'HR_ADMIN', 'MANAGER'] },
+    ])
+
+    registerWidget({
+      id: 'active-employees',
+      moduleId: 'employees',
+      title: 'Active Employees',
+      roles: ['owner', 'manager'],
+      size: 'sm',
+      priority: 10,
+      component: MockWidget,
+    })
+    registerWidget({
+      id: 'headcount-over-time',
+      moduleId: 'employees',
+      title: 'Headcount Over Time',
+      permission: 'employee.view_all',
+      roles: ['owner'],
+      size: 'md',
+      priority: 100,
+      component: MockWidget,
+    })
+    registerWidget({
+      id: 'pending-leave',
+      moduleId: 'leave',
+      title: 'Pending Leave',
+      permission: 'leave.request.approve',
+      roles: ['owner', 'manager'],
+      size: 'sm',
+      priority: 40,
+      component: MockWidget,
+    })
+    registerWidget({
+      id: 'employee-leave-balance',
+      moduleId: 'leave',
+      title: 'Leave Balances',
+      permission: 'leave.balance.view_own',
+      roles: ['employee'],
+      size: 'md',
+      priority: 10,
+      component: MockWidget,
+    })
+    registerWidget({
+      id: 'pending-expense-claims',
+      moduleId: 'expenses',
+      title: 'Pending Expenses',
+      permission: 'expense.approve',
+      roles: ['owner', 'manager'],
+      size: 'sm',
+      priority: 42,
+      component: MockWidget,
+    })
+  })
+
+  it('applying a preset as a lower-permission role does not leak a widget', () => {
+    // The Manager View preset references owner-only widgets like headcount-over-time
+    const managerPreset = DASHBOARD_PRESETS.find((p) => p.id === 'manager-view')!
+
+    // Employee can only see employee-leave-balance
+    const permitted = resolveWidgets('EMPLOYEE', ['employees', 'leave', 'expenses'])
+    const result = applyLayout(permitted, { widgets: managerPreset.widgets })
+
+    // The employee must never see owner/manager widgets
+    expect(result.find((w) => w.id === 'active-employees')).toBeUndefined()
+    expect(result.find((w) => w.id === 'headcount-over-time')).toBeUndefined()
+    expect(result.find((w) => w.id === 'pending-leave')).toBeUndefined()
+    expect(result.find((w) => w.id === 'pending-expense-claims')).toBeUndefined()
+
+    // Employee-permitted widgets are still shown
+    expect(result.find((w) => w.id === 'employee-leave-balance')).toBeDefined()
+  })
+
+  it('applying a preset with disabled module widgets does not surface them', () => {
+    const financePreset = DASHBOARD_PRESETS.find((p) => p.id === 'finance-view')!
+
+    // Expenses module is disabled
+    const permitted = resolveWidgets('OWNER', ['employees', 'leave'])
+    const result = applyLayout(permitted, { widgets: financePreset.widgets })
+
+    // expense widgets should be dropped
+    expect(result.find((w) => w.id === 'pending-expense-claims')).toBeUndefined()
+
+    // permitted widgets remain
+    expect(result.find((w) => w.id === 'active-employees')).toBeDefined()
+  })
+
+  it('the Default preset with no widgets returns all permitted in default order', () => {
+    const defaultPreset = DASHBOARD_PRESETS.find((p) => p.id === 'default')!
+    expect(defaultPreset.widgets).toEqual([])
+
+    const permitted = resolveWidgets('OWNER', ['employees', 'leave', 'expenses'])
+    const result = applyLayout(permitted, { widgets: defaultPreset.widgets })
+
+    // All permitted, in priority order
+    expect(result.map((w) => w.id)).toEqual(permitted.map((w) => w.id))
+  })
+
+  it('each preset is a valid SavedLayout shape', () => {
+    for (const preset of DASHBOARD_PRESETS) {
+      for (const entry of preset.widgets) {
+        expect(typeof entry.id).toBe('string')
+        expect(entry.id.length).toBeGreaterThan(0)
+        expect(typeof entry.hidden).toBe('boolean')
+      }
+    }
   })
 })

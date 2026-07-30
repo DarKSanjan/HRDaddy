@@ -25,6 +25,7 @@ export interface NavEntry {
 export interface WidgetDef {
   id: string
   title: string
+  description?: string
   permission?: string
   roles: ('owner' | 'manager' | 'employee')[]
   size: 'sm' | 'md' | 'lg'

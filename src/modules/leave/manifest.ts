@@ -55,6 +55,7 @@ export const leaveModule = defineModule({
     {
       id: 'on-leave-today',
       title: 'On Leave Today',
+      description: 'Number of employees on approved leave today.',
       permission: 'leave.balance.view_all',
       roles: ['owner', 'manager'],
       size: 'sm',
@@ -64,6 +65,7 @@ export const leaveModule = defineModule({
     {
       id: 'pending-leave',
       title: 'Pending Leave',
+      description: 'Leave requests awaiting approval.',
       permission: 'leave.request.approve',
       roles: ['owner', 'manager'],
       size: 'sm',
@@ -73,6 +75,7 @@ export const leaveModule = defineModule({
     {
       id: 'leave-usage-by-type',
       title: 'Leave Usage by Type',
+      description: 'Breakdown of leave days taken by type this year.',
       permission: 'leave.balance.view_all',
       roles: ['owner'],
       size: 'md',
@@ -82,6 +85,7 @@ export const leaveModule = defineModule({
     {
       id: 'employee-leave-balance',
       title: 'Leave Balances',
+      description: 'Your personal leave balances and usage.',
       permission: 'leave.balance.view_own',
       roles: ['employee'],
       size: 'md',
@@ -91,6 +95,7 @@ export const leaveModule = defineModule({
     {
       id: 'employee-pending-requests',
       title: 'Pending Requests',
+      description: 'Your leave requests awaiting approval.',
       permission: 'leave.request.create',
       roles: ['employee'],
       size: 'sm',

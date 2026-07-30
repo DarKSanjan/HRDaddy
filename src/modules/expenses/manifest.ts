@@ -4,6 +4,12 @@
 import { defineModule } from '@/core/modules'
 import type { OrgRole } from '@prisma/client'
 
+import {
+  PendingExpenseClaimsWidget,
+  MyExpensesWidget,
+  ExpenseTrendWidget,
+} from '@/core/dashboard/widgets/expense-widgets'
+
 const ALL_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER', 'EMPLOYEE']
 const ADMIN_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN']
 const ADMIN_AND_MANAGER: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER']
@@ -37,5 +43,36 @@ export const expensesModule = defineModule({
     },
   ],
 
-  widgets: [],
+  widgets: [
+    {
+      id: 'pending-expense-claims',
+      title: 'Pending Expense Claims',
+      description: 'Count and total amount of expense claims awaiting approval.',
+      permission: 'expense.approve',
+      roles: ['owner', 'manager'],
+      size: 'sm',
+      priority: 42,
+      component: PendingExpenseClaimsWidget,
+    },
+    {
+      id: 'my-expenses',
+      title: 'My Expenses',
+      description: 'Your submitted expenses and pending reimbursement this period.',
+      permission: 'expense.submit',
+      roles: ['employee'],
+      size: 'sm',
+      priority: 25,
+      component: MyExpensesWidget,
+    },
+    {
+      id: 'expense-trend',
+      title: 'Expense Trend',
+      description: 'Approved expense totals over the last 6 months.',
+      permission: 'expense.approve',
+      roles: ['owner'],
+      size: 'md',
+      priority: 120,
+      component: ExpenseTrendWidget,
+    },
+  ],
 })

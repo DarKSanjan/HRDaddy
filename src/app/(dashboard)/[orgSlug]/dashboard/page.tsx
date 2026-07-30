@@ -40,7 +40,7 @@ export default async function DashboardPage({
   }
   const hiddenWidgets = permittedWidgets
     .filter((w) => hiddenWidgetIds.has(w.id))
-    .map((w) => ({ id: w.id, title: w.title, size: w.size }))
+    .map((w) => ({ id: w.id, title: w.title, description: w.description, moduleId: w.moduleId, size: w.size }))
 
   const widgetProps = {
     orgId: org.id,
@@ -58,6 +58,8 @@ export default async function DashboardPage({
     return {
       id: widget.id,
       title: widget.title,
+      description: widget.description,
+      moduleId: widget.moduleId,
       size: widget.size,
       content: (
         <WidgetShell key={widget.id} id={widget.id} size={widget.size}>

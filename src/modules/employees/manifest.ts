@@ -61,6 +61,7 @@ export const employeesModule = defineModule({
     {
       id: 'active-employees',
       title: 'Active Employees',
+      description: 'Total active employees or direct reports.',
       roles: ['owner', 'manager'],
       size: 'sm',
       priority: 10,
@@ -69,6 +70,7 @@ export const employeesModule = defineModule({
     {
       id: 'headcount-over-time',
       title: 'Headcount Over Time',
+      description: 'Monthly headcount trend with joiners and leavers.',
       permission: 'employee.view_all',
       roles: ['owner'],
       size: 'md',
@@ -78,6 +80,7 @@ export const employeesModule = defineModule({
     {
       id: 'headcount-by-department',
       title: 'Headcount by Department',
+      description: 'Employee distribution across departments.',
       permission: 'employee.view_all',
       roles: ['owner'],
       size: 'md',
@@ -87,6 +90,7 @@ export const employeesModule = defineModule({
     {
       id: 'upcoming-events',
       title: 'Upcoming',
+      description: 'Birthdays and work anniversaries this week.',
       roles: ['owner', 'manager', 'employee'],
       size: 'md',
       priority: 200,
@@ -95,6 +99,7 @@ export const employeesModule = defineModule({
     {
       id: 'recent-activity',
       title: 'Recent Activity',
+      description: 'Latest admin actions across the organisation.',
       permission: 'employee.view_all',
       roles: ['owner'],
       size: 'md',

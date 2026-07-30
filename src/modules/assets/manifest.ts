@@ -4,6 +4,12 @@
 import { defineModule } from '@/core/modules'
 import type { OrgRole } from '@prisma/client'
 
+import {
+  AssetOverviewWidget,
+  MyAssetsWidget,
+  PendingAssetRequestsWidget,
+} from '@/core/dashboard/widgets/asset-widgets'
+
 const ALL_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN', 'MANAGER', 'EMPLOYEE']
 const ADMIN_ROLES: OrgRole[] = ['OWNER', 'HR_ADMIN']
 
@@ -36,5 +42,36 @@ export const assetsModule = defineModule({
     },
   ],
 
-  widgets: [],
+  widgets: [
+    {
+      id: 'asset-overview',
+      title: 'Asset Overview',
+      description: 'Breakdown of assets by status: available, assigned, and in maintenance.',
+      permission: 'asset.view_all',
+      roles: ['owner', 'manager'],
+      size: 'md',
+      priority: 50,
+      component: AssetOverviewWidget,
+    },
+    {
+      id: 'my-assets',
+      title: 'My Assets',
+      description: 'Number of assets currently assigned to you.',
+      permission: 'asset.view_own',
+      roles: ['employee'],
+      size: 'sm',
+      priority: 30,
+      component: MyAssetsWidget,
+    },
+    {
+      id: 'pending-asset-requests',
+      title: 'Pending Asset Requests',
+      description: 'Asset requests awaiting admin review.',
+      permission: 'asset.assign',
+      roles: ['owner', 'manager'],
+      size: 'sm',
+      priority: 45,
+      component: PendingAssetRequestsWidget,
+    },
+  ],
 })
