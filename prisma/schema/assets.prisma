@@ -1,0 +1,74 @@
+// HR Daddy - Asset Management schema
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  IN_MAINTENANCE
+  RETIRED
+  LOST
+}
+
+model AssetCategory {
+  id         String   @id @default(cuid())
+  orgId      String   @map("org_id")
+  name       String
+  isArchived Boolean  @default(false) @map("is_archived")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assets       Asset[]
+
+  @@index([orgId])
+  @@map("asset_categories")
+}
+
+model Asset {
+  id                  String      @id @default(cuid())
+  orgId               String      @map("org_id")
+  categoryId          String      @map("category_id")
+  name                String
+  assetTag            String      @map("asset_tag")
+  status              AssetStatus @default(AVAILABLE)
+  purchaseDate        DateTime?   @map("purchase_date")
+  purchaseValueCents  Int?        @map("purchase_value_cents")
+  notes               String?
+  currentAssignmentId String?     @unique @map("current_assignment_id")
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+
+  organisation      Organisation     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  category          AssetCategory    @relation(fields: [categoryId], references: [id])
+  currentAssignment AssetAssignment? @relation("CurrentAssignment", fields: [currentAssignmentId], references: [id])
+  assignments       AssetAssignment[] @relation("AssetAssignments")
+
+  @@unique([orgId, assetTag])
+  @@index([orgId])
+  @@index([orgId, status])
+  @@map("assets")
+}
+
+model AssetAssignment {
+  id                    String    @id @default(cuid())
+  orgId                 String    @map("org_id")
+  assetId               String    @map("asset_id")
+  employeeId            String    @map("employee_id")
+  assignedAt            DateTime  @default(now()) @map("assigned_at")
+  assignedById          String    @map("assigned_by_id")
+  returnedAt            DateTime? @map("returned_at")
+  returnedById          String?   @map("returned_by_id")
+  conditionAtAssignment String?   @map("condition_at_assignment")
+  conditionAtReturn     String?   @map("condition_at_return")
+  notes                 String?
+
+  organisation       Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  asset              Asset        @relation("AssetAssignments", fields: [assetId], references: [id], onDelete: Cascade)
+  employee           Employee     @relation("EmployeeAssetAssignments", fields: [employeeId], references: [id], onDelete: Cascade)
+  assignedBy         Employee     @relation("AssetAssignedBy", fields: [assignedById], references: [id])
+  returnedBy         Employee?    @relation("AssetReturnedBy", fields: [returnedById], references: [id])
+  currentForAsset    Asset?       @relation("CurrentAssignment")
+
+  @@index([orgId])
+  @@index([assetId])
+  @@index([employeeId])
+  @@map("asset_assignments")
+}

@@ -17,6 +17,7 @@ const TABS: Array<{ slug: string; label: string; requiresModule?: string }> = [
   { slug: 'performance', label: 'Performance', requiresModule: 'performance' },
   { slug: 'documents', label: 'Documents', requiresModule: 'documents' },
   { slug: 'expenses', label: 'Expenses', requiresModule: 'expenses' },
+  { slug: 'assets', label: 'Assets', requiresModule: 'assets' },
   { slug: 'onboarding', label: 'Onboarding', requiresModule: 'onboarding' },
 ]
 

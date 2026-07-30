@@ -39,6 +39,9 @@ const TENANT_OWNED_TABLES = [
   'performance_reviews',
   'expense_categories',
   'expense_claims',
+  'asset_categories',
+  'assets',
+  'asset_assignments',
 ]
 
 /**

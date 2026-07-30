@@ -42,6 +42,10 @@ model Organisation {
   expenseCategories ExpenseCategory[]
   expenseClaims     ExpenseClaim[]
 
+  assetCategories  AssetCategory[]
+  assets           Asset[]
+  assetAssignments AssetAssignment[]
+
   notifications Notification[]
   auditLogs     AuditLog[]
 

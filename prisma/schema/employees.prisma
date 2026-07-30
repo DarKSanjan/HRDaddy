@@ -75,6 +75,10 @@ model Employee {
   expenseClaims         ExpenseClaim[] @relation("EmployeeExpenseClaims")
   reviewedExpenseClaims ExpenseClaim[] @relation("ExpenseReviewer")
 
+  assetAssignments      AssetAssignment[] @relation("EmployeeAssetAssignments")
+  assetAssignedBy       AssetAssignment[] @relation("AssetAssignedBy")
+  assetReturnedBy       AssetAssignment[] @relation("AssetReturnedBy")
+
   @@index([orgId])
   @@index([orgId, employmentStatus])
   @@index([userId])

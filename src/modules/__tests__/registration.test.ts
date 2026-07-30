@@ -21,6 +21,7 @@ const EXPECTED_MODULES = [
   'payroll',
   'performance',
   'expenses',
+  'assets',
 ] as const
 
 beforeAll(async () => {
