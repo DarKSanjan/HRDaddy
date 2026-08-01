@@ -144,7 +144,18 @@ describe('RLS hardening — round 3', () => {
 
   it('protect_owner_membership serializes concurrent changes with an advisory lock', () => {
     const migration = readMigration()
-    const fnBlock = lastBlock(migration, 'FUNCTION public\\.protect_owner_membership[\\s\\S]*?\\$\\$;')
+    // Anchored to the definition, not just the "FUNCTION public.x" substring
+    // — an unanchored pattern also matches bare `EXECUTE FUNCTION x();`
+    // trigger-invocation lines and later `REVOKE ... ON FUNCTION x() ...;`
+    // statements (00025/00026), each of which is a valid match start for a
+    // non-greedy `[\s\S]*?\$\$;`, and matchAll's "last match" is then
+    // whichever one happens to be closest to the end of the concatenated
+    // migration set — not necessarily the actual function body. Same class
+    // of bug already fixed for the self-update-guard functions below.
+    const fnBlock = lastBlock(
+      migration,
+      'CREATE (?:OR REPLACE )?FUNCTION public\\.protect_owner_membership\\(\\)[\\s\\S]*?\\$\\$;'
+    )
 
     expect(fnBlock).toMatch(/pg_advisory_xact_lock\(hashtext\(v_org_id\)\)/)
   })
@@ -186,7 +197,15 @@ describe('RLS hardening — round 3', () => {
     // named column list for SELECT only.
     expect(migration).toMatch(/REVOKE SELECT, INSERT, UPDATE, DELETE ON employees FROM authenticated/)
 
-    const grantBackBlock = lastBlock(migration, 'GRANT SELECT \\([\\s\\S]*?\\) ON employees TO authenticated;')
+    // Round 4 (00027) adds its own single-column `GRANT SELECT (user_id) ON
+    // employees TO authenticated;` for an unrelated fix — lastBlock() would
+    // grab that one instead since it's a later match against the same broad
+    // pattern. Pick the multi-column grant explicitly instead of assuming
+    // "last match" is the right one.
+    const allGrantBlocks = [
+      ...migration.matchAll(/GRANT SELECT \([\s\S]*?\) ON employees TO authenticated;/gi),
+    ].map((m) => m[0])
+    const grantBackBlock = allGrantBlocks.find((b) => b.includes('first_name')) ?? ''
     for (const sensitive of ['date_of_birth', 'bank_name', 'bank_account_number', 'national_id', 'personal_email', 'compensation_amount_cents']) {
       expect(grantBackBlock).not.toMatch(new RegExp(`\\b${sensitive}\\b`))
     }

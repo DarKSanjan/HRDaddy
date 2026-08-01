@@ -28,9 +28,12 @@ export const employeesModule = defineModule({
   description: 'Employee records, departments, job titles, and org structure',
   dependsOn: [],
   required: true,
-  permissionNamespaces: ['employee', 'department'],
+  permissionNamespaces: ['employee', 'department', 'audit'],
 
   permissions: [
+    // Audit log
+    { key: 'audit.view', description: 'View organisation audit log', defaultRoles: ADMIN_ROLES },
+
     // Employees
     { key: 'employee.view_all', description: 'View all employees', defaultRoles: ADMIN_ROLES },
     { key: 'employee.view_own', description: 'View own employee profile', defaultRoles: ALL_ROLES },

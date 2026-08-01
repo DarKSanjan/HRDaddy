@@ -6,6 +6,7 @@
 
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/core/auth/supabase-server'
+import { logAuthEvent, logFailedSignIn } from '@/core/audit/auth-events'
 
 export interface AuthState {
   error: string | null
@@ -23,14 +24,17 @@ export async function signIn(
   }
 
   const supabase = await createSupabaseServer()
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
   if (error) {
+    await logFailedSignIn(email)
     return { error: 'Invalid email or password' }
   }
+
+  await logAuthEvent(data.user.id, 'auth.sign_in')
 
   redirect('/')
 }
@@ -65,6 +69,12 @@ export async function signUp(
 
 export async function signOut(): Promise<void> {
   const supabase = await createSupabaseServer()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   await supabase.auth.signOut()
+  if (user) {
+    await logAuthEvent(user.id, 'auth.sign_out')
+  }
   redirect('/sign-in')
 }
