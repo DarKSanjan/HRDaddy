@@ -34,6 +34,7 @@ import {
   getLeaveRequestWithEmployee,
   getEmployeeWithManager,
   LeaveRequestError,
+  type LeaveBalanceAllocation,
 } from '@/core/leave'
 import {
   createLeaveRequestSchema,
@@ -52,6 +53,91 @@ export interface ActionResult {
   error?: string
   fieldErrors?: Record<string, string>
   data?: unknown
+}
+
+// ─────────────────────────────────────────────
+// Balance allocation across a year boundary
+//
+// A request can span Dec 31 -> Jan 1; each calendar year's portion must be
+// deducted from that year's own LeaveBalance row. Recomputes the same
+// deterministic split (via calculateLeaveDays over the org's calendar
+// settings/holidays) at every mutation point — create, approve, reject,
+// withdraw, cancel — so the allocation used to reverse a change always
+// matches the one used to apply it, without persisting the split anywhere.
+// ─────────────────────────────────────────────
+
+async function resolveLeaveBalanceAllocations(
+  orgId: string,
+  userId: string,
+  employeeId: string,
+  leaveTypeId: string,
+  startDate: Date,
+  endDate: Date,
+  totalDays: number
+): Promise<{ balanceId: string; days: number; available: number }[]> {
+  const startYear = startDate.getFullYear()
+  const endYear = endDate.getFullYear()
+
+  if (startYear === endYear) {
+    const balance = await getLeaveBalance(employeeId, leaveTypeId, startYear)
+    if (!balance) return []
+    const available = Number(balance.allowance) - Number(balance.used) - Number(balance.pending)
+    return [{ balanceId: balance.id, days: totalDays, available }]
+  }
+
+  const settings = await getOrgSettings(orgId)
+  const calendarSettings = {
+    timezone: settings?.timezone ?? 'UTC',
+    workingDays: (settings?.workingDays as number[]) ?? [1, 2, 3, 4, 5],
+  }
+  const startOfRange = new Date(Date.UTC(startYear, 0, 1))
+  const endOfRange = new Date(Date.UTC(endYear, 11, 31, 23, 59, 59))
+  const holidayRows = await getHolidaysForDateRange(userId, orgId, startOfRange, endOfRange)
+  const holidays = holidayRows.map((h) => ({
+    date: `${h.date.getUTCFullYear()}-${String(h.date.getUTCMonth() + 1).padStart(2, '0')}-${String(h.date.getUTCDate()).padStart(2, '0')}`,
+    name: h.name,
+  }))
+
+  const daysInStartYear = calculateLeaveDays(
+    startDate,
+    new Date(Date.UTC(startYear, 11, 31)),
+    false,
+    calendarSettings,
+    holidays
+  )
+  const daysInEndYear = calculateLeaveDays(
+    new Date(Date.UTC(endYear, 0, 1)),
+    endDate,
+    false,
+    calendarSettings,
+    holidays
+  )
+
+  const allocations: { balanceId: string; days: number; available: number }[] = []
+
+  if (daysInStartYear > 0) {
+    const startBalance = await getLeaveBalance(employeeId, leaveTypeId, startYear)
+    if (startBalance) {
+      allocations.push({
+        balanceId: startBalance.id,
+        days: daysInStartYear,
+        available: Number(startBalance.allowance) - Number(startBalance.used) - Number(startBalance.pending),
+      })
+    }
+  }
+
+  if (daysInEndYear > 0) {
+    const endBalance = await getLeaveBalance(employeeId, leaveTypeId, endYear)
+    if (endBalance) {
+      allocations.push({
+        balanceId: endBalance.id,
+        days: daysInEndYear,
+        available: Number(endBalance.allowance) - Number(endBalance.used) - Number(endBalance.pending),
+      })
+    }
+  }
+
+  return allocations
 }
 
 // ─────────────────────────────────────────────
@@ -129,19 +215,30 @@ export async function submitLeaveRequest(
     return { success: false, error: 'You already have a pending or approved leave request for overlapping dates.' }
   }
 
-  // Check balance
-  const year = new Date(input.startDate).getFullYear()
-  const balance = await getLeaveBalance(employeeId, input.leaveTypeId, year)
+  // Check balance (per-year allocation, in case the range crosses Dec 31 -> Jan 1)
+  const allocations = await resolveLeaveBalanceAllocations(
+    org.id,
+    userId,
+    employeeId,
+    input.leaveTypeId,
+    new Date(input.startDate),
+    new Date(input.endDate),
+    totalDays
+  )
 
-  if (balance) {
-    const available = Number(balance.allowance) - Number(balance.used) - Number(balance.pending)
-    if (available < totalDays) {
+  for (const alloc of allocations) {
+    if (alloc.available < alloc.days) {
       return {
         success: false,
-        error: `Insufficient balance. Available: ${available} days, Requested: ${totalDays} days.`,
+        error: `Insufficient balance. Available: ${alloc.available} days, Requested: ${alloc.days} days.`,
       }
     }
   }
+
+  const balanceAllocations: LeaveBalanceAllocation[] = allocations.map((a) => ({
+    balanceId: a.balanceId,
+    days: a.days,
+  }))
 
   let request: Awaited<ReturnType<typeof createLeaveRequestTransaction>>
   try {
@@ -157,7 +254,7 @@ export async function submitLeaveRequest(
         totalDays,
         reason: input.reason || null,
       },
-      balance?.id ?? null,
+      balanceAllocations,
       async (tx, createdRequest) => writeAudit({
         orgId: org.id,
         actorId: userId,
@@ -231,15 +328,22 @@ export async function approveLeaveRequest(
     return { success: false, error: 'Cannot approve your own leave request.' }
   }
 
+  const approveAllocations = await resolveLeaveBalanceAllocations(
+    org.id,
+    userId,
+    request.employeeId,
+    request.leaveTypeId,
+    request.startDate,
+    request.endDate,
+    Number(request.totalDays)
+  )
+
   const result = await approveLeaveRequestTransaction(
     requestId,
     org.id,
     approverEmployeeId,
     note ?? null,
-    Number(request.totalDays),
-    request.employeeId,
-    request.leaveTypeId,
-    request.startDate.getFullYear(),
+    approveAllocations.map((a) => ({ balanceId: a.balanceId, days: a.days })),
     async (tx) => writeAudit({
       orgId: org.id,
       actorId: userId,
@@ -301,15 +405,22 @@ export async function rejectLeaveRequest(
     }
   }
 
+  const rejectAllocations = await resolveLeaveBalanceAllocations(
+    org.id,
+    userId,
+    request.employeeId,
+    request.leaveTypeId,
+    request.startDate,
+    request.endDate,
+    Number(request.totalDays)
+  )
+
   const result = await rejectLeaveRequestTransaction(
     requestId,
     org.id,
     approverEmployeeId,
     reason,
-    Number(request.totalDays),
-    request.employeeId,
-    request.leaveTypeId,
-    request.startDate.getFullYear(),
+    rejectAllocations.map((a) => ({ balanceId: a.balanceId, days: a.days })),
     async (tx) => writeAudit({
       orgId: org.id,
       actorId: userId,
@@ -364,10 +475,24 @@ export async function withdrawLeaveRequest(
     return { success: false, error: 'No employee record found.' }
   }
 
+  const withdrawRequest = await getLeaveRequestWithEmployee(org.id, requestId)
+  const withdrawAllocations = withdrawRequest
+    ? await resolveLeaveBalanceAllocations(
+        org.id,
+        userId,
+        employeeId,
+        withdrawRequest.leaveTypeId,
+        withdrawRequest.startDate,
+        withdrawRequest.endDate,
+        Number(withdrawRequest.totalDays)
+      )
+    : []
+
   const result = await withdrawLeaveRequestTransaction(
     requestId,
     org.id,
     employeeId,
+    withdrawAllocations.map((a) => ({ balanceId: a.balanceId, days: a.days })),
     async (tx) => writeAudit({
       orgId: org.id,
       actorId: userId,
@@ -411,11 +536,25 @@ export async function cancelLeaveRequest(
     return { success: false, error: 'No employee record found.' }
   }
 
+  const cancelRequest = await getLeaveRequestWithEmployee(org.id, requestId)
+  const cancelAllocations = cancelRequest
+    ? await resolveLeaveBalanceAllocations(
+        org.id,
+        userId,
+        employeeId,
+        cancelRequest.leaveTypeId,
+        cancelRequest.startDate,
+        cancelRequest.endDate,
+        Number(cancelRequest.totalDays)
+      )
+    : []
+
   const result = await cancelLeaveRequestTransaction(
     requestId,
     org.id,
     employeeId,
     reason,
+    cancelAllocations.map((a) => ({ balanceId: a.balanceId, days: a.days })),
     async (tx) => writeAudit({
       orgId: org.id,
       actorId: userId,

@@ -40,6 +40,7 @@ model PayrollRecord {
   employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   lineItems    PayrollLineItem[]
 
+  @@unique([periodId, employeeId], map: "payroll_records_period_id_employee_id_key")
   @@index([orgId])
   @@index([periodId])
   @@map("payroll_records")

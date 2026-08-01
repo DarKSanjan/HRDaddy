@@ -20,10 +20,8 @@ services:
       timeout: 5s
       retries: 5
 
-  # These images are intentionally unpinned for local development. Pin a
-  # tested set of image tags before using this stack outside local development.
   gotrue:
-    image: supabase/gotrue
+    image: supabase/gotrue:v2.194.0
     restart: unless-stopped
     depends_on:
       postgres:
@@ -57,7 +55,7 @@ services:
       GOTRUE_MAILER_URLPATHS_REAUTHENTICATION: /auth/v1/verify
 
   postgrest:
-    image: postgrest/postgrest
+    image: postgrest/postgrest:v13.0.8
     restart: unless-stopped
     depends_on:
       postgres:
@@ -70,7 +68,7 @@ services:
       PGRST_SERVER_PORT: 3000
 
   storage-api:
-    image: supabase/storage-api
+    image: supabase/storage-api:v1.67.29
     restart: unless-stopped
     depends_on:
       postgres:

@@ -68,6 +68,11 @@ export async function processPayroll(
   const { periodId } = parsed.data
 
   const result = await dbAs(userId, async (tx) => {
+    // Serialize concurrent process-payroll runs for the same period so the
+    // status check and delete-then-recreate below can't race two admins
+    // double-clicking (or double-submitting) the same run.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${periodId}))`
+
     const period = await tx.payrollPeriod.findFirst({
       where: { id: periodId, orgId: org.id },
     })

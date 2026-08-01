@@ -13,11 +13,12 @@ docker compose up -d
 
 GoTrue and Storage API run their own internal database migrations when they
 start. Wait for those services to finish starting, then apply the application
-migrations and optionally seed local auth data:
+migrations, create the storage bucket, and optionally seed local auth data:
 
 ```bash
 npm install
 npm run db:deploy
+npx tsx scripts/create-storage-bucket.ts
 npm run db:seed
 npm run dev
 ```
@@ -29,6 +30,28 @@ the server-side `SUPABASE_SECRET_KEY`. Change the example JWT, database
 passwords, and SMTP/autoconfirm settings before using the stack beyond local
 development. The first-boot SQL file only runs when the Postgres data volume is
 initialized for the first time.
+
+## Deployment checklist (hosted or self-hosted)
+
+Steps required once per environment, beyond the usual `npm run db:deploy`:
+
+1. **Storage bucket** — nothing creates the `employee-documents` bucket
+   automatically (Supabase's dashboard/CLI project init doesn't include it,
+   and the self-hosted stack starts with an empty `storage.buckets`). Run
+   `npx tsx scripts/create-storage-bucket.ts` once against the target
+   project — it's idempotent, safe to re-run. Skipping this means the first
+   document upload will fail.
+2. **PII encryption key** — set `EMPLOYEE_PII_ENCRYPTION_KEY` to a real key
+   generated with `openssl rand -base64 32` (never the placeholder in
+   `.env.example`). Back it up outside the app's own database — losing it
+   makes existing encrypted `nationalId`/`bankName`/`bankAccountNumber`
+   values permanently unrecoverable.
+3. **Existing-data PII backfill** — if you're deploying the PII-encryption
+   migration against a database that already has employee rows (i.e. this
+   isn't a fresh install), run `npx tsx scripts/encrypt-existing-pii.ts`
+   once, right after that migration lands. It's a manual, idempotent,
+   one-time backfill — it is not wired into `db:deploy` or any other
+   automation, so it's easy to miss on an existing deployment.
 
 ## Getting Started
 

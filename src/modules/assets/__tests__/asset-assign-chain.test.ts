@@ -35,7 +35,8 @@ vi.mock('@/modules/register', () => ({}))
 vi.mock('@/core/db', () => ({
   dbAs: vi.fn(async (_userId: string, fn: (tx: unknown) => unknown) =>
     fn({
-      asset: { findFirst: assetFindFirst, update: assetUpdate },
+      $executeRaw: vi.fn().mockResolvedValue(undefined),
+      asset: { findFirst: assetFindFirst, findUnique: assetFindFirst, update: assetUpdate },
       assetAssignment: { create: assignmentCreate, findFirst: assignmentFindFirst },
       employee: { findFirst: employeeFindFirst },
     })

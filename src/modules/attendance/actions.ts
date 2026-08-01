@@ -27,6 +27,7 @@ import {
   closeAttendanceRecord,
   getAttendanceRecordWithEmployee,
   correctAttendanceRecord,
+  AttendanceError,
 } from '@/core/attendance'
 import {
   clockInSchema,
@@ -66,12 +67,6 @@ export async function clockIn(
     return { success: false, error: 'Invalid input.' }
   }
 
-  // Check for existing open session (no double clock-in)
-  const existing = await findOpenSession(org.id, employeeId)
-  if (existing) {
-    return { success: false, error: 'You are already clocked in. Please clock out first.' }
-  }
-
   // Get org timezone for correct local date assignment
   const settings = await getOrgSettings(org.id)
   const timezone = settings?.timezone ?? 'UTC'
@@ -82,26 +77,45 @@ export async function clockIn(
   // The `date` field stores the local working day this session belongs to
   const dateObj = new Date(localDate + 'T00:00:00Z')
 
-  const record = await dbAs(userId, async (tx) => {
-    const createdRecord = await createAttendanceRecord({
-      orgId: org.id,
-      employeeId,
-      date: dateObj,
-      clockIn: now,
-      type: parsed.data.type,
-    }, tx)
+  let record: Awaited<ReturnType<typeof createAttendanceRecord>>
+  try {
+    record = await dbAs(userId, async (tx) => {
+      // Acquire the lock, then re-check for an open session inside this same
+      // transaction — checking before dbAs() (as a separate query) would let
+      // two concurrent clock-ins both see "no open session" before either
+      // writes.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${employeeId}))`
 
-    await writeAudit({
-      orgId: org.id,
-      actorId: userId,
-      action: 'attendance.clock_in',
-      targetType: 'attendance_record',
-      targetId: createdRecord.id,
-      after: { clockIn: now.toISOString(), type: parsed.data.type, localDate },
-    }, tx)
+      const existing = await findOpenSession(org.id, employeeId, tx)
+      if (existing) {
+        throw new AttendanceError('already_clocked_in', 'You are already clocked in. Please clock out first.')
+      }
 
-    return createdRecord
-  })
+      const createdRecord = await createAttendanceRecord({
+        orgId: org.id,
+        employeeId,
+        date: dateObj,
+        clockIn: now,
+        type: parsed.data.type,
+      }, tx)
+
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'attendance.clock_in',
+        targetType: 'attendance_record',
+        targetId: createdRecord.id,
+        after: { clockIn: now.toISOString(), type: parsed.data.type, localDate },
+      }, tx)
+
+      return createdRecord
+    })
+  } catch (err) {
+    if (err instanceof AttendanceError) {
+      return { success: false, error: err.message }
+    }
+    throw err
+  }
 
   revalidatePath(`/${orgSlug}/attendance`)
   return { success: true, data: { id: record.id } }

@@ -14,6 +14,17 @@ type LeaveAuditCallback<T> = (
 // Typed errors for the create path
 // ─────────────────────────────────────────────
 
+// A leave request can span a year boundary (e.g. Dec 29 - Jan 3), and each
+// calendar year's days must be deducted from that year's own LeaveBalance
+// row — you can't borrow surplus from one year to cover a shortfall in the
+// other. Callers resolve the day-count split per year (they have the org's
+// calendar settings and holidays; this module doesn't) and pass one
+// allocation per balance row that actually needs touching.
+export interface LeaveBalanceAllocation {
+  balanceId: string
+  days: number
+}
+
 export class LeaveRequestError extends Error {
   constructor(
     public readonly reason: 'overlap' | 'insufficient_balance',
@@ -79,7 +90,7 @@ export interface CreateLeaveRequestData {
 
 export async function createLeaveRequestTransaction(
   data: CreateLeaveRequestData,
-  balanceId: string | null,
+  balanceAllocations: LeaveBalanceAllocation[],
   audit?: LeaveAuditCallback<{ id: string }>
 ) {
   return dbAdmin.$transaction(async (tx) => {
@@ -102,20 +113,19 @@ export async function createLeaveRequestTransaction(
       throw new LeaveRequestError('overlap', 'Overlapping leave request exists.')
     }
 
-    const freshBalance = balanceId
-      ? await tx.leaveBalance.findUnique({ where: { id: balanceId } })
-      : null
-
-    if (freshBalance) {
-      const available =
-        Number(freshBalance.allowance) -
-        Number(freshBalance.used) -
-        Number(freshBalance.pending)
-      if (available < data.totalDays) {
-        throw new LeaveRequestError(
-          'insufficient_balance',
-          'Insufficient balance for the requested dates.'
-        )
+    for (const alloc of balanceAllocations) {
+      const freshBalance = await tx.leaveBalance.findUnique({ where: { id: alloc.balanceId } })
+      if (freshBalance) {
+        const available =
+          Number(freshBalance.allowance) -
+          Number(freshBalance.used) -
+          Number(freshBalance.pending)
+        if (available < alloc.days) {
+          throw new LeaveRequestError(
+            'insufficient_balance',
+            'Insufficient balance for the requested dates.'
+          )
+        }
       }
     }
 
@@ -134,10 +144,10 @@ export async function createLeaveRequestTransaction(
       },
     })
 
-    if (balanceId) {
+    for (const alloc of balanceAllocations) {
       await tx.leaveBalance.update({
-        where: { id: balanceId },
-        data: { pending: { increment: data.totalDays } },
+        where: { id: alloc.balanceId },
+        data: { pending: { increment: alloc.days } },
       })
     }
 
@@ -156,10 +166,7 @@ export async function approveLeaveRequestTransaction(
   orgId: string,
   approverEmployeeId: string | null,
   note: string | null,
-  totalDays: number,
-  employeeId: string,
-  leaveTypeId: string,
-  startYear: number,
+  balanceAllocations: LeaveBalanceAllocation[],
   audit?: LeaveAuditCallback<{ alreadyProcessed: boolean }>
 ): Promise<{ alreadyProcessed: boolean }> {
   return dbAdmin.$transaction(async (tx) => {
@@ -177,13 +184,15 @@ export async function approveLeaveRequestTransaction(
       return { alreadyProcessed: true }
     }
 
-    await tx.leaveBalance.updateMany({
-      where: { employeeId, leaveTypeId, year: startYear },
-      data: {
-        pending: { decrement: totalDays },
-        used: { increment: totalDays },
-      },
-    })
+    for (const alloc of balanceAllocations) {
+      await tx.leaveBalance.update({
+        where: { id: alloc.balanceId },
+        data: {
+          pending: { decrement: alloc.days },
+          used: { increment: alloc.days },
+        },
+      })
+    }
 
     const result = { alreadyProcessed: false }
     if (audit) await audit(tx, result)
@@ -200,10 +209,7 @@ export async function rejectLeaveRequestTransaction(
   orgId: string,
   approverEmployeeId: string | null,
   reason: string,
-  totalDays: number,
-  employeeId: string,
-  leaveTypeId: string,
-  startYear: number,
+  balanceAllocations: LeaveBalanceAllocation[],
   audit?: LeaveAuditCallback<{ alreadyProcessed: boolean }>
 ): Promise<{ alreadyProcessed: boolean }> {
   return dbAdmin.$transaction(async (tx) => {
@@ -221,10 +227,12 @@ export async function rejectLeaveRequestTransaction(
       return { alreadyProcessed: true }
     }
 
-    await tx.leaveBalance.updateMany({
-      where: { employeeId, leaveTypeId, year: startYear },
-      data: { pending: { decrement: totalDays } },
-    })
+    for (const alloc of balanceAllocations) {
+      await tx.leaveBalance.update({
+        where: { id: alloc.balanceId },
+        data: { pending: { decrement: alloc.days } },
+      })
+    }
 
     const result = { alreadyProcessed: false }
     if (audit) await audit(tx, result)
@@ -240,6 +248,7 @@ export async function withdrawLeaveRequestTransaction(
   requestId: string,
   orgId: string,
   employeeId: string,
+  balanceAllocations: LeaveBalanceAllocation[],
   audit?: LeaveAuditCallback<{ failed: boolean }>
 ): Promise<{ failed: boolean }> {
   return dbAdmin.$transaction(async (tx) => {
@@ -252,14 +261,10 @@ export async function withdrawLeaveRequestTransaction(
       return { failed: true }
     }
 
-    const req = await tx.leaveRequest.findUnique({
-      where: { id: requestId },
-      select: { totalDays: true, leaveTypeId: true, startDate: true },
-    })
-    if (req) {
-      await tx.leaveBalance.updateMany({
-        where: { employeeId, leaveTypeId: req.leaveTypeId, year: req.startDate.getFullYear() },
-        data: { pending: { decrement: Number(req.totalDays) } },
+    for (const alloc of balanceAllocations) {
+      await tx.leaveBalance.update({
+        where: { id: alloc.balanceId },
+        data: { pending: { decrement: alloc.days } },
       })
     }
 
@@ -278,6 +283,7 @@ export async function cancelLeaveRequestTransaction(
   orgId: string,
   employeeId: string,
   reason: string,
+  balanceAllocations: LeaveBalanceAllocation[],
   audit?: LeaveAuditCallback<{ failed: boolean }>
 ): Promise<{ failed: boolean }> {
   return dbAdmin.$transaction(async (tx) => {
@@ -290,14 +296,10 @@ export async function cancelLeaveRequestTransaction(
       return { failed: true }
     }
 
-    const req = await tx.leaveRequest.findUnique({
-      where: { id: requestId },
-      select: { totalDays: true, leaveTypeId: true, startDate: true },
-    })
-    if (req) {
-      await tx.leaveBalance.updateMany({
-        where: { employeeId, leaveTypeId: req.leaveTypeId, year: req.startDate.getFullYear() },
-        data: { used: { decrement: Number(req.totalDays) } },
+    for (const alloc of balanceAllocations) {
+      await tx.leaveBalance.update({
+        where: { id: alloc.balanceId },
+        data: { used: { decrement: alloc.days } },
       })
     }
 

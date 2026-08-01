@@ -59,7 +59,13 @@ export function encryptPII(plain: string | null | undefined): string | null {
 
 export function decryptPII(value: string | null | undefined): string | null {
   if (!value) return null
-  if (!value.startsWith(PII_ENCRYPTION_PREFIX)) return value
+  if (!value.startsWith(PII_ENCRYPTION_PREFIX)) {
+    // Legacy dual-read path for rows written before encryption was added —
+    // still returned as-is, but no longer silently. Run
+    // scripts/encrypt-existing-pii.ts to migrate rows still triggering this.
+    console.warn('decryptPII: read a legacy plaintext value (not enc:v1:-prefixed)')
+    return value
+  }
 
   const payload = decodeBase64(value.slice(PII_ENCRYPTION_PREFIX.length), 'Encrypted employee PII')
   if (payload.length < IV_LENGTH + AUTH_TAG_LENGTH) {

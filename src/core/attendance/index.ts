@@ -4,11 +4,28 @@
 import { Prisma } from '@prisma/client'
 import { dbAdmin } from '@/core/db/admin'
 
+export class AttendanceError extends Error {
+  constructor(
+    public readonly reason: 'already_clocked_in',
+    message: string
+  ) {
+    super(message)
+    this.name = 'AttendanceError'
+  }
+}
+
 /**
- * Find an open attendance session for an employee.
+ * Find an open attendance session for an employee. Pass `tx` to check under
+ * an advisory lock inside the same transaction that creates the record —
+ * without it, two concurrent clock-ins can both see "no open session" before
+ * either writes.
  */
-export async function findOpenSession(orgId: string, employeeId: string) {
-  return dbAdmin.attendanceRecord.findFirst({
+export async function findOpenSession(
+  orgId: string,
+  employeeId: string,
+  tx?: Prisma.TransactionClient
+) {
+  return (tx ?? dbAdmin).attendanceRecord.findFirst({
     where: { orgId, employeeId, status: 'OPEN' },
     orderBy: { clockIn: 'desc' },
   })

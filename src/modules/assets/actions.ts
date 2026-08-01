@@ -50,6 +50,16 @@ export interface ActionResult {
   data?: unknown
 }
 
+class AssetAssignmentError extends Error {
+  constructor(
+    public readonly reason: 'not_available' | 'already_assigned',
+    message: string
+  ) {
+    super(message)
+    this.name = 'AssetAssignmentError'
+  }
+}
+
 // ─────────────────────────────────────────────
 // Asset status state machine
 // ─────────────────────────────────────────────
@@ -342,6 +352,30 @@ async function performAssetAssignment(
   onComplete?: (tx: Prisma.TransactionClient, created: { id: string }) => Promise<void>
 ): Promise<{ id: string }> {
   return dbAs(userId, async (tx) => {
+    // Acquire the lock, then re-verify state inside this same transaction —
+    // the callers' own pre-checks (status/openAssignment lookups) run in
+    // separate transactions and are just for a fast, friendly error message
+    // in the common case; this is what actually closes the race.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${params.assetId}))`
+
+    const current = await tx.asset.findUnique({
+      where: { id: params.assetId },
+      select: { status: true },
+    })
+    if (!current || current.status !== 'AVAILABLE') {
+      throw new AssetAssignmentError(
+        'not_available',
+        `Cannot assign asset — current status is ${current?.status ?? 'unknown'}.`
+      )
+    }
+    const openAssignment = await tx.assetAssignment.findFirst({
+      where: { assetId: params.assetId, orgId: params.orgId, returnedAt: null },
+      select: { id: true },
+    })
+    if (openAssignment) {
+      throw new AssetAssignmentError('already_assigned', 'Asset already has an open assignment. Return it first.')
+    }
+
     const created = await tx.assetAssignment.create({
       data: {
         orgId: params.orgId,
@@ -429,21 +463,29 @@ export async function assignAsset(
   })
   if (!employee) return { success: false, error: 'Employee not found.' }
 
-  const assignment = await performAssetAssignment(userId, {
-    orgId: org.id,
-    assetId,
-    employeeId,
-    assignedById: assignerEmployeeId,
-    conditionAtAssignment,
-    notes,
-  }, async (tx, createdAssignment) => writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.assigned',
-    targetType: 'asset',
-    targetId: assetId,
-    after: { employeeId, assignmentId: createdAssignment.id, assetName: asset.name },
-  }, tx))
+  let assignment: Awaited<ReturnType<typeof performAssetAssignment>>
+  try {
+    assignment = await performAssetAssignment(userId, {
+      orgId: org.id,
+      assetId,
+      employeeId,
+      assignedById: assignerEmployeeId,
+      conditionAtAssignment,
+      notes,
+    }, async (tx, createdAssignment) => writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.assigned',
+      targetType: 'asset',
+      targetId: assetId,
+      after: { employeeId, assignmentId: createdAssignment.id, assetName: asset.name },
+    }, tx))
+  } catch (err) {
+    if (err instanceof AssetAssignmentError) {
+      return { success: false, error: err.message }
+    }
+    throw err
+  }
 
   // Notify the assignee
   if (employee.userId) {
@@ -1166,31 +1208,39 @@ export async function fulfillAssetRequest(
   }
 
   // Perform the actual assignment (shared with assignAsset, so assignment history stays consistent)
-  const assignment = await performAssetAssignment(userId, {
-    orgId: org.id,
-    assetId,
-    employeeId: request.employeeId,
-    assignedById: assignerEmployeeId,
-    conditionAtAssignment: null,
-    notes: `Fulfilled from asset request ${requestId}`,
-  }, async (tx, createdAssignment) => {
-    await tx.assetRequest.update({
-      where: { id: requestId },
-      data: {
-        status: 'FULFILLED',
-        fulfilledAssetId: assetId,
-      },
-    })
-
-    await writeAudit({
+  let assignment: Awaited<ReturnType<typeof performAssetAssignment>>
+  try {
+    assignment = await performAssetAssignment(userId, {
       orgId: org.id,
-      actorId: userId,
-      action: 'asset.request.fulfilled',
-      targetType: 'asset_request',
-      targetId: requestId,
-      after: { assetId, assignmentId: createdAssignment.id, employeeId: request.employeeId },
-    }, tx)
-  })
+      assetId,
+      employeeId: request.employeeId,
+      assignedById: assignerEmployeeId,
+      conditionAtAssignment: null,
+      notes: `Fulfilled from asset request ${requestId}`,
+    }, async (tx, createdAssignment) => {
+      await tx.assetRequest.update({
+        where: { id: requestId },
+        data: {
+          status: 'FULFILLED',
+          fulfilledAssetId: assetId,
+        },
+      })
+
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'asset.request.fulfilled',
+        targetType: 'asset_request',
+        targetId: requestId,
+        after: { assetId, assignmentId: createdAssignment.id, employeeId: request.employeeId },
+      }, tx)
+    })
+  } catch (err) {
+    if (err instanceof AssetAssignmentError) {
+      return { success: false, error: err.message }
+    }
+    throw err
+  }
 
   // Notify the requester
   if (request.employee.userId) {

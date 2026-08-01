@@ -64,7 +64,7 @@ describe('createLeaveRequestTransaction', () => {
       }
     )
 
-    await createLeaveRequestTransaction(baseData, null)
+    await createLeaveRequestTransaction(baseData, [])
 
     expect(capturedTx.$executeRaw).toHaveBeenCalledOnce()
     // The advisory lock must be acquired before the request is created.
@@ -79,7 +79,7 @@ describe('createLeaveRequestTransaction', () => {
         fn(makeTx({ findFirst: { id: 'existing-req' } }))
     )
 
-    await expect(createLeaveRequestTransaction(baseData, null)).rejects.toSatisfy(
+    await expect(createLeaveRequestTransaction(baseData, [])).rejects.toSatisfy(
       (e: unknown) => e instanceof LeaveRequestError && (e as LeaveRequestError).reason === 'overlap'
     )
   })
@@ -93,7 +93,7 @@ describe('createLeaveRequestTransaction', () => {
       }
     )
 
-    await expect(createLeaveRequestTransaction(baseData, null)).rejects.toBeInstanceOf(LeaveRequestError)
+    await expect(createLeaveRequestTransaction(baseData, [])).rejects.toBeInstanceOf(LeaveRequestError)
     expect(capturedTx.leaveRequest.create).not.toHaveBeenCalled()
   })
 
@@ -111,7 +111,7 @@ describe('createLeaveRequestTransaction', () => {
     )
 
     await expect(
-      createLeaveRequestTransaction({ ...baseData, totalDays: 3 }, 'bal-1')
+      createLeaveRequestTransaction({ ...baseData, totalDays: 3 }, [{ balanceId: 'bal-1', days: 3 }])
     ).rejects.toSatisfy(
       (e: unknown) =>
         e instanceof LeaveRequestError && (e as LeaveRequestError).reason === 'insufficient_balance'
@@ -129,7 +129,7 @@ describe('createLeaveRequestTransaction', () => {
     )
 
     await expect(
-      createLeaveRequestTransaction({ ...baseData, totalDays: 3 }, 'bal-1')
+      createLeaveRequestTransaction({ ...baseData, totalDays: 3 }, [{ balanceId: 'bal-1', days: 3 }])
     ).rejects.toBeInstanceOf(LeaveRequestError)
     expect(capturedTx.leaveRequest.create).not.toHaveBeenCalled()
   })
@@ -144,7 +144,7 @@ describe('createLeaveRequestTransaction', () => {
       }
     )
 
-    const result = await createLeaveRequestTransaction(baseData, 'bal-1')
+    const result = await createLeaveRequestTransaction(baseData, [{ balanceId: 'bal-1', days: baseData.totalDays }])
 
     expect(result).toEqual(mockRequest)
     expect(capturedTx.leaveRequest.create).toHaveBeenCalledOnce()
