@@ -27,8 +27,11 @@ export async function getOrgBranding(orgId: string): Promise<OrgBranding> {
     try {
       const storage = await getStorage()
       logoSignedUrl = await storage.getSignedUrl(settings.brandLogoUrl, 3600)
-    } catch {
-      // Stale key; ignore
+    } catch (err) {
+      // Most likely a stale key (the object was deleted out from under the
+      // DB row), but logging it means a genuine failure is actually
+      // diagnosable instead of silently falling back to the placeholder icon.
+      console.error('getOrgBranding: failed to sign logo URL', err)
     }
   }
 
