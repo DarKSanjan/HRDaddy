@@ -25,10 +25,7 @@ import { getOrgContext, requirePermission } from '@/core/auth'
 import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { getStorage, buildStorageKey } from '@/core/storage'
-import {
-  detectFileSignature,
-  fileSignatureFamilyForMimeType,
-} from '@/core/documents/file-signature'
+import { validateFileContent } from '@/core/documents/file-signature'
 import {
   createCategorySchema,
   updateCategorySchema,
@@ -47,24 +44,6 @@ export interface ActionResult {
   error?: string
   fieldErrors?: Record<string, string>
   data?: unknown
-}
-
-function validateFileContent(
-  fileBuffer: Buffer | Uint8Array,
-  fileSize: number,
-  mimeType: string
-): string | undefined {
-  if (fileBuffer.length !== fileSize) {
-    return 'File size does not match its declared size'
-  }
-
-  const detected = detectFileSignature(fileBuffer)
-  const expectedFamily = fileSignatureFamilyForMimeType(mimeType)
-  if (!expectedFamily || detected.family !== expectedFamily) {
-    return 'File content does not match its declared type'
-  }
-
-  return undefined
 }
 
 // ─────────────────────────────────────────────

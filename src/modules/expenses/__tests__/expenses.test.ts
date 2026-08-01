@@ -46,11 +46,8 @@ const update = vi.fn(async () => ({}))
 const updateMany = vi.fn(async () => ({ count: 1 }))
 const deleteFn = vi.fn(async () => ({}))
 
-const documentCategoryFindFirst = vi.fn(async () => null as { id: string } | null)
-const documentCategoryCreate = vi.fn(async () => ({ id: 'receipts-cat-1' }))
-const employeeDocumentCreate = vi.fn(async (args: { data: Record<string, unknown> }) => ({
-  id: 'doc-1',
-  ...args.data,
+const { createReceiptDocument } = vi.hoisted(() => ({
+  createReceiptDocument: vi.fn(async () => 'doc-1'),
 }))
 
 const storageUpload = vi.fn(async () => undefined)
@@ -63,8 +60,7 @@ vi.mock('@/core/db', () => ({
     fn({
       expenseClaim: { findFirst, create, update, updateMany, delete: deleteFn },
       expenseCategory: { findFirst: vi.fn(async () => ({ id: 'cat-1' })), create: vi.fn() },
-      employeeDocument: { findFirst: vi.fn(async () => null), create: employeeDocumentCreate },
-      documentCategory: { findFirst: documentCategoryFindFirst, create: documentCategoryCreate },
+      employeeDocument: { findFirst: vi.fn(async () => null) },
       employee: {
         findFirst: vi.fn(async () => ({
           firstName: 'Alice',
@@ -77,6 +73,7 @@ vi.mock('@/core/db', () => ({
 }))
 
 vi.mock('@/core/audit', () => ({ writeAudit: vi.fn() }))
+vi.mock('@/core/documents/receipts', () => ({ createReceiptDocument }))
 vi.mock('@/core/notifications', () => ({
   getNotificationAdapter: () => ({ send: vi.fn() }),
 }))
@@ -281,48 +278,30 @@ describe('Expense Actions', () => {
   })
 
   describe('uploadExpenseReceipt', () => {
-    it('uploads a valid receipt and creates the Receipts category on first use', async () => {
+    const pdfBuffer = new Uint8Array([0x25, 0x50, 0x44, 0x46, 1, 2, 3])
+
+    it('uploads a valid receipt via the dbAdmin-backed receipt helper', async () => {
       callerEmployeeId = EMPLOYEE_ID
-      documentCategoryFindFirst.mockResolvedValueOnce(null)
 
       const result = await uploadExpenseReceipt(
         'test',
-        { fileName: 'receipt.pdf', mimeType: 'application/pdf', fileSize: 1024 },
-        new Uint8Array([1, 2, 3])
+        { fileName: 'receipt.pdf', mimeType: 'application/pdf', fileSize: pdfBuffer.length },
+        pdfBuffer
       )
 
       expect(result.success).toBe(true)
-      expect(documentCategoryCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ name: 'Receipts' }) })
-      )
       expect(storageUpload).toHaveBeenCalled()
-      expect(employeeDocumentCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ employeeId: EMPLOYEE_ID, mimeType: 'application/pdf' }),
-        })
+      expect(createReceiptDocument).toHaveBeenCalledWith(
+        expect.objectContaining({ employeeId: EMPLOYEE_ID, mimeType: 'application/pdf' })
       )
-    })
-
-    it('reuses an existing Receipts category instead of creating a duplicate', async () => {
-      callerEmployeeId = EMPLOYEE_ID
-      documentCategoryFindFirst.mockResolvedValueOnce({ id: 'existing-receipts-cat' })
-
-      const result = await uploadExpenseReceipt(
-        'test',
-        { fileName: 'receipt.pdf', mimeType: 'application/pdf', fileSize: 1024 },
-        new Uint8Array([1, 2, 3])
-      )
-
-      expect(result.success).toBe(true)
-      expect(documentCategoryCreate).not.toHaveBeenCalled()
     })
 
     it('rejects a disallowed file type', async () => {
       callerEmployeeId = EMPLOYEE_ID
       const result = await uploadExpenseReceipt(
         'test',
-        { fileName: 'malware.exe', mimeType: 'application/x-msdownload', fileSize: 1024 },
-        new Uint8Array([1, 2, 3])
+        { fileName: 'malware.exe', mimeType: 'application/x-msdownload', fileSize: pdfBuffer.length },
+        pdfBuffer
       )
       expect(result.success).toBe(false)
       expect(result.error).toMatch(/not allowed/i)
@@ -334,10 +313,23 @@ describe('Expense Actions', () => {
       const result = await uploadExpenseReceipt(
         'test',
         { fileName: 'receipt.pdf', mimeType: 'application/pdf', fileSize: 26 * 1024 * 1024 },
-        new Uint8Array([1, 2, 3])
+        pdfBuffer
       )
       expect(result.success).toBe(false)
       expect(result.error).toMatch(/25MB/i)
+      expect(storageUpload).not.toHaveBeenCalled()
+    })
+
+    it('rejects content that does not match its declared type', async () => {
+      callerEmployeeId = EMPLOYEE_ID
+      const notAPdf = new Uint8Array([0, 0, 0, 0])
+      const result = await uploadExpenseReceipt(
+        'test',
+        { fileName: 'receipt.pdf', mimeType: 'application/pdf', fileSize: notAPdf.length },
+        notAPdf
+      )
+      expect(result.success).toBe(false)
+      expect(result.error).toMatch(/does not match/i)
       expect(storageUpload).not.toHaveBeenCalled()
     })
   })

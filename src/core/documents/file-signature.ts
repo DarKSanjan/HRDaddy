@@ -28,6 +28,30 @@ export function fileSignatureFamilyForMimeType(
   return MIME_TYPE_FAMILIES[mimeType] ?? null
 }
 
+/**
+ * Content-level upload validation: declared size must match the actual
+ * buffer, and the file's magic bytes must match the family implied by the
+ * declared MIME type. Catches a spoofed extension/MIME type that the
+ * client-side check alone would miss.
+ */
+export function validateFileContent(
+  fileBuffer: Buffer | Uint8Array,
+  fileSize: number,
+  mimeType: string
+): string | undefined {
+  if (fileBuffer.length !== fileSize) {
+    return 'File size does not match its declared size'
+  }
+
+  const detected = detectFileSignature(fileBuffer)
+  const expectedFamily = fileSignatureFamilyForMimeType(mimeType)
+  if (!expectedFamily || detected.family !== expectedFamily) {
+    return 'File content does not match its declared type'
+  }
+
+  return undefined
+}
+
 export function detectFileSignature(
   buffer: Buffer | Uint8Array
 ): DetectedFileSignature {

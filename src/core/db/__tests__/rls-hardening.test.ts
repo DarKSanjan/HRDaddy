@@ -161,16 +161,24 @@ describe('RLS hardening — round 2', () => {
     expect(migration).toMatch(/REVOKE INSERT ON notifications FROM authenticated/i)
   })
 
-  it('storage write policies no longer let an employee touch their own folder', () => {
+  it('storage update/delete stay admin-only; insert regains a self-serve branch (round 5, for expense receipts)', () => {
     const migration = readMigration()
     const insertBlock = lastBlock(migration, 'CREATE POLICY employee_documents_insert ON storage\\.objects[\\s\\S]*?;')
     const updateBlock = lastBlock(migration, 'CREATE POLICY employee_documents_update ON storage\\.objects[\\s\\S]*?;')
     const deleteBlock = lastBlock(migration, 'CREATE POLICY employee_documents_delete ON storage\\.objects[\\s\\S]*?;')
 
-    for (const block of [insertBlock, updateBlock, deleteBlock]) {
+    for (const block of [updateBlock, deleteBlock]) {
       expect(block).toMatch(/user_role_in_org/)
       expect(block).not.toMatch(/user_employee_id/)
     }
+    // Round 3 dropped this branch on the (incorrect) assumption that no
+    // self-serve upload path exists — expense receipts need one. An orphan
+    // object without a matching employee_documents row is invisible in the
+    // app (read policy requires the DB row), so this is safe to restore.
+    expect(insertBlock).toMatch(/user_role_in_org/)
+    expect(insertBlock).toMatch(
+      /user_employee_id\(\(storage\.foldername\(name\)\)\[2\]\) = \(storage\.foldername\(name\)\)\[4\]/
+    )
   })
 
   it('storage read policy respects document category sensitivity', () => {

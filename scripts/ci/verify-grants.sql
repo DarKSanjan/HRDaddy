@@ -53,6 +53,31 @@ BEGIN
     RAISE EXCEPTION 'FAIL: authenticated must NOT have EXECUTE on write_audit_log';
   END IF;
 
+  -- app_user must not be able to TRUNCATE — RLS doesn't apply to it, so a
+  -- leaked APP_USER_DATABASE_URL or a raw-SQL bug could otherwise wipe every
+  -- tenant's data in one statement (round 5).
+  SELECT has_table_privilege('app_user', 'employees', 'TRUNCATE') INTO ok;
+  IF ok THEN
+    RAISE EXCEPTION 'FAIL: app_user must NOT have TRUNCATE on employees';
+  END IF;
+
+  SELECT has_table_privilege('app_user', '_prisma_migrations', 'SELECT') INTO ok;
+  IF ok THEN
+    RAISE EXCEPTION 'FAIL: app_user must NOT have access to _prisma_migrations';
+  END IF;
+
+  -- authenticated has no raw-REST write path on any public table, not just
+  -- an enumerated list of "workflow" tables (round 5 blanket revoke).
+  SELECT has_table_privilege('authenticated', 'calendar_event_recipients', 'INSERT') INTO ok;
+  IF ok THEN
+    RAISE EXCEPTION 'FAIL: authenticated must NOT have INSERT on calendar_event_recipients';
+  END IF;
+
+  SELECT has_table_privilege('authenticated', 'payroll_records', 'UPDATE') INTO ok;
+  IF ok THEN
+    RAISE EXCEPTION 'FAIL: authenticated must NOT have UPDATE on payroll_records';
+  END IF;
+
   RAISE NOTICE 'verify-grants: all assertions passed';
 END
 $$;

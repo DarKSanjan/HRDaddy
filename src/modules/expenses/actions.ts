@@ -24,6 +24,8 @@ import { writeAudit } from '@/core/audit'
 import { getNotificationAdapter } from '@/core/notifications'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { getStorage, buildStorageKey } from '@/core/storage'
+import { validateFileContent } from '@/core/documents/file-signature'
+import { createReceiptDocument } from '@/core/documents/receipts'
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from '@/modules/documents/schemas'
 import {
   submitExpenseClaimSchema,
@@ -34,8 +36,6 @@ import {
   createExpenseCategorySchema,
   updateExpenseCategorySchema,
 } from './schemas'
-
-const RECEIPT_CATEGORY_NAME = 'Receipts'
 
 // ─────────────────────────────────────────────
 // Types
@@ -175,26 +175,15 @@ export async function uploadExpenseReceipt(
     return { success: false, error: 'File exceeds maximum size of 25MB' }
   }
 
+  const fileContentError = validateFileContent(fileBuffer, fileSize, mimeType)
+  if (fileContentError) {
+    return { success: false, error: fileContentError }
+  }
+
   const employeeId = await getEmployeeIdForUser(org.id, userId)
   if (!employeeId) {
     return { success: false, error: 'No employee record found for your account.' }
   }
-
-  // Find-or-create the org's "Receipts" document category. Expense categories
-  // and document categories are separate tables; this keeps receipt storage
-  // on the Documents module's existing infra without requiring an admin to
-  // have pre-created a matching category first.
-  const categoryId = await dbAs(userId, async (tx) => {
-    const existing = await tx.documentCategory.findFirst({
-      where: { orgId: org.id, name: RECEIPT_CATEGORY_NAME },
-      select: { id: true },
-    })
-    if (existing) return existing.id
-    const created = await tx.documentCategory.create({
-      data: { orgId: org.id, name: RECEIPT_CATEGORY_NAME },
-    })
-    return created.id
-  })
 
   const fileId = randomUUID()
   const fileKey = buildStorageKey(org.id, employeeId, fileId)
@@ -211,32 +200,15 @@ export async function uploadExpenseReceipt(
 
   let documentId: string
   try {
-    const doc = await dbAs(userId, async (tx) => {
-      const createdDocument = await tx.employeeDocument.create({
-        data: {
-          orgId: org.id,
-          employeeId,
-          categoryId,
-          fileName,
-          fileKey,
-          fileSize,
-          mimeType,
-          uploadedById: employeeId,
-        },
-      })
-
-      await writeAudit({
-        orgId: org.id,
-        actorId: userId,
-        action: 'expense.receipt.uploaded',
-        targetType: 'employee_document',
-        targetId: createdDocument.id,
-        after: { fileName, employeeId, fileSize, mimeType },
-      }, tx)
-
-      return createdDocument
+    documentId = await createReceiptDocument({
+      orgId: org.id,
+      employeeId,
+      fileName,
+      fileKey,
+      fileSize,
+      mimeType,
+      actorUserId: userId,
     })
-    documentId = doc.id
   } catch (err) {
     try {
       await storage.delete(fileKey)
