@@ -2,6 +2,7 @@ import 'server-only'
 
 import type { Prisma } from '@prisma/client'
 import { sgAnnualLeaveEntitlement } from '@/core/calendar'
+import { dbAdmin } from '@/core/db/admin'
 
 /**
  * Leave balance provisioning.
@@ -108,4 +109,23 @@ export async function ensureLeaveBalances(
   }
 
   return policies.length
+}
+
+/**
+ * ensureLeaveBalances, run in its own service-role transaction rather than a
+ * caller-supplied one.
+ *
+ * Allowance is computed entirely server-side from leave policy + tenure —
+ * never user input — but `leave_balances` INSERT/UPDATE is restricted to
+ * OWNER/HR_ADMIN under RLS (see 00020_role_aware_rls). A regular employee
+ * provisioning their own balance on first view of their leave page would
+ * fail that check if run inside their own RLS-scoped transaction. This is
+ * the entry point for that "provision on first read" path.
+ */
+export async function provisionLeaveBalances(
+  orgId: string,
+  employeeId: string,
+  year: number
+): Promise<number> {
+  return dbAdmin.$transaction((tx) => ensureLeaveBalances(tx, orgId, employeeId, year))
 }
