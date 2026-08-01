@@ -12,7 +12,13 @@ const csp = [
   // is a larger follow-up, not attempted in this pass.
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  // Org logos and employee documents render as signed Supabase Storage
+  // URLs directly in <img>/<Image> tags — without the storage origin here,
+  // the browser silently blocks the request as a CSP violation and the
+  // image falls back to a broken-image icon, with nothing in server logs
+  // to explain why (the signed URL itself generates successfully; it's the
+  // browser's own fetch that's blocked).
+  `img-src 'self' data: blob: ${supabaseOrigin}`,
   "font-src 'self' data:",
   `connect-src 'self' ${supabaseOrigin}`,
   "frame-ancestors 'none'",
