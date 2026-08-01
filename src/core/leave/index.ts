@@ -27,7 +27,7 @@ export interface LeaveBalanceAllocation {
 
 export class LeaveRequestError extends Error {
   constructor(
-    public readonly reason: 'overlap' | 'insufficient_balance',
+    public readonly reason: 'overlap' | 'insufficient_balance' | 'balance_not_configured',
     message: string
   ) {
     super(message)
@@ -49,6 +49,26 @@ export async function getLeaveBalance(
       employeeId_leaveTypeId_year: { employeeId, leaveTypeId, year },
     },
   })
+}
+
+/**
+ * Whether an org has configured a LeavePolicy for this leave type at all —
+ * the signal that balance is meant to be tracked for it. A leave type with
+ * no policy (e.g. unpaid leave) is intentionally untracked: a missing
+ * LeaveBalance row for it means "unlimited," not "not generated yet." A
+ * leave type WITH a policy but no balance row for a given year means the
+ * yearly generation job hasn't run for that year — that should fail loud
+ * rather than silently grant unlimited leave.
+ */
+export async function isLeaveTypeTracked(
+  orgId: string,
+  leaveTypeId: string
+): Promise<boolean> {
+  const policy = await dbAdmin.leavePolicy.findFirst({
+    where: { orgId, leaveTypeId },
+    select: { id: true },
+  })
+  return policy !== null
 }
 
 // ─────────────────────────────────────────────

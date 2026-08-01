@@ -422,9 +422,12 @@ export async function approveExpenseClaim(
     return { success: false, error: 'Cannot approve your own expense claim.' }
   }
 
-  await dbAs(userId, async (tx) => {
-    await tx.expenseClaim.update({
-      where: { id: claimId },
+  // Conditioned on status: 'SUBMITTED' so a concurrent approve/reject on the
+  // same claim can't both win — whichever transaction commits first flips
+  // the status, and the second's updateMany matches zero rows.
+  const approved = await dbAs(userId, async (tx) => {
+    const { count } = await tx.expenseClaim.updateMany({
+      where: { id: claimId, status: 'SUBMITTED' },
       data: {
         status: 'APPROVED',
         reviewedById: approverEmployeeId,
@@ -432,6 +435,7 @@ export async function approveExpenseClaim(
         reviewNotes: note || null,
       },
     })
+    if (count === 0) return false
 
     await writeAudit({
       orgId: org.id,
@@ -442,7 +446,12 @@ export async function approveExpenseClaim(
       before: { status: 'SUBMITTED' },
       after: { status: 'APPROVED', reviewNotes: note },
     }, tx)
+    return true
   })
+
+  if (!approved) {
+    return { success: false, error: 'This claim was already reviewed by someone else.' }
+  }
 
   // Notify employee
   if (claim.employee.userId) {
@@ -505,9 +514,10 @@ export async function rejectExpenseClaim(
     }
   }
 
-  await dbAs(userId, async (tx) => {
-    await tx.expenseClaim.update({
-      where: { id: claimId },
+  // Same conditional-update race guard as approveExpenseClaim.
+  const rejected = await dbAs(userId, async (tx) => {
+    const { count } = await tx.expenseClaim.updateMany({
+      where: { id: claimId, status: 'SUBMITTED' },
       data: {
         status: 'REJECTED',
         reviewedById: approverEmployeeId,
@@ -515,6 +525,7 @@ export async function rejectExpenseClaim(
         reviewNotes: reason,
       },
     })
+    if (count === 0) return false
 
     await writeAudit({
       orgId: org.id,
@@ -525,7 +536,12 @@ export async function rejectExpenseClaim(
       before: { status: 'SUBMITTED' },
       after: { status: 'REJECTED', reviewNotes: reason },
     }, tx)
+    return true
   })
+
+  if (!rejected) {
+    return { success: false, error: 'This claim was already reviewed by someone else.' }
+  }
 
   // Notify employee
   if (claim.employee.userId) {

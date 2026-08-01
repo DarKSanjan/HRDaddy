@@ -52,6 +52,18 @@ Steps required once per environment, beyond the usual `npm run db:deploy`:
    once, right after that migration lands. It's a manual, idempotent,
    one-time backfill — it is not wired into `db:deploy` or any other
    automation, so it's easy to miss on an existing deployment.
+4. **Migrations are not applied automatically** — `npm run build` (what
+   Vercel runs) does not run `prisma migrate deploy`. Merging to `main` gets
+   the code deployed; it does not, by itself, get the schema/RLS changes
+   applied to the database. Run `npm run db:deploy` against the target
+   database (or merge a validated Supabase branch) as its own explicit step
+   after every merge that includes a new migration. Confirm it landed with
+   `SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY
+   finished_at DESC LIMIT 5;` — do not assume it happened.
+5. **Self-hosted CORS origin** — `supabase/kong.yml` hardcodes
+   `http://localhost:3000` as the only allowed CORS origin. Edit the
+   `origins` list there for any real domain before pointing a self-hosted
+   deployment at it.
 
 ## Getting Started
 

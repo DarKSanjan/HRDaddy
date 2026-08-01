@@ -1011,9 +1011,11 @@ export async function approveAssetRequest(
     return { success: false, error: 'Only pending requests can be approved.' }
   }
 
-  await dbAs(userId, async (tx) => {
-    await tx.assetRequest.update({
-      where: { id: requestId },
+  // Conditioned on status: 'PENDING' so a concurrent approve/reject can't
+  // both win — see the same guard in expenses/actions.ts.
+  const approved = await dbAs(userId, async (tx) => {
+    const { count } = await tx.assetRequest.updateMany({
+      where: { id: requestId, status: 'PENDING' },
       data: {
         status: 'APPROVED',
         reviewedById: reviewerEmployeeId,
@@ -1021,6 +1023,7 @@ export async function approveAssetRequest(
         reviewNote: reviewNote || null,
       },
     })
+    if (count === 0) return false
 
     await writeAudit({
       orgId: org.id,
@@ -1031,7 +1034,12 @@ export async function approveAssetRequest(
       before: { status: 'PENDING' },
       after: { status: 'APPROVED', reviewNote },
     }, tx)
+    return true
   })
+
+  if (!approved) {
+    return { success: false, error: 'This request was already reviewed by someone else.' }
+  }
 
   // Notify the requester
   if (request.employee.userId) {
@@ -1085,9 +1093,10 @@ export async function rejectAssetRequest(
     return { success: false, error: 'Only pending requests can be rejected.' }
   }
 
-  await dbAs(userId, async (tx) => {
-    await tx.assetRequest.update({
-      where: { id: requestId },
+  // Same conditional-update race guard as approveAssetRequest.
+  const rejected = await dbAs(userId, async (tx) => {
+    const { count } = await tx.assetRequest.updateMany({
+      where: { id: requestId, status: 'PENDING' },
       data: {
         status: 'REJECTED',
         reviewedById: reviewerEmployeeId,
@@ -1095,6 +1104,7 @@ export async function rejectAssetRequest(
         reviewNote: reviewNote,
       },
     })
+    if (count === 0) return false
 
     await writeAudit({
       orgId: org.id,
@@ -1105,7 +1115,12 @@ export async function rejectAssetRequest(
       before: { status: 'PENDING' },
       after: { status: 'REJECTED', reviewNote },
     }, tx)
+    return true
   })
+
+  if (!rejected) {
+    return { success: false, error: 'This request was already reviewed by someone else.' }
+  }
 
   // Notify the requester
   if (request.employee.userId) {

@@ -1,4 +1,9 @@
 services:
+  # NOTE: POSTGRES_PASSWORD is fixed to 'postgres' here to match the
+  # `authenticator` role password baked into supabase/init.sql. This is a
+  # local-dev default only — do not run this compose file with these
+  # credentials on a network-reachable host. Changing it requires updating
+  # init.sql's CREATE ROLE statement too, not just this file.
   postgres:
     image: postgres:16-alpine
     container_name: hrdaddy-db

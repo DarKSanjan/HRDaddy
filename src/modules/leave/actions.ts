@@ -25,6 +25,7 @@ import { calculateLeaveDays } from '@/core/calendar'
 import { getHolidaysForDateRange } from '@/modules/calendar/queries'
 import {
   getLeaveBalance,
+  isLeaveTypeTracked,
   findOverlappingRequest,
   createLeaveRequestTransaction,
   approveLeaveRequestTransaction,
@@ -80,7 +81,15 @@ async function resolveLeaveBalanceAllocations(
 
   if (startYear === endYear) {
     const balance = await getLeaveBalance(employeeId, leaveTypeId, startYear)
-    if (!balance) return []
+    if (!balance) {
+      if (await isLeaveTypeTracked(orgId, leaveTypeId)) {
+        throw new LeaveRequestError(
+          'balance_not_configured',
+          `No leave balance has been set up for ${startYear} yet. Contact HR.`
+        )
+      }
+      return []
+    }
     const available = Number(balance.allowance) - Number(balance.used) - Number(balance.pending)
     return [{ balanceId: balance.id, days: totalDays, available }]
   }
@@ -114,6 +123,9 @@ async function resolveLeaveBalanceAllocations(
   )
 
   const allocations: { balanceId: string; days: number; available: number }[] = []
+  const tracked = (daysInStartYear > 0 || daysInEndYear > 0)
+    ? await isLeaveTypeTracked(orgId, leaveTypeId)
+    : false
 
   if (daysInStartYear > 0) {
     const startBalance = await getLeaveBalance(employeeId, leaveTypeId, startYear)
@@ -123,6 +135,11 @@ async function resolveLeaveBalanceAllocations(
         days: daysInStartYear,
         available: Number(startBalance.allowance) - Number(startBalance.used) - Number(startBalance.pending),
       })
+    } else if (tracked) {
+      throw new LeaveRequestError(
+        'balance_not_configured',
+        `No leave balance has been set up for ${startYear} yet. Contact HR.`
+      )
     }
   }
 
@@ -134,6 +151,11 @@ async function resolveLeaveBalanceAllocations(
         days: daysInEndYear,
         available: Number(endBalance.allowance) - Number(endBalance.used) - Number(endBalance.pending),
       })
+    } else if (tracked) {
+      throw new LeaveRequestError(
+        'balance_not_configured',
+        `No leave balance has been set up for ${endYear} yet. Contact HR.`
+      )
     }
   }
 
@@ -216,15 +238,23 @@ export async function submitLeaveRequest(
   }
 
   // Check balance (per-year allocation, in case the range crosses Dec 31 -> Jan 1)
-  const allocations = await resolveLeaveBalanceAllocations(
-    org.id,
-    userId,
-    employeeId,
-    input.leaveTypeId,
-    new Date(input.startDate),
-    new Date(input.endDate),
-    totalDays
-  )
+  let allocations: Awaited<ReturnType<typeof resolveLeaveBalanceAllocations>>
+  try {
+    allocations = await resolveLeaveBalanceAllocations(
+      org.id,
+      userId,
+      employeeId,
+      input.leaveTypeId,
+      new Date(input.startDate),
+      new Date(input.endDate),
+      totalDays
+    )
+  } catch (err) {
+    if (err instanceof LeaveRequestError && err.reason === 'balance_not_configured') {
+      return { success: false, error: err.message }
+    }
+    throw err
+  }
 
   for (const alloc of allocations) {
     if (alloc.available < alloc.days) {
@@ -328,15 +358,23 @@ export async function approveLeaveRequest(
     return { success: false, error: 'Cannot approve your own leave request.' }
   }
 
-  const approveAllocations = await resolveLeaveBalanceAllocations(
-    org.id,
-    userId,
-    request.employeeId,
-    request.leaveTypeId,
-    request.startDate,
-    request.endDate,
-    Number(request.totalDays)
-  )
+  let approveAllocations: Awaited<ReturnType<typeof resolveLeaveBalanceAllocations>>
+  try {
+    approveAllocations = await resolveLeaveBalanceAllocations(
+      org.id,
+      userId,
+      request.employeeId,
+      request.leaveTypeId,
+      request.startDate,
+      request.endDate,
+      Number(request.totalDays)
+    )
+  } catch (err) {
+    if (err instanceof LeaveRequestError && err.reason === 'balance_not_configured') {
+      return { success: false, error: err.message }
+    }
+    throw err
+  }
 
   const result = await approveLeaveRequestTransaction(
     requestId,
@@ -405,15 +443,23 @@ export async function rejectLeaveRequest(
     }
   }
 
-  const rejectAllocations = await resolveLeaveBalanceAllocations(
-    org.id,
-    userId,
-    request.employeeId,
-    request.leaveTypeId,
-    request.startDate,
-    request.endDate,
-    Number(request.totalDays)
-  )
+  let rejectAllocations: Awaited<ReturnType<typeof resolveLeaveBalanceAllocations>>
+  try {
+    rejectAllocations = await resolveLeaveBalanceAllocations(
+      org.id,
+      userId,
+      request.employeeId,
+      request.leaveTypeId,
+      request.startDate,
+      request.endDate,
+      Number(request.totalDays)
+    )
+  } catch (err) {
+    if (err instanceof LeaveRequestError && err.reason === 'balance_not_configured') {
+      return { success: false, error: err.message }
+    }
+    throw err
+  }
 
   const result = await rejectLeaveRequestTransaction(
     requestId,
@@ -476,8 +522,10 @@ export async function withdrawLeaveRequest(
   }
 
   const withdrawRequest = await getLeaveRequestWithEmployee(org.id, requestId)
-  const withdrawAllocations = withdrawRequest
-    ? await resolveLeaveBalanceAllocations(
+  let withdrawAllocations: Awaited<ReturnType<typeof resolveLeaveBalanceAllocations>> = []
+  if (withdrawRequest) {
+    try {
+      withdrawAllocations = await resolveLeaveBalanceAllocations(
         org.id,
         userId,
         employeeId,
@@ -486,7 +534,13 @@ export async function withdrawLeaveRequest(
         withdrawRequest.endDate,
         Number(withdrawRequest.totalDays)
       )
-    : []
+    } catch (err) {
+      if (err instanceof LeaveRequestError && err.reason === 'balance_not_configured') {
+        return { success: false, error: err.message }
+      }
+      throw err
+    }
+  }
 
   const result = await withdrawLeaveRequestTransaction(
     requestId,
@@ -537,8 +591,10 @@ export async function cancelLeaveRequest(
   }
 
   const cancelRequest = await getLeaveRequestWithEmployee(org.id, requestId)
-  const cancelAllocations = cancelRequest
-    ? await resolveLeaveBalanceAllocations(
+  let cancelAllocations: Awaited<ReturnType<typeof resolveLeaveBalanceAllocations>> = []
+  if (cancelRequest) {
+    try {
+      cancelAllocations = await resolveLeaveBalanceAllocations(
         org.id,
         userId,
         employeeId,
@@ -547,7 +603,13 @@ export async function cancelLeaveRequest(
         cancelRequest.endDate,
         Number(cancelRequest.totalDays)
       )
-    : []
+    } catch (err) {
+      if (err instanceof LeaveRequestError && err.reason === 'balance_not_configured') {
+        return { success: false, error: err.message }
+      }
+      throw err
+    }
+  }
 
   const result = await cancelLeaveRequestTransaction(
     requestId,

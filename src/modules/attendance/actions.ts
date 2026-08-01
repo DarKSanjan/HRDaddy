@@ -153,19 +153,26 @@ export async function clockOut(
     Math.round((now.getTime() - openRecord.clockIn.getTime()) / (1000 * 60))
   )
 
-  await dbAs(userId, async (tx) => {
-    await closeAttendanceRecord(openRecord.id, now, durationMinutes, tx)
+  try {
+    await dbAs(userId, async (tx) => {
+      await closeAttendanceRecord(openRecord.id, now, durationMinutes, tx)
 
-    await writeAudit({
-      orgId: org.id,
-      actorId: userId,
-      action: 'attendance.clock_out',
-      targetType: 'attendance_record',
-      targetId: openRecord.id,
-      before: { status: 'OPEN' },
-      after: { clockOut: now.toISOString(), durationMinutes, status: 'CLOSED' },
-    }, tx)
-  })
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'attendance.clock_out',
+        targetType: 'attendance_record',
+        targetId: openRecord.id,
+        before: { status: 'OPEN' },
+        after: { clockOut: now.toISOString(), durationMinutes, status: 'CLOSED' },
+      }, tx)
+    })
+  } catch (err) {
+    if (err instanceof AttendanceError) {
+      return { success: false, error: err.message }
+    }
+    throw err
+  }
 
   revalidatePath(`/${orgSlug}/attendance`)
   return { success: true, data: { durationMinutes } }

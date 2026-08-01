@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const callOrder: string[] = []
-let currentRole = 'authenticated'
+let currentRole = 'app_user'
 
 /** Reassembles a Prisma tagged-template call into inspectable SQL. */
 function render(strings: TemplateStringsArray, values: unknown[]): string {
@@ -46,7 +46,7 @@ vi.mock('@/core/db/admin', () => ({
 describe('dbAs', () => {
   beforeEach(() => {
     callOrder.length = 0
-    currentRole = 'authenticated'
+    currentRole = 'app_user'
   })
 
   it('installs claims and switches role before the callback runs', async () => {

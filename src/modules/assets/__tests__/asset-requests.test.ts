@@ -35,6 +35,7 @@ const assetRequestCreate = vi.fn(async (args: { data: Record<string, unknown> })
   ...args.data,
 }))
 const assetRequestUpdate = vi.fn(async () => ({}))
+const assetRequestUpdateMany = vi.fn(async () => ({ count: 1 }))
 const assetRequestDelete = vi.fn(async () => ({}))
 const assetRequestCount = vi.fn(async () => 0)
 
@@ -60,6 +61,7 @@ vi.mock('@/core/db', () => ({
         findFirst: assetRequestFindFirst,
         create: assetRequestCreate,
         update: assetRequestUpdate,
+        updateMany: assetRequestUpdateMany,
         delete: assetRequestDelete,
         count: assetRequestCount,
       },
@@ -232,8 +234,9 @@ describe('Asset Requests — state machine', () => {
       const result = await approveAssetRequest('test', { requestId: REQUEST_ID })
 
       expect(result.success).toBe(true)
-      expect(assetRequestUpdate).toHaveBeenCalledWith(
+      expect(assetRequestUpdateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ id: REQUEST_ID, status: 'PENDING' }),
           data: expect.objectContaining({ status: 'APPROVED' }),
         })
       )
@@ -247,6 +250,16 @@ describe('Asset Requests — state machine', () => {
       expect(result.success).toBe(false)
       expect(result.error).toContain('Only pending')
     })
+
+    it('rejects when the request was already reviewed concurrently', async () => {
+      assetRequestFindFirst.mockResolvedValue({ ...mockRequest, status: 'PENDING' })
+      assetRequestUpdateMany.mockResolvedValueOnce({ count: 0 })
+
+      const result = await approveAssetRequest('test', { requestId: REQUEST_ID })
+
+      expect(result.success).toBe(false)
+      expect(result.error).toMatch(/already reviewed/i)
+    })
   })
 
   describe('rejectAssetRequest', () => {
@@ -259,8 +272,9 @@ describe('Asset Requests — state machine', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(assetRequestUpdate).toHaveBeenCalledWith(
+      expect(assetRequestUpdateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ id: REQUEST_ID, status: 'PENDING' }),
           data: expect.objectContaining({
             status: 'REJECTED',
             reviewNote: 'Budget constraints',

@@ -43,6 +43,7 @@ const create = vi.fn(async (args: { data: Record<string, unknown> }) => ({
   ...args.data,
 }))
 const update = vi.fn(async () => ({}))
+const updateMany = vi.fn(async () => ({ count: 1 }))
 const deleteFn = vi.fn(async () => ({}))
 
 const documentCategoryFindFirst = vi.fn(async () => null as { id: string } | null)
@@ -60,7 +61,7 @@ vi.mock('@/modules/register', () => ({}))
 vi.mock('@/core/db', () => ({
   dbAs: vi.fn(async (_userId: string, fn: (tx: unknown) => unknown) =>
     fn({
-      expenseClaim: { findFirst, create, update, delete: deleteFn },
+      expenseClaim: { findFirst, create, update, updateMany, delete: deleteFn },
       expenseCategory: { findFirst: vi.fn(async () => ({ id: 'cat-1' })), create: vi.fn() },
       employeeDocument: { findFirst: vi.fn(async () => null), create: employeeDocumentCreate },
       documentCategory: { findFirst: documentCategoryFindFirst, create: documentCategoryCreate },
@@ -164,8 +165,9 @@ describe('Expense Actions', () => {
 
       const result = await approveExpenseClaim('test', formData)
       expect(result.success).toBe(true)
-      expect(update).toHaveBeenCalledWith(
+      expect(updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ id: CLAIM_ID, status: 'SUBMITTED' }),
           data: expect.objectContaining({ status: 'APPROVED' }),
         })
       )
@@ -179,7 +181,17 @@ describe('Expense Actions', () => {
       const result = await approveExpenseClaim('test', formData)
       expect(result.success).toBe(false)
       expect(result.error).toMatch(/cannot approve your own/i)
-      expect(update).not.toHaveBeenCalled()
+      expect(updateMany).not.toHaveBeenCalled()
+    })
+
+    it('rejects when the claim was already reviewed concurrently', async () => {
+      updateMany.mockResolvedValueOnce({ count: 0 })
+      const formData = new FormData()
+      formData.set('claimId', CLAIM_ID)
+
+      const result = await approveExpenseClaim('test', formData)
+      expect(result.success).toBe(false)
+      expect(result.error).toMatch(/already reviewed/i)
     })
 
     it('rejects approval of non-SUBMITTED claim', async () => {
@@ -213,8 +225,9 @@ describe('Expense Actions', () => {
 
       const result = await rejectExpenseClaim('test', formData)
       expect(result.success).toBe(true)
-      expect(update).toHaveBeenCalledWith(
+      expect(updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ id: CLAIM_ID, status: 'SUBMITTED' }),
           data: expect.objectContaining({
             status: 'REJECTED',
             reviewNotes: 'Missing receipt',

@@ -6,7 +6,7 @@ import { dbAdmin } from '@/core/db/admin'
 
 export class AttendanceError extends Error {
   constructor(
-    public readonly reason: 'already_clocked_in',
+    public readonly reason: 'already_clocked_in' | 'not_open',
     message: string
   ) {
     super(message)
@@ -55,6 +55,11 @@ export async function createAttendanceRecord(data: {
 
 /**
  * Close an attendance record (clock out).
+ *
+ * Conditioned on `status: 'OPEN'` so two concurrent clock-outs on the same
+ * record can't both "succeed" — the second's row lock is only granted after
+ * the first commits, at which point the WHERE no longer matches and it
+ * affects zero rows instead of double-writing.
  */
 export async function closeAttendanceRecord(
   recordId: string,
@@ -62,14 +67,17 @@ export async function closeAttendanceRecord(
   durationMinutes: number,
   tx?: Prisma.TransactionClient
 ) {
-  return (tx ?? dbAdmin).attendanceRecord.update({
-    where: { id: recordId },
+  const { count } = await (tx ?? dbAdmin).attendanceRecord.updateMany({
+    where: { id: recordId, status: 'OPEN' },
     data: {
       clockOut,
       durationMinutes,
       status: 'CLOSED',
     },
   })
+  if (count === 0) {
+    throw new AttendanceError('not_open', 'This session was already clocked out.')
+  }
 }
 
 /**
