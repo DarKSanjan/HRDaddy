@@ -15,8 +15,8 @@ export async function getEmployeeIdForUser(
   orgId: string,
   userId: string
 ): Promise<string | null> {
-  const employee = await dbAdmin.employee.findFirst({
-    where: { orgId, userId },
+  const employee = await dbAdmin.employee.findUnique({
+    where: { orgId_userId: { orgId, userId } },
     select: { id: true },
   })
   return employee?.id ?? null

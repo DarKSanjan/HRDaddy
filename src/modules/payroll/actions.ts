@@ -43,6 +43,7 @@ import {
 export interface ActionResult {
   success: boolean
   error?: string
+  warning?: string
   fieldErrors?: Record<string, string>
   data?: unknown
 }
@@ -135,8 +136,18 @@ export async function processPayroll(
     })
 
     // Compute payroll for each employee
+    let processedCount = 0
+    const skipped: Array<{ employeeId: string; reason: string }> = []
+    let hasApproximateRestDayPay = false
+
     for (const emp of employees) {
-      if (!emp.compensationAmountCents || !emp.dateOfBirth) continue
+      if (!emp.compensationAmountCents || !emp.dateOfBirth) {
+        skipped.push({
+          employeeId: emp.id,
+          reason: !emp.compensationAmountCents ? 'missing_compensation' : 'missing_date_of_birth',
+        })
+        continue
+      }
 
       // In simple mode: skip shift/OT/hourly logic; flat salary for all
       let baseCents: number
@@ -269,6 +280,10 @@ export async function processPayroll(
           const restDayOtHours = restDayOtMinutes / 60
           const restDayOtCents = Math.round(hourlyRateCents * shift.restDayMultiplier * restDayOtHours)
 
+          if (countryCode.toUpperCase() === 'SG') {
+            hasApproximateRestDayPay = true
+          }
+
           lineItems.push({
             type: 'OVERTIME',
             name: 'Overtime Pay (Rest Day) [Verify against MOM rest-day rules]',
@@ -343,6 +358,7 @@ export async function processPayroll(
           isPublished: false,
         },
       })
+      processedCount++
 
       // Create line items
       for (const li of lineItems) {
@@ -358,24 +374,43 @@ export async function processPayroll(
       }
     }
 
-    return { success: true, recordCount: employees.length }
+    const result = { success: true, recordCount: processedCount, skipped, hasApproximateRestDayPay }
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'payroll.process',
+      targetType: 'payroll_period',
+      targetId: periodId,
+      after: { recordCount: result.recordCount },
+      metadata: result.skipped.length > 0 ? { skipped: result.skipped } : undefined,
+    }, tx)
+
+    return result
   })
 
   if ('error' in result) {
     return { success: false, error: result.error }
   }
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'payroll.process',
-    targetType: 'payroll_period',
-    targetId: periodId,
-    after: { recordCount: result.recordCount },
-  })
-
   revalidatePath(`/${orgSlug}/payroll`)
-  return { success: true }
+
+  const warningParts: string[] = []
+  if (result.skipped.length > 0) {
+    warningParts.push(`${result.skipped.length} employee(s) were skipped: missing compensation or date of birth.`)
+  }
+  if (result.hasApproximateRestDayPay) {
+    warningParts.push('Singapore rest-day pay is computed using an approximation; spot-check against MOM rest-day rules.')
+  }
+
+  return {
+    success: true,
+    warning: warningParts.length > 0 ? warningParts.join(' ') : undefined,
+    data: {
+      recordCount: result.recordCount,
+      skippedCount: result.skipped.length,
+      skipped: result.skipped,
+    },
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -420,22 +455,22 @@ export async function submitForReview(
       data: { status: 'UNDER_REVIEW' },
     })
 
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'payroll.submit_for_review',
+      targetType: 'payroll_period',
+      targetId: periodId,
+      before: { status: 'DRAFT' },
+      after: { status: 'UNDER_REVIEW' },
+    }, tx)
+
     return { success: true }
   })
 
   if ('error' in result) {
     return { success: false, error: result.error }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'payroll.submit_for_review',
-    targetType: 'payroll_period',
-    targetId: periodId,
-    before: { status: 'DRAFT' },
-    after: { status: 'UNDER_REVIEW' },
-  })
 
   revalidatePath(`/${orgSlug}/payroll`)
   return { success: true }
@@ -479,22 +514,22 @@ export async function approvePayroll(
       },
     })
 
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'payroll.approve',
+      targetType: 'payroll_period',
+      targetId: periodId,
+      before: { status: 'UNDER_REVIEW' },
+      after: { status: 'APPROVED' },
+    }, tx)
+
     return { success: true }
   })
 
   if ('error' in result) {
     return { success: false, error: result.error }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'payroll.approve',
-    targetType: 'payroll_period',
-    targetId: periodId,
-    before: { status: 'UNDER_REVIEW' },
-    after: { status: 'APPROVED' },
-  })
 
   revalidatePath(`/${orgSlug}/payroll`)
   return { success: true }
@@ -687,22 +722,22 @@ export async function publishPayroll(
       data: { status: 'PUBLISHED' },
     })
 
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'payroll.publish',
+      targetType: 'payroll_period',
+      targetId: periodId,
+      before: { status: 'APPROVED' },
+      after: { status: 'PUBLISHED' },
+    }, tx)
+
     return { success: true }
   })
 
   if ('error' in result) {
     return { success: false, error: result.error }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'payroll.publish',
-    targetType: 'payroll_period',
-    targetId: periodId,
-    before: { status: 'APPROVED' },
-    after: { status: 'PUBLISHED' },
-  })
 
   revalidatePath(`/${orgSlug}/payroll`)
   return { success: true }
@@ -742,22 +777,22 @@ export async function markAsPaid(
       data: { status: 'PAID' },
     })
 
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'payroll.mark_paid',
+      targetType: 'payroll_period',
+      targetId: periodId,
+      before: { status: 'PUBLISHED' },
+      after: { status: 'PAID' },
+    }, tx)
+
     return { success: true }
   })
 
   if ('error' in result) {
     return { success: false, error: result.error }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'payroll.mark_paid',
-    targetType: 'payroll_period',
-    targetId: periodId,
-    before: { status: 'PUBLISHED' },
-    after: { status: 'PAID' },
-  })
 
   revalidatePath(`/${orgSlug}/payroll`)
   return { success: true }
@@ -810,22 +845,22 @@ export async function reopenPayroll(
       data: { status: 'REOPENED' },
     })
 
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'payroll.reopen',
+      targetType: 'payroll_period',
+      targetId: periodId,
+      before: { status: previousStatus },
+      after: { status: 'REOPENED', reason },
+    }, tx)
+
     return { success: true, previousStatus }
   })
 
   if ('error' in result) {
     return { success: false, error: result.error }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'payroll.reopen',
-    targetType: 'payroll_period',
-    targetId: periodId,
-    before: { status: result.previousStatus },
-    after: { status: 'REOPENED', reason },
-  })
 
   revalidatePath(`/${orgSlug}/payroll`)
   return { success: true }

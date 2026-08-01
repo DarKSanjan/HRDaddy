@@ -21,6 +21,7 @@ import { getOrgContext, requirePermission } from '@/core/auth'
 import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { emit } from '@/core/events'
+import { encryptPII } from '@/core/employees/pii-crypto'
 import {
   createEmployeeSchema,
   updateEmployeeSchema,
@@ -192,7 +193,7 @@ export async function updateEmployee(
   if (input.phone !== undefined) updateData.phone = input.phone || null
   if (input.dateOfBirth !== undefined) updateData.dateOfBirth = input.dateOfBirth ? new Date(input.dateOfBirth) : null
   if (input.gender !== undefined) updateData.gender = input.gender || null
-  if (input.nationalId !== undefined) updateData.nationalId = input.nationalId || null
+  if (input.nationalId !== undefined) updateData.nationalId = encryptPII(input.nationalId || null)
   if (input.address !== undefined) updateData.address = input.address || null
   if (input.startDate !== undefined) updateData.startDate = input.startDate ? new Date(input.startDate) : null
   if (input.departmentId !== undefined) updateData.departmentId = input.departmentId || null
@@ -204,24 +205,24 @@ export async function updateEmployee(
   if (input.payType !== undefined) updateData.payType = input.payType
   if (input.isWorkman !== undefined) updateData.isWorkman = input.isWorkman
   if (input.shiftTemplateId !== undefined) updateData.shiftTemplateId = input.shiftTemplateId || null
-  if (input.bankName !== undefined) updateData.bankName = input.bankName || null
-  if (input.bankAccountNumber !== undefined) updateData.bankAccountNumber = input.bankAccountNumber || null
+  if (input.bankName !== undefined) updateData.bankName = encryptPII(input.bankName || null)
+  if (input.bankAccountNumber !== undefined) updateData.bankAccountNumber = encryptPII(input.bankAccountNumber || null)
 
   await dbAs(userId, async (tx) => {
-    return tx.employee.update({
+    await tx.employee.update({
       where: { id: employeeId },
       data: updateData,
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'employee.updated',
-    targetType: 'employee',
-    targetId: employeeId,
-    before,
-    after: updateData,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'employee.updated',
+      targetType: 'employee',
+      targetId: employeeId,
+      before,
+      after: updateData,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/employees/${employeeId}`)
@@ -306,17 +307,17 @@ export async function changeEmployeeStatus(
           : {}),
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'employee.status_changed',
-    targetType: 'employee',
-    targetId: employeeId,
-    before: { status: employee.employmentStatus },
-    after: { status: newStatus },
-    metadata: { reason },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'employee.status_changed',
+      targetType: 'employee',
+      targetId: employeeId,
+      before: { status: employee.employmentStatus },
+      after: { status: newStatus },
+      metadata: { reason },
+    }, tx)
   })
 
   await emit('employee.status_changed', {
@@ -355,14 +356,14 @@ export async function assignManager(
         where: { id: employeeId },
         data: { managerId: null },
       })
-    })
 
-    await writeAudit({
-      orgId: org.id,
-      actorId: userId,
-      action: 'employee.manager_removed',
-      targetType: 'employee',
-      targetId: employeeId,
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'employee.manager_removed',
+        targetType: 'employee',
+        targetId: employeeId,
+      }, tx)
     })
 
     revalidatePath(`/${orgSlug}/employees/${employeeId}`)
@@ -405,15 +406,15 @@ export async function assignManager(
       where: { id: employeeId },
       data: { managerId },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'employee.manager_assigned',
-    targetType: 'employee',
-    targetId: employeeId,
-    after: { managerId },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'employee.manager_assigned',
+      targetType: 'employee',
+      targetId: employeeId,
+      after: { managerId },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/employees/${employeeId}`)
@@ -443,22 +444,24 @@ export async function createDepartment(
   }
 
   const dept = await dbAs(userId, async (tx) => {
-    return tx.department.create({
+    const department = await tx.department.create({
       data: {
         orgId: org.id,
         name: parsed.data.name,
         managerId: parsed.data.managerId || null,
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'department.created',
-    targetType: 'department',
-    targetId: dept.id,
-    after: { name: parsed.data.name },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'department.created',
+      targetType: 'department',
+      targetId: department.id,
+      after: { name: parsed.data.name },
+    }, tx)
+
+    return department
   })
 
   revalidatePath(`/${orgSlug}/settings/organisation`)
@@ -493,15 +496,15 @@ export async function updateDepartment(
       where: { id: departmentId },
       data: updateData,
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'department.updated',
-    targetType: 'department',
-    targetId: departmentId,
-    after: updateData,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'department.updated',
+      targetType: 'department',
+      targetId: departmentId,
+      after: updateData,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings/organisation`)
@@ -531,14 +534,14 @@ export async function archiveDepartment(
       where: { id: departmentId },
       data: { isArchived: true },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'department.archived',
-    targetType: 'department',
-    targetId: departmentId,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'department.archived',
+      targetType: 'department',
+      targetId: departmentId,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings/organisation`)
@@ -564,16 +567,18 @@ export async function createJobTitle(
   }
 
   const jt = await dbAs(userId, async (tx) => {
-    return tx.jobTitle.create({ data: { orgId: org.id, name: parsed.data.name } })
-  })
+    const jobTitle = await tx.jobTitle.create({ data: { orgId: org.id, name: parsed.data.name } })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'job_title.created',
-    targetType: 'job_title',
-    targetId: jt.id,
-    after: { name: parsed.data.name },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'job_title.created',
+      targetType: 'job_title',
+      targetId: jobTitle.id,
+      after: { name: parsed.data.name },
+    }, tx)
+
+    return jobTitle
   })
 
   revalidatePath(`/${orgSlug}/settings/organisation`)
@@ -586,14 +591,14 @@ export async function deleteJobTitle(orgSlug: string, jobTitleId: string): Promi
 
   await dbAs(userId, async (tx) => {
     await tx.jobTitle.delete({ where: { id: jobTitleId } })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'job_title.deleted',
-    targetType: 'job_title',
-    targetId: jobTitleId,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'job_title.deleted',
+      targetType: 'job_title',
+      targetId: jobTitleId,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings/organisation`)
@@ -619,18 +624,20 @@ export async function createWorkLocation(
   }
 
   const loc = await dbAs(userId, async (tx) => {
-    return tx.workLocation.create({
+    const location = await tx.workLocation.create({
       data: { orgId: org.id, name: parsed.data.name, address: parsed.data.address || null },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'work_location.created',
-    targetType: 'work_location',
-    targetId: loc.id,
-    after: { name: parsed.data.name },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'work_location.created',
+      targetType: 'work_location',
+      targetId: location.id,
+      after: { name: parsed.data.name },
+    }, tx)
+
+    return location
   })
 
   revalidatePath(`/${orgSlug}/settings/organisation`)
@@ -643,14 +650,14 @@ export async function deleteWorkLocation(orgSlug: string, locationId: string): P
 
   await dbAs(userId, async (tx) => {
     await tx.workLocation.delete({ where: { id: locationId } })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'work_location.deleted',
-    targetType: 'work_location',
-    targetId: locationId,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'work_location.deleted',
+      targetType: 'work_location',
+      targetId: locationId,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings/organisation`)
@@ -676,22 +683,24 @@ export async function createEmploymentType(
   }
 
   const et = await dbAs(userId, async (tx) => {
-    return tx.employmentType.create({
+    const employmentType = await tx.employmentType.create({
       data: {
         orgId: org.id,
         name: parsed.data.name,
         defaultShiftTemplateId: parsed.data.defaultShiftTemplateId || null,
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'employment_type.created',
-    targetType: 'employment_type',
-    targetId: et.id,
-    after: { name: parsed.data.name },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'employment_type.created',
+      targetType: 'employment_type',
+      targetId: employmentType.id,
+      after: { name: parsed.data.name },
+    }, tx)
+
+    return employmentType
   })
 
   revalidatePath(`/${orgSlug}/settings/organisation`)
@@ -704,14 +713,14 @@ export async function deleteEmploymentType(orgSlug: string, employmentTypeId: st
 
   await dbAs(userId, async (tx) => {
     await tx.employmentType.delete({ where: { id: employmentTypeId } })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'employment_type.deleted',
-    targetType: 'employment_type',
-    targetId: employmentTypeId,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'employment_type.deleted',
+      targetType: 'employment_type',
+      targetId: employmentTypeId,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings/organisation`)
@@ -786,19 +795,19 @@ export async function bulkArchiveEmployees(
       archived++
     }
 
+    if (archived > 0) {
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'employee.bulk_archived',
+        targetType: 'employee',
+        targetId: org.id,
+        after: { count: archived, employeeIds },
+      }, tx)
+    }
+
     return { archived, skipped }
   })
-
-  if (result.archived > 0) {
-    await writeAudit({
-      orgId: org.id,
-      actorId: userId,
-      action: 'employee.bulk_archived',
-      targetType: 'employee',
-      targetId: org.id,
-      after: { count: result.archived, employeeIds },
-    })
-  }
 
   revalidatePath(`/${orgSlug}/employees`)
   return { success: true, data: result }
@@ -827,7 +836,7 @@ export async function createShiftTemplate(
   }
 
   const st = await dbAs(userId, async (tx) => {
-    return tx.shiftTemplate.create({
+    const shiftTemplate = await tx.shiftTemplate.create({
       data: {
         orgId: org.id,
         name: parsed.data.name,
@@ -838,15 +847,17 @@ export async function createShiftTemplate(
         restDayMultiplier: parsed.data.restDayMultiplier ?? 2.0,
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'shift_template.created',
-    targetType: 'shift_template',
-    targetId: st.id,
-    after: { name: parsed.data.name },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'shift_template.created',
+      targetType: 'shift_template',
+      targetId: shiftTemplate.id,
+      after: { name: parsed.data.name },
+    }, tx)
+
+    return shiftTemplate
   })
 
   revalidatePath(`/${orgSlug}/settings`)
@@ -888,19 +899,19 @@ export async function updateShiftTemplate(
     if (input.overtimeMultiplier !== undefined) updateData.overtimeMultiplier = input.overtimeMultiplier
     if (input.restDayMultiplier !== undefined) updateData.restDayMultiplier = input.restDayMultiplier
 
-    return tx.shiftTemplate.update({
+    await tx.shiftTemplate.update({
       where: { id: shiftTemplateId },
       data: updateData,
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'shift_template.updated',
-    targetType: 'shift_template',
-    targetId: shiftTemplateId,
-    after: input,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'shift_template.updated',
+      targetType: 'shift_template',
+      targetId: shiftTemplateId,
+      after: input,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings`)
@@ -929,14 +940,14 @@ export async function archiveShiftTemplate(
       where: { id: shiftTemplateId },
       data: { isArchived: true },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'shift_template.archived',
-    targetType: 'shift_template',
-    targetId: shiftTemplateId,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'shift_template.archived',
+      targetType: 'shift_template',
+      targetId: shiftTemplateId,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings`)

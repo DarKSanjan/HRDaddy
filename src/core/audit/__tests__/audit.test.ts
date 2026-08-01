@@ -28,4 +28,34 @@ describe('Audit Service', () => {
     const auditModule = await import('@/core/audit')
     expect(typeof auditModule.writeAudit).toBe('function')
   })
+
+  it('writes through the supplied transaction client', async () => {
+    const auditModule = await import('@/core/audit')
+    const create = vi.fn().mockResolvedValue({})
+    const tx = { auditLog: { create } }
+
+    await auditModule.writeAudit(
+      {
+        orgId: 'org-1',
+        actorId: 'user-1',
+        action: 'employee.updated',
+        targetType: 'employee',
+        targetId: 'employee-1',
+      },
+      tx as never
+    )
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        orgId: 'org-1',
+        actorId: 'user-1',
+        action: 'employee.updated',
+        targetType: 'employee',
+        targetId: 'employee-1',
+        before: undefined,
+        after: undefined,
+        metadata: undefined,
+      },
+    })
+  })
 })

@@ -2,13 +2,18 @@
  * Organisation mutation helpers — lives in core/ so it can use dbAdmin.
  */
 import 'server-only'
+import { Prisma } from '@prisma/client'
 import { dbAdmin } from '@/core/db/admin'
 
 /**
  * Update organisation name.
  */
-export async function updateOrgNameDb(orgId: string, name: string): Promise<void> {
-  await dbAdmin.organisation.update({
+export async function updateOrgNameDb(
+  orgId: string,
+  name: string,
+  tx?: Prisma.TransactionClient
+): Promise<void> {
+  await (tx ?? dbAdmin).organisation.update({
     where: { id: orgId },
     data: { name },
   })
@@ -17,8 +22,12 @@ export async function updateOrgNameDb(orgId: string, name: string): Promise<void
 /**
  * Upsert org logo key in settings.
  */
-export async function setOrgLogoKey(orgId: string, key: string | null): Promise<void> {
-  await dbAdmin.organisationSettings.upsert({
+export async function setOrgLogoKey(
+  orgId: string,
+  key: string | null,
+  tx?: Prisma.TransactionClient
+): Promise<void> {
+  await (tx ?? dbAdmin).organisationSettings.upsert({
     where: { orgId },
     update: { brandLogoUrl: key },
     create: { orgId, brandLogoUrl: key },

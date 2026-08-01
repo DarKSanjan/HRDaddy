@@ -71,18 +71,20 @@ export async function createExpenseCategory(
   const { name } = parsed.data
 
   const category = await dbAs(userId, async (tx) => {
-    return tx.expenseCategory.create({
+    const createdCategory = await tx.expenseCategory.create({
       data: { orgId: org.id, name },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'expense.category.created',
-    targetType: 'expense_category',
-    targetId: category.id,
-    after: { name },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'expense.category.created',
+      targetType: 'expense_category',
+      targetId: createdCategory.id,
+      after: { name },
+    }, tx)
+
+    return createdCategory
   })
 
   revalidatePath(`/${orgSlug}/settings/expenses`)
@@ -124,16 +126,16 @@ export async function updateExpenseCategory(
       where: { id: categoryId },
       data: updateData,
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'expense.category.updated',
-    targetType: 'expense_category',
-    targetId: categoryId,
-    before: { name: existing.name, isArchived: existing.isArchived },
-    after: updateData,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'expense.category.updated',
+      targetType: 'expense_category',
+      targetId: categoryId,
+      before: { name: existing.name, isArchived: existing.isArchived },
+      after: updateData,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings/expenses`)
@@ -210,7 +212,7 @@ export async function uploadExpenseReceipt(
   let documentId: string
   try {
     const doc = await dbAs(userId, async (tx) => {
-      return tx.employeeDocument.create({
+      const createdDocument = await tx.employeeDocument.create({
         data: {
           orgId: org.id,
           employeeId,
@@ -222,6 +224,17 @@ export async function uploadExpenseReceipt(
           uploadedById: employeeId,
         },
       })
+
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'expense.receipt.uploaded',
+        targetType: 'employee_document',
+        targetId: createdDocument.id,
+        after: { fileName, employeeId, fileSize, mimeType },
+      }, tx)
+
+      return createdDocument
     })
     documentId = doc.id
   } catch (err) {
@@ -235,15 +248,6 @@ export async function uploadExpenseReceipt(
       error: `Failed to save receipt: ${err instanceof Error ? err.message : 'Unknown error'}`,
     }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'expense.receipt.uploaded',
-    targetType: 'employee_document',
-    targetId: documentId,
-    after: { fileName, employeeId, fileSize, mimeType },
-  })
 
   return { success: true, data: { id: documentId } }
 }
@@ -309,7 +313,7 @@ export async function submitExpenseClaim(
   }
 
   const claim = await dbAs(userId, async (tx) => {
-    return tx.expenseClaim.create({
+    const createdClaim = await tx.expenseClaim.create({
       data: {
         orgId: org.id,
         employeeId,
@@ -323,20 +327,22 @@ export async function submitExpenseClaim(
         submittedAt: new Date(),
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'expense.claim.submitted',
-    targetType: 'expense_claim',
-    targetId: claim.id,
-    after: {
-      amountCents: input.amountCents,
-      currency: input.currency,
-      description: input.description,
-      expenseDate: input.expenseDate,
-    },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'expense.claim.submitted',
+      targetType: 'expense_claim',
+      targetId: createdClaim.id,
+      after: {
+        amountCents: input.amountCents,
+        currency: input.currency,
+        description: input.description,
+        expenseDate: input.expenseDate,
+      },
+    }, tx)
+
+    return createdClaim
   })
 
   // Notify manager
@@ -426,16 +432,16 @@ export async function approveExpenseClaim(
         reviewNotes: note || null,
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'expense.claim.approved',
-    targetType: 'expense_claim',
-    targetId: claimId,
-    before: { status: 'SUBMITTED' },
-    after: { status: 'APPROVED', reviewNotes: note },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'expense.claim.approved',
+      targetType: 'expense_claim',
+      targetId: claimId,
+      before: { status: 'SUBMITTED' },
+      after: { status: 'APPROVED', reviewNotes: note },
+    }, tx)
   })
 
   // Notify employee
@@ -509,16 +515,16 @@ export async function rejectExpenseClaim(
         reviewNotes: reason,
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'expense.claim.rejected',
-    targetType: 'expense_claim',
-    targetId: claimId,
-    before: { status: 'SUBMITTED' },
-    after: { status: 'REJECTED', reviewNotes: reason },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'expense.claim.rejected',
+      targetType: 'expense_claim',
+      targetId: claimId,
+      before: { status: 'SUBMITTED' },
+      after: { status: 'REJECTED', reviewNotes: reason },
+    }, tx)
   })
 
   // Notify employee
@@ -581,16 +587,16 @@ export async function withdrawExpenseClaim(
     await tx.expenseClaim.delete({
       where: { id: claimId },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'expense.claim.withdrawn',
-    targetType: 'expense_claim',
-    targetId: claimId,
-    before: { status: claim.status },
-    after: { status: 'WITHDRAWN (deleted)' },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'expense.claim.withdrawn',
+      targetType: 'expense_claim',
+      targetId: claimId,
+      before: { status: claim.status },
+      after: { status: 'WITHDRAWN (deleted)' },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/expenses`)
@@ -641,16 +647,16 @@ export async function markExpenseReimbursed(
         reimbursedAt: new Date(),
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'expense.claim.reimbursed',
-    targetType: 'expense_claim',
-    targetId: claimId,
-    before: { status: 'APPROVED' },
-    after: { status: 'REIMBURSED' },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'expense.claim.reimbursed',
+      targetType: 'expense_claim',
+      targetId: claimId,
+      before: { status: 'APPROVED' },
+      after: { status: 'REIMBURSED' },
+    }, tx)
   })
 
   // Notify employee

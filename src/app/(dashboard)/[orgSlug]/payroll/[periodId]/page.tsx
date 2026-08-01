@@ -3,7 +3,6 @@ import { moduleGuard } from '@/core/modules'
 import { Card, CardContent, CardHeader, CardTitle, Button, PageHeader } from '@/core/ui'
 import { getPayrollRecords } from '@/modules/payroll/queries'
 import {
-  processPayroll,
   submitForReview,
   approvePayroll,
   publishPayroll,
@@ -11,6 +10,7 @@ import {
   reopenPayroll,
 } from '@/modules/payroll/actions'
 import { PdfDownloadButton } from '@/modules/payroll/pdf-download-button'
+import { ProcessPayrollForm } from './_components/process-payroll-form'
 import { DollarSign, AlertTriangle } from 'lucide-react'
 import { notFound } from 'next/navigation'
 
@@ -52,10 +52,6 @@ export default async function PayrollPeriodPage({
   const totalNet = records.reduce((s, r) => s + r.netAmountCents, 0)
   const totalCpf = records.reduce((s, r) => s + (r.cpfTotalCents ?? 0), 0)
 
-  async function handleProcess(formData: FormData) {
-    'use server'
-    await processPayroll(orgSlug, formData)
-  }
   async function handleSubmitReview(formData: FormData) {
     'use server'
     await submitForReview(orgSlug, formData)
@@ -131,10 +127,7 @@ export default async function PayrollPeriodPage({
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-2">
         {isDraftOrReopened && (
-          <form action={handleProcess}>
-            <input type="hidden" name="periodId" value={periodId} />
-            <Button type="submit" size="md">Process Payroll</Button>
-          </form>
+          <ProcessPayrollForm orgSlug={orgSlug} periodId={periodId} />
         )}
         {isDraftOrReopened && records.length > 0 && (
           <form action={handleSubmitReview}>

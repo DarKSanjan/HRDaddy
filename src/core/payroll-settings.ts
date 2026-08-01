@@ -6,6 +6,7 @@
  * org-level config not subject to per-user RLS).
  */
 import 'server-only'
+import { Prisma } from '@prisma/client'
 import { dbAdmin } from '@/core/db/admin'
 
 export type PayrollComplexity = 'simple' | 'advanced'
@@ -36,9 +37,11 @@ export async function getPayrollComplexity(orgId: string): Promise<PayrollComple
  */
 export async function setPayrollComplexity(
   orgId: string,
-  complexity: PayrollComplexity
+  complexity: PayrollComplexity,
+  tx?: Prisma.TransactionClient
 ): Promise<void> {
-  const existing = await dbAdmin.organisationModule.findUnique({
+  const client = tx ?? dbAdmin
+  const existing = await client.organisationModule.findUnique({
     where: { orgId_moduleId: { orgId, moduleId: 'payroll' } },
     select: { settings: true },
   })
@@ -46,7 +49,7 @@ export async function setPayrollComplexity(
   const currentSettings = (existing?.settings as Record<string, unknown>) ?? {}
   const newSettings = { ...currentSettings, payrollComplexity: complexity }
 
-  await dbAdmin.organisationModule.upsert({
+  await client.organisationModule.upsert({
     where: { orgId_moduleId: { orgId, moduleId: 'payroll' } },
     update: { settings: newSettings },
     create: {

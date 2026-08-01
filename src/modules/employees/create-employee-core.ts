@@ -9,6 +9,7 @@ import 'server-only'
 import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { emit } from '@/core/events'
+import { encryptPII } from '@/core/employees/pii-crypto'
 import type { CreateEmployeeInput } from './schemas'
 
 export interface CreateEmployeeCoreParams {
@@ -65,7 +66,7 @@ export async function createEmployeeCore(
   }
 
   const employee = await dbAs(userId, async (tx) => {
-    return tx.employee.create({
+    const createdEmployee = await tx.employee.create({
       data: {
         orgId,
         firstName: input.firstName,
@@ -75,7 +76,7 @@ export async function createEmployeeCore(
         phone: input.phone || null,
         dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
         gender: input.gender || null,
-        nationalId: input.nationalId || null,
+        nationalId: encryptPII(input.nationalId || null),
         address: input.address || null,
         startDate: input.startDate ? new Date(input.startDate) : null,
         departmentId: input.departmentId || null,
@@ -88,20 +89,22 @@ export async function createEmployeeCore(
         payType: input.payType ?? 'SALARIED',
         isWorkman: input.isWorkman ?? false,
         shiftTemplateId: input.shiftTemplateId || null,
-        bankName: input.bankName || null,
-        bankAccountNumber: input.bankAccountNumber || null,
+        bankName: encryptPII(input.bankName || null),
+        bankAccountNumber: encryptPII(input.bankAccountNumber || null),
         employmentStatus: 'DRAFT',
       },
     })
-  })
 
-  await writeAudit({
-    orgId,
-    actorId: userId,
-    action: 'employee.created',
-    targetType: 'employee',
-    targetId: employee.id,
-    after: { firstName: input.firstName, lastName: input.lastName, workEmail: input.workEmail },
+    await writeAudit({
+      orgId,
+      actorId: userId,
+      action: 'employee.created',
+      targetType: 'employee',
+      targetId: createdEmployee.id,
+      after: { firstName: input.firstName, lastName: input.lastName, workEmail: input.workEmail },
+    }, tx)
+
+    return createdEmployee
   })
 
   await emit('employee.created', { employeeId: employee.id }, { orgId, userId })

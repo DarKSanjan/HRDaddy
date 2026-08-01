@@ -1,0 +1,57 @@
+_format_version: '3.0'
+_transform: true
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - http://localhost:3000
+      methods:
+        - GET
+        - HEAD
+        - PUT
+        - PATCH
+        - POST
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Version
+        - Authorization
+        - Content-Length
+        - Content-MD5
+        - Content-Type
+        - Date
+        - X-Client-Info
+        - X-Supabase-Api-Version
+        - apikey
+      exposed_headers:
+        - Content-Range
+        - X-Total-Count
+      credentials: true
+      max_age: 3600
+
+services:
+  - name: gotrue
+    url: http://gotrue:9999/
+    routes:
+      - name: auth-v1
+        paths:
+          - /auth/v1
+        strip_path: true
+
+  - name: postgrest
+    url: http://postgrest:3000/
+    routes:
+      - name: rest-v1
+        paths:
+          - /rest/v1
+        strip_path: true
+
+  - name: storage-api
+    url: http://storage-api:5000/
+    routes:
+      - name: storage-v1
+        paths:
+          - /storage/v1
+        strip_path: true

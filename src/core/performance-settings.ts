@@ -6,6 +6,7 @@
  * org-level config not subject to per-user RLS).
  */
 import 'server-only'
+import { Prisma } from '@prisma/client'
 import { dbAdmin } from '@/core/db/admin'
 
 export type ReviewComplexity = 'simple' | 'advanced'
@@ -37,9 +38,11 @@ export async function getReviewComplexity(orgId: string): Promise<ReviewComplexi
  */
 export async function setReviewComplexity(
   orgId: string,
-  complexity: ReviewComplexity
+  complexity: ReviewComplexity,
+  tx?: Prisma.TransactionClient
 ): Promise<void> {
-  const existing = await dbAdmin.organisationModule.findUnique({
+  const client = tx ?? dbAdmin
+  const existing = await client.organisationModule.findUnique({
     where: { orgId_moduleId: { orgId, moduleId: 'performance' } },
     select: { settings: true },
   })
@@ -47,7 +50,7 @@ export async function setReviewComplexity(
   const currentSettings = (existing?.settings as Record<string, unknown>) ?? {}
   const newSettings = { ...currentSettings, reviewComplexity: complexity }
 
-  await dbAdmin.organisationModule.upsert({
+  await client.organisationModule.upsert({
     where: { orgId_moduleId: { orgId, moduleId: 'performance' } },
     update: { settings: newSettings },
     create: {

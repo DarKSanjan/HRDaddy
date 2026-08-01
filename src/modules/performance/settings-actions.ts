@@ -4,6 +4,7 @@ import '@/modules/register'
 
 import { revalidatePath } from 'next/cache'
 import { getOrgContext, requirePermission } from '@/core/auth'
+import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { setReviewComplexity, type ReviewComplexity } from './settings'
 
@@ -27,15 +28,17 @@ export async function togglePerformanceReviewComplexity(
   const { org } = await getOrgContext(orgSlug)
   const { userId } = await requirePermission(org.id, 'department.manage')
 
-  await setReviewComplexity(org.id, complexity)
+  await dbAs(userId, async (tx) => {
+    await setReviewComplexity(org.id, complexity, tx)
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'performance.toggle_complexity',
-    targetType: 'organisation_module',
-    targetId: org.id,
-    after: { reviewComplexity: complexity },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'performance.toggle_complexity',
+      targetType: 'organisation_module',
+      targetId: org.id,
+      after: { reviewComplexity: complexity },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings`)

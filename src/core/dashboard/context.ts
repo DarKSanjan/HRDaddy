@@ -27,8 +27,8 @@ export async function resolveDashboardContext(
       where: { orgId },
       select: { timezone: true },
     }),
-    dbAdmin.employee.findFirst({
-      where: { orgId, userId, employmentStatus: 'ACTIVE' },
+    dbAdmin.employee.findUnique({
+      where: { orgId_userId: { orgId, userId }, employmentStatus: 'ACTIVE' },
       select: { id: true },
     }),
   ])

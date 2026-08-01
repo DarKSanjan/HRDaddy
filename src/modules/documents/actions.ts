@@ -26,6 +26,10 @@ import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { getStorage, buildStorageKey } from '@/core/storage'
 import {
+  detectFileSignature,
+  fileSignatureFamilyForMimeType,
+} from '@/core/documents/file-signature'
+import {
   createCategorySchema,
   updateCategorySchema,
   uploadDocumentSchema,
@@ -43,6 +47,24 @@ export interface ActionResult {
   error?: string
   fieldErrors?: Record<string, string>
   data?: unknown
+}
+
+function validateFileContent(
+  fileBuffer: Buffer | Uint8Array,
+  fileSize: number,
+  mimeType: string
+): string | undefined {
+  if (fileBuffer.length !== fileSize) {
+    return 'File size does not match its declared size'
+  }
+
+  const detected = detectFileSignature(fileBuffer)
+  const expectedFamily = fileSignatureFamilyForMimeType(mimeType)
+  if (!expectedFamily || detected.family !== expectedFamily) {
+    return 'File content does not match its declared type'
+  }
+
+  return undefined
 }
 
 // ─────────────────────────────────────────────
@@ -68,18 +90,20 @@ export async function createCategory(
   const { name, isSensitive } = parsed.data
 
   const category = await dbAs(userId, async (tx) => {
-    return tx.documentCategory.create({
+    const createdCategory = await tx.documentCategory.create({
       data: { orgId: org.id, name, isSensitive },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'document.category.created',
-    targetType: 'document_category',
-    targetId: category.id,
-    after: { name, isSensitive },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'document.category.created',
+      targetType: 'document_category',
+      targetId: createdCategory.id,
+      after: { name, isSensitive },
+    }, tx)
+
+    return createdCategory
   })
 
   revalidatePath(`/${orgSlug}/documents`)
@@ -121,16 +145,16 @@ export async function updateCategory(
       where: { id: categoryId },
       data: updateData,
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'document.category.updated',
-    targetType: 'document_category',
-    targetId: categoryId,
-    before: { name: existing.name, isSensitive: existing.isSensitive },
-    after: updateData,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'document.category.updated',
+      targetType: 'document_category',
+      targetId: categoryId,
+      before: { name: existing.name, isSensitive: existing.isSensitive },
+      after: updateData,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/documents`)
@@ -176,6 +200,8 @@ export async function uploadDocument(
   if (fileSize > MAX_FILE_SIZE_BYTES) {
     return { success: false, error: 'File exceeds maximum size of 25MB' }
   }
+  const fileContentError = validateFileContent(fileBuffer, fileSize, mimeType)
+  if (fileContentError) return { success: false, error: fileContentError }
 
   // Validate employee exists
   const employee = await dbAs(userId, async (tx) => {
@@ -197,8 +223,8 @@ export async function uploadDocument(
 
   // Get uploader's employee record
   const uploaderEmployee = await dbAs(userId, async (tx) => {
-    return tx.employee.findFirst({
-      where: { orgId: org.id, userId },
+    return tx.employee.findUnique({
+      where: { orgId_userId: { orgId: org.id, userId } },
       select: { id: true },
     })
   })
@@ -223,19 +249,30 @@ export async function uploadDocument(
   let documentId: string
   try {
     const doc = await dbAs(userId, async (tx) => {
-      return tx.employeeDocument.create({
+      const createdDocument = await tx.employeeDocument.create({
         data: {
           orgId: org.id,
           employeeId,
           categoryId,
           fileName,
           fileKey,
-          fileSize,
+          fileSize: fileBuffer.length,
           mimeType,
           expiresAt: expiresAt ? new Date(expiresAt) : null,
           uploadedById: uploaderEmployee.id,
         },
       })
+
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'document.uploaded',
+        targetType: 'employee_document',
+        targetId: createdDocument.id,
+        after: { fileName, employeeId, categoryId, fileSize: fileBuffer.length, mimeType },
+      }, tx)
+
+      return createdDocument
     })
     documentId = doc.id
   } catch (err) {
@@ -251,15 +288,6 @@ export async function uploadDocument(
       error: `Failed to save document metadata: ${err instanceof Error ? err.message : 'Unknown error'}`,
     }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'document.uploaded',
-    targetType: 'employee_document',
-    targetId: documentId,
-    after: { fileName, employeeId, categoryId, fileSize, mimeType },
-  })
 
   revalidatePath(`/${orgSlug}/documents`)
   return { success: true, data: { id: documentId } }
@@ -284,6 +312,7 @@ export async function getDocumentDownloadUrl(
         fileKey: true,
         fileName: true,
         employeeId: true,
+        employee: { select: { userId: true } },
         category: { select: { isSensitive: true } },
       },
     })
@@ -291,12 +320,20 @@ export async function getDocumentDownloadUrl(
 
   if (!doc) return { success: false, error: 'Document not found' }
 
-  // If sensitive, require view_all permission
+  // Sensitive documents always require view_all, regardless of ownership.
   if (doc.category.isSensitive) {
     try {
       await requirePermission(org.id, 'document.view_all')
     } catch {
       return { success: false, error: 'You do not have permission to access sensitive documents' }
+    }
+  } else if (doc.employee.userId !== userId) {
+    // document.view_own only covers the caller's own documents — anything else
+    // requires view_all, same as the sensitive-category branch above.
+    try {
+      await requirePermission(org.id, 'document.view_all')
+    } catch {
+      return { success: false, error: 'You do not have permission to access this document' }
     }
   }
 
@@ -345,6 +382,16 @@ export async function replaceDocument(
 
   const { documentId, fileName, mimeType, fileSize } = parsed.data
 
+  // Server-side MIME + size validation (do not rely on client)
+  if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(mimeType)) {
+    return { success: false, error: 'File type not allowed' }
+  }
+  if (fileSize > MAX_FILE_SIZE_BYTES) {
+    return { success: false, error: 'File exceeds maximum size of 25MB' }
+  }
+  const fileContentError = validateFileContent(fileBuffer, fileSize, mimeType)
+  if (fileContentError) return { success: false, error: fileContentError }
+
   // Get existing doc
   const existing = await dbAs(userId, async (tx) => {
     return tx.employeeDocument.findFirst({
@@ -383,8 +430,18 @@ export async function replaceDocument(
     await dbAs(userId, async (tx) => {
       await tx.employeeDocument.update({
         where: { id: documentId },
-        data: { fileKey: newFileKey, fileName, fileSize, mimeType },
+        data: { fileKey: newFileKey, fileName, fileSize: fileBuffer.length, mimeType },
       })
+
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'document.replaced',
+        targetType: 'employee_document',
+        targetId: documentId,
+        before: { fileName: existing.fileName },
+        after: { fileName, fileSize: fileBuffer.length, mimeType },
+      }, tx)
     })
   } catch (err) {
     // Clean up the new upload
@@ -405,16 +462,6 @@ export async function replaceDocument(
   } catch {
     console.error('[Documents] Failed to delete old file:', existing.fileKey)
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'document.replaced',
-    targetType: 'employee_document',
-    targetId: documentId,
-    before: { fileName: existing.fileName },
-    after: { fileName, fileSize, mimeType },
-  })
 
   revalidatePath(`/${orgSlug}/documents`)
   return { success: true }
@@ -446,15 +493,15 @@ export async function archiveDocument(
       where: { id: documentId },
       data: { isArchived: true },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'document.archived',
-    targetType: 'employee_document',
-    targetId: documentId,
-    metadata: { fileName: doc.fileName },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'document.archived',
+      targetType: 'employee_document',
+      targetId: documentId,
+      metadata: { fileName: doc.fileName },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/documents`)
@@ -492,15 +539,15 @@ export async function deleteDocument(
   // Delete metadata
   await dbAs(userId, async (tx) => {
     await tx.employeeDocument.delete({ where: { id: documentId } })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'document.deleted',
-    targetType: 'employee_document',
-    targetId: documentId,
-    metadata: { fileName: doc.fileName },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'document.deleted',
+      targetType: 'employee_document',
+      targetId: documentId,
+      metadata: { fileName: doc.fileName },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/documents`)

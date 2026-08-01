@@ -2,6 +2,7 @@
  * Audit service — append-only.
  * Exposes no update or delete path.
  */
+import { Prisma } from '@prisma/client'
 import { dbAdmin } from '@/core/db/admin'
 
 export interface AuditEntry {
@@ -17,9 +18,13 @@ export interface AuditEntry {
 
 /**
  * Write an audit log entry. This is append-only — no update or delete.
+ * Passing the active transaction keeps the audit row atomic with its mutation.
  */
-export async function writeAudit(entry: AuditEntry): Promise<void> {
-  await dbAdmin.auditLog.create({
+export async function writeAudit(
+  entry: AuditEntry,
+  tx?: Prisma.TransactionClient
+): Promise<void> {
+  await (tx ?? dbAdmin).auditLog.create({
     data: {
       orgId: entry.orgId,
       actorId: entry.actorId,

@@ -16,6 +16,7 @@ import '@/modules/register'
  */
 import { revalidatePath } from 'next/cache'
 import { getOrgContext, requirePermission } from '@/core/auth'
+import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { getNotificationAdapter } from '@/core/notifications'
 import { getEmployeeIdForUser, getOrgSettings } from '@/core/employees'
@@ -81,21 +82,25 @@ export async function clockIn(
   // The `date` field stores the local working day this session belongs to
   const dateObj = new Date(localDate + 'T00:00:00Z')
 
-  const record = await createAttendanceRecord({
-    orgId: org.id,
-    employeeId,
-    date: dateObj,
-    clockIn: now,
-    type: parsed.data.type,
-  })
+  const record = await dbAs(userId, async (tx) => {
+    const createdRecord = await createAttendanceRecord({
+      orgId: org.id,
+      employeeId,
+      date: dateObj,
+      clockIn: now,
+      type: parsed.data.type,
+    }, tx)
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'attendance.clock_in',
-    targetType: 'attendance_record',
-    targetId: record.id,
-    after: { clockIn: now.toISOString(), type: parsed.data.type, localDate },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'attendance.clock_in',
+      targetType: 'attendance_record',
+      targetId: createdRecord.id,
+      after: { clockIn: now.toISOString(), type: parsed.data.type, localDate },
+    }, tx)
+
+    return createdRecord
   })
 
   revalidatePath(`/${orgSlug}/attendance`)
@@ -134,16 +139,18 @@ export async function clockOut(
     Math.round((now.getTime() - openRecord.clockIn.getTime()) / (1000 * 60))
   )
 
-  await closeAttendanceRecord(openRecord.id, now, durationMinutes)
+  await dbAs(userId, async (tx) => {
+    await closeAttendanceRecord(openRecord.id, now, durationMinutes, tx)
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'attendance.clock_out',
-    targetType: 'attendance_record',
-    targetId: openRecord.id,
-    before: { status: 'OPEN' },
-    after: { clockOut: now.toISOString(), durationMinutes, status: 'CLOSED' },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'attendance.clock_out',
+      targetType: 'attendance_record',
+      targetId: openRecord.id,
+      before: { status: 'OPEN' },
+      after: { clockOut: now.toISOString(), durationMinutes, status: 'CLOSED' },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/attendance`)
@@ -198,14 +205,6 @@ export async function correctAttendance(
     )
   }
 
-  await correctAttendanceRecord(recordId, {
-    clockIn: newClockInDate,
-    clockOut: newClockOutDate,
-    durationMinutes,
-    correctedById: correctorEmployeeId,
-    correctionReason: reason,
-  })
-
   const after = {
     clockIn: newClockIn,
     clockOut: newClockOut ?? null,
@@ -214,14 +213,24 @@ export async function correctAttendance(
     correctionReason: reason,
   }
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'attendance.correct',
-    targetType: 'attendance_record',
-    targetId: recordId,
-    before,
-    after,
+  await dbAs(userId, async (tx) => {
+    await correctAttendanceRecord(recordId, {
+      clockIn: newClockInDate,
+      clockOut: newClockOutDate,
+      durationMinutes,
+      correctedById: correctorEmployeeId,
+      correctionReason: reason,
+    }, tx)
+
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'attendance.correct',
+      targetType: 'attendance_record',
+      targetId: recordId,
+      before,
+      after,
+    }, tx)
   })
 
   // Notify the affected employee

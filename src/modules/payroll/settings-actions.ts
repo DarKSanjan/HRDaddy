@@ -4,6 +4,7 @@ import '@/modules/register'
 
 import { revalidatePath } from 'next/cache'
 import { getOrgContext, requirePermission } from '@/core/auth'
+import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { setPayrollComplexity, type PayrollComplexity } from './settings'
 
@@ -27,15 +28,17 @@ export async function togglePayrollComplexity(
   const { org } = await getOrgContext(orgSlug)
   const { userId } = await requirePermission(org.id, 'department.manage')
 
-  await setPayrollComplexity(org.id, complexity)
+  await dbAs(userId, async (tx) => {
+    await setPayrollComplexity(org.id, complexity, tx)
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'payroll.toggle_complexity',
-    targetType: 'organisation_module',
-    targetId: org.id,
-    after: { payrollComplexity: complexity },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'payroll.toggle_complexity',
+      targetType: 'organisation_module',
+      targetId: org.id,
+      after: { payrollComplexity: complexity },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings`)

@@ -11,6 +11,7 @@ model User {
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
   memberships      OrganisationMembership[]
+  employees        Employee[]
   notifications    Notification[]
   auditLogs        AuditLog[]
   setupProgresses  OrgSetupProgress[]

@@ -12,6 +12,7 @@ import '@/modules/register'
  */
 import { revalidatePath } from 'next/cache'
 import { getOrgContext, requirePermission } from '@/core/auth'
+import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
 import { getStorage } from '@/core/storage'
 import { updateOrgNameDb, setOrgLogoKey, getOrgLogoKey } from '@/core/org/mutations'
@@ -41,16 +42,18 @@ export async function updateOrgName(
 
   const before = { name: org.name }
 
-  await updateOrgNameDb(org.id, name.trim())
+  await dbAs(userId, async (tx) => {
+    await updateOrgNameDb(org.id, name.trim(), tx)
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'org.name_updated',
-    targetType: 'organisation',
-    targetId: org.id,
-    before,
-    after: { name: name.trim() },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'org.name_updated',
+      targetType: 'organisation',
+      targetId: org.id,
+      before,
+      after: { name: name.trim() },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}`, 'layout')
@@ -96,14 +99,16 @@ export async function uploadOrgLogo(
   await storage.upload(key, buffer, file.type)
 
   // Store the key in settings (we generate fresh signed URLs on read)
-  await setOrgLogoKey(org.id, key)
+  await dbAs(userId, async (tx) => {
+    await setOrgLogoKey(org.id, key, tx)
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'org.logo_updated',
-    targetType: 'organisation',
-    targetId: org.id,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'org.logo_updated',
+      targetType: 'organisation',
+      targetId: org.id,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}`, 'layout')
@@ -126,14 +131,16 @@ export async function removeOrgLogo(
     try { await storage.delete(currentKey) } catch { /* ignore */ }
   }
 
-  await setOrgLogoKey(org.id, null)
+  await dbAs(userId, async (tx) => {
+    await setOrgLogoKey(org.id, null, tx)
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'org.logo_removed',
-    targetType: 'organisation',
-    targetId: org.id,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'org.logo_removed',
+      targetType: 'organisation',
+      targetId: org.id,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}`, 'layout')

@@ -8,6 +8,7 @@
  */
 import 'server-only'
 import { dbAs } from '@/core/db'
+import { decryptPII } from '@/core/employees/pii-crypto'
 import type { OrgRole, EmploymentStatus, Prisma } from '@prisma/client'
 import type { EmployeeListParams } from './schemas'
 
@@ -225,7 +226,17 @@ export async function getEmployeeProfile(
       },
     })
 
-    return employee as EmployeeProfile | null
+    if (!employee) return null
+    const profile = employee as EmployeeProfile
+
+    if (!includeSensitive) return profile
+
+    return {
+      ...profile,
+      nationalId: decryptPII(profile.nationalId),
+      bankName: decryptPII(profile.bankName),
+      bankAccountNumber: decryptPII(profile.bankAccountNumber),
+    }
   })
 }
 
@@ -278,7 +289,12 @@ export async function getEmployeeForEdit(
       },
     })
 
-    return employee as EmployeeProfile | null
+    if (!employee) return null
+
+    return {
+      ...employee,
+      nationalId: decryptPII(employee.nationalId),
+    } as EmployeeProfile
   })
 }
 

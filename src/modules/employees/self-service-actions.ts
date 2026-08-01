@@ -40,8 +40,11 @@ export async function updateOwnProfile(
 
   // Verify the employee belongs to this user
   const employee = await dbAs(userId, async (tx) => {
-    return tx.employee.findFirst({
-      where: { id: employeeId, orgId: org.id, userId: session.userId },
+    return tx.employee.findUnique({
+      where: {
+        orgId_userId: { orgId: org.id, userId: session.userId },
+        id: employeeId,
+      },
       select: { id: true, personalEmail: true, phone: true, address: true },
     })
   })
@@ -68,20 +71,20 @@ export async function updateOwnProfile(
   if (input.address !== undefined) updateData.address = input.address || null
 
   await dbAs(userId, async (tx) => {
-    return tx.employee.update({
+    await tx.employee.update({
       where: { id: employeeId },
       data: updateData,
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'employee.self_updated',
-    targetType: 'employee',
-    targetId: employeeId,
-    before: { personalEmail: employee.personalEmail, phone: employee.phone, address: employee.address },
-    after: updateData,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'employee.self_updated',
+      targetType: 'employee',
+      targetId: employeeId,
+      before: { personalEmail: employee.personalEmail, phone: employee.phone, address: employee.address },
+      after: updateData,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/employees/${employeeId}`)

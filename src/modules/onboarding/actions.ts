@@ -73,7 +73,7 @@ export async function createTemplate(
   const { name, description, tasks } = parsed.data
 
   const template = await dbAs(userId, async (tx) => {
-    return tx.onboardingTemplate.create({
+    const createdTemplate = await tx.onboardingTemplate.create({
       data: {
         orgId: org.id,
         name,
@@ -89,15 +89,17 @@ export async function createTemplate(
         },
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'onboarding.template.created',
-    targetType: 'onboarding_template',
-    targetId: template.id,
-    after: { name, taskCount: tasks.length },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'onboarding.template.created',
+      targetType: 'onboarding_template',
+      targetId: createdTemplate.id,
+      after: { name, taskCount: tasks.length },
+    }, tx)
+
+    return createdTemplate
   })
 
   revalidatePath(`/${orgSlug}/settings/onboarding`)
@@ -159,15 +161,15 @@ export async function updateTemplate(
         })
       }
     }
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'onboarding.template.updated',
-    targetType: 'onboarding_template',
-    targetId: templateId,
-    after: { name, taskCount: tasks?.length },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'onboarding.template.updated',
+      targetType: 'onboarding_template',
+      targetId: templateId,
+      after: { name, taskCount: tasks?.length },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings/onboarding`)
@@ -203,14 +205,14 @@ export async function archiveTemplate(
       where: { id: templateId },
       data: { isArchived: true },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'onboarding.template.archived',
-    targetType: 'onboarding_template',
-    targetId: templateId,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'onboarding.template.archived',
+      targetType: 'onboarding_template',
+      targetId: templateId,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings/onboarding`)
@@ -325,21 +327,21 @@ export async function assignOnboarding(
       })
     }
 
-    return ob
-  })
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'onboarding.assigned',
+      targetType: 'employee_onboarding',
+      targetId: ob.id,
+      after: {
+        employeeId,
+        templateId,
+        templateName: template.name,
+        taskCount: template.tasks.length,
+      },
+    }, tx)
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'onboarding.assigned',
-    targetType: 'employee_onboarding',
-    targetId: onboarding.id,
-    after: {
-      employeeId,
-      templateId,
-      templateName: template.name,
-      taskCount: template.tasks.length,
-    },
+    return ob
   })
 
   const notifications = getNotificationAdapter()
@@ -400,15 +402,15 @@ export async function cancelOnboarding(
       where: { id: onboardingId },
       data: { status: 'CANCELLED' },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'onboarding.cancelled',
-    targetType: 'employee_onboarding',
-    targetId: onboardingId,
-    metadata: { reason },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'onboarding.cancelled',
+      targetType: 'employee_onboarding',
+      targetId: onboardingId,
+      metadata: { reason },
+    }, tx)
   })
 
   await emit('onboarding.cancelled', { onboardingId }, { orgId: org.id, userId })
@@ -489,15 +491,15 @@ export async function completeTask(
         data: { status: 'COMPLETED', completedAt: new Date() },
       })
     }
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'onboarding.task.completed',
-    targetType: 'onboarding_task',
-    targetId: taskId,
-    metadata: { notes },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'onboarding.task.completed',
+      targetType: 'onboarding_task',
+      targetId: taskId,
+      metadata: { notes },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/onboarding`)
@@ -554,15 +556,15 @@ export async function waiveTask(
         data: { status: 'COMPLETED', completedAt: new Date() },
       })
     }
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'onboarding.task.waived',
-    targetType: 'onboarding_task',
-    targetId: taskId,
-    metadata: { reason },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'onboarding.task.waived',
+      targetType: 'onboarding_task',
+      targetId: taskId,
+      metadata: { reason },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/onboarding`)
@@ -649,14 +651,14 @@ export async function reopenTask(
         data: { status: 'IN_PROGRESS', completedAt: null },
       })
     }
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'onboarding.task.reopened',
-    targetType: 'onboarding_task',
-    targetId: taskId,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'onboarding.task.reopened',
+      targetType: 'onboarding_task',
+      targetId: taskId,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/onboarding`)

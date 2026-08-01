@@ -1,5 +1,35 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Self-hosted local stack
+
+The repository includes a local Supabase stack in `docker-compose.yml`. It runs
+Postgres, GoTrue, PostgREST, Storage API, and Kong. The app should use Kong at
+`http://localhost:8000`, not the Postgres port or a direct GoTrue URL.
+
+```bash
+cp .env.example .env
+docker compose up -d
+```
+
+GoTrue and Storage API run their own internal database migrations when they
+start. Wait for those services to finish starting, then apply the application
+migrations and optionally seed local auth data:
+
+```bash
+npm install
+npm run db:deploy
+npm run db:seed
+npm run dev
+```
+
+For this local setup, `.env` must keep `NEXT_PUBLIC_SUPABASE_URL` at
+`http://localhost:8000`, use the anon JWT as
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and use the service-role JWT only as
+the server-side `SUPABASE_SECRET_KEY`. Change the example JWT, database
+passwords, and SMTP/autoconfirm settings before using the stack beyond local
+development. The first-boot SQL file only runs when the Postgres data volume is
+initialized for the first time.
+
 ## Getting Started
 
 First, run the development server:

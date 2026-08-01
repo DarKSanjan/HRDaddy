@@ -76,8 +76,8 @@ export async function createCalendarEvent(
   const [y, m, d] = parsed.date.split('-').map(Number)
   const eventDate = new Date(Date.UTC(y, m - 1, d))
 
-  const event = await dbAs(userId, async (tx) => {
-    return tx.calendarEvent.create({
+  await dbAs(userId, async (tx) => {
+    const createdEvent = await tx.calendarEvent.create({
       data: {
         orgId: org.id,
         title: parsed.title,
@@ -94,6 +94,17 @@ export async function createCalendarEvent(
           : {}),
       },
     })
+
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'create',
+      targetType: 'calendar_event',
+      targetId: createdEvent.id,
+      after: { title: parsed.title, audience: parsed.audience },
+    }, tx)
+
+    return createdEvent
   })
 
   const recipientUserIds = await resolveRecipientUserIds(
@@ -114,15 +125,6 @@ export async function createCalendarEvent(
       link: `/${orgSlug}/calendar`,
     })
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'create',
-    targetType: 'calendar_event',
-    targetId: event.id,
-    after: { title: parsed.title, audience: parsed.audience },
-  })
 
   revalidatePath(`/${orgSlug}/calendar`)
   return { success: true }
@@ -165,15 +167,15 @@ export async function deleteHolidayAction(orgSlug: string, holidayId: string) {
 
   await dbAs(userId, async (tx) => {
     await tx.holiday.delete({ where: { id: holidayId } })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'delete',
-    targetType: 'holiday',
-    targetId: holidayId,
-    after: {},
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'delete',
+      targetType: 'holiday',
+      targetId: holidayId,
+      after: {},
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/calendar`)
@@ -190,19 +192,21 @@ export async function createHolidayAction(
   const [y, m, d] = data.date.split('-').map(Number)
   const date = new Date(Date.UTC(y, m - 1, d))
 
-  const holiday = await dbAs(userId, async (tx) => {
-    return tx.holiday.create({
+  await dbAs(userId, async (tx) => {
+    const createdHoliday = await tx.holiday.create({
       data: { orgId: org.id, date, name: data.name },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'create',
-    targetType: 'holiday',
-    targetId: holiday.id,
-    after: { date: data.date, name: data.name },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'create',
+      targetType: 'holiday',
+      targetId: createdHoliday.id,
+      after: { date: data.date, name: data.name },
+    }, tx)
+
+    return createdHoliday
   })
 
   revalidatePath(`/${orgSlug}/calendar`)

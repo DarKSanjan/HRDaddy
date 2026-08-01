@@ -2,7 +2,27 @@
  * Leave service — core kernel functions that need dbAdmin access.
  * Module code calls these rather than accessing dbAdmin directly.
  */
+import { Prisma } from '@prisma/client'
 import { dbAdmin } from '@/core/db/admin'
+
+type LeaveAuditCallback<T> = (
+  tx: Prisma.TransactionClient,
+  result: T
+) => Promise<void>
+
+// ─────────────────────────────────────────────
+// Typed errors for the create path
+// ─────────────────────────────────────────────
+
+export class LeaveRequestError extends Error {
+  constructor(
+    public readonly reason: 'overlap' | 'insufficient_balance',
+    message: string
+  ) {
+    super(message)
+    this.name = 'LeaveRequestError'
+  }
+}
 
 // ─────────────────────────────────────────────
 // Balance checks
@@ -59,9 +79,46 @@ export interface CreateLeaveRequestData {
 
 export async function createLeaveRequestTransaction(
   data: CreateLeaveRequestData,
-  balanceId: string | null
+  balanceId: string | null,
+  audit?: LeaveAuditCallback<{ id: string }>
 ) {
   return dbAdmin.$transaction(async (tx) => {
+    // Serialize all concurrent submissions for the same employee so the
+    // overlap and balance re-checks below are race-free. hashtext() is used
+    // because pg_advisory_xact_lock takes a bigint but employeeId is a cuid
+    // string. The lock is released automatically when the transaction ends.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${data.employeeId}))`
+
+    const overlap = await tx.leaveRequest.findFirst({
+      where: {
+        orgId: data.orgId,
+        employeeId: data.employeeId,
+        status: { in: ['PENDING', 'APPROVED'] },
+        startDate: { lte: data.endDate },
+        endDate: { gte: data.startDate },
+      },
+    })
+    if (overlap) {
+      throw new LeaveRequestError('overlap', 'Overlapping leave request exists.')
+    }
+
+    const freshBalance = balanceId
+      ? await tx.leaveBalance.findUnique({ where: { id: balanceId } })
+      : null
+
+    if (freshBalance) {
+      const available =
+        Number(freshBalance.allowance) -
+        Number(freshBalance.used) -
+        Number(freshBalance.pending)
+      if (available < data.totalDays) {
+        throw new LeaveRequestError(
+          'insufficient_balance',
+          'Insufficient balance for the requested dates.'
+        )
+      }
+    }
+
     const newRequest = await tx.leaveRequest.create({
       data: {
         orgId: data.orgId,
@@ -84,6 +141,8 @@ export async function createLeaveRequestTransaction(
       })
     }
 
+    if (audit) await audit(tx, newRequest)
+
     return newRequest
   })
 }
@@ -100,7 +159,8 @@ export async function approveLeaveRequestTransaction(
   totalDays: number,
   employeeId: string,
   leaveTypeId: string,
-  startYear: number
+  startYear: number,
+  audit?: LeaveAuditCallback<{ alreadyProcessed: boolean }>
 ): Promise<{ alreadyProcessed: boolean }> {
   return dbAdmin.$transaction(async (tx) => {
     const updated = await tx.leaveRequest.updateMany({
@@ -125,7 +185,9 @@ export async function approveLeaveRequestTransaction(
       },
     })
 
-    return { alreadyProcessed: false }
+    const result = { alreadyProcessed: false }
+    if (audit) await audit(tx, result)
+    return result
   })
 }
 
@@ -141,7 +203,8 @@ export async function rejectLeaveRequestTransaction(
   totalDays: number,
   employeeId: string,
   leaveTypeId: string,
-  startYear: number
+  startYear: number,
+  audit?: LeaveAuditCallback<{ alreadyProcessed: boolean }>
 ): Promise<{ alreadyProcessed: boolean }> {
   return dbAdmin.$transaction(async (tx) => {
     const updated = await tx.leaveRequest.updateMany({
@@ -163,7 +226,9 @@ export async function rejectLeaveRequestTransaction(
       data: { pending: { decrement: totalDays } },
     })
 
-    return { alreadyProcessed: false }
+    const result = { alreadyProcessed: false }
+    if (audit) await audit(tx, result)
+    return result
   })
 }
 
@@ -174,7 +239,8 @@ export async function rejectLeaveRequestTransaction(
 export async function withdrawLeaveRequestTransaction(
   requestId: string,
   orgId: string,
-  employeeId: string
+  employeeId: string,
+  audit?: LeaveAuditCallback<{ failed: boolean }>
 ): Promise<{ failed: boolean }> {
   return dbAdmin.$transaction(async (tx) => {
     const updated = await tx.leaveRequest.updateMany({
@@ -197,7 +263,9 @@ export async function withdrawLeaveRequestTransaction(
       })
     }
 
-    return { failed: false }
+    const result = { failed: false }
+    if (audit) await audit(tx, result)
+    return result
   })
 }
 
@@ -209,7 +277,8 @@ export async function cancelLeaveRequestTransaction(
   requestId: string,
   orgId: string,
   employeeId: string,
-  reason: string
+  reason: string,
+  audit?: LeaveAuditCallback<{ failed: boolean }>
 ): Promise<{ failed: boolean }> {
   return dbAdmin.$transaction(async (tx) => {
     const updated = await tx.leaveRequest.updateMany({
@@ -232,7 +301,9 @@ export async function cancelLeaveRequestTransaction(
       })
     }
 
-    return { failed: false }
+    const result = { failed: false }
+    if (audit) await audit(tx, result)
+    return result
   })
 }
 

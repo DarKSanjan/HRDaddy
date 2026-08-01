@@ -59,7 +59,7 @@ export async function createCycle(
     return { success: false, error: 'End date must be after start date.' }
   }
 
-  const cycle = await dbAs(userId, async (tx) => {
+  await dbAs(userId, async (tx) => {
     // Get all active employees to create one review row per employee
     const activeEmployees = await tx.employee.findMany({
       where: { orgId: org.id, employmentStatus: 'ACTIVE' },
@@ -67,7 +67,7 @@ export async function createCycle(
     })
 
     // Create cycle + review rows
-    return tx.performanceCycle.create({
+    const createdCycle = await tx.performanceCycle.create({
       data: {
         orgId: org.id,
         name: name.trim(),
@@ -83,15 +83,17 @@ export async function createCycle(
         },
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'performance.cycle.create',
-    targetType: 'performance_cycle',
-    targetId: cycle.id,
-    after: { name: name.trim(), startDate, endDate },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'performance.cycle.create',
+      targetType: 'performance_cycle',
+      targetId: createdCycle.id,
+      after: { name: name.trim(), startDate, endDate },
+    }, tx)
+
+    return createdCycle
   })
 
   revalidatePath(`/${orgSlug}/performance`)
@@ -134,19 +136,19 @@ export async function openCycle(
       },
     })
 
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'performance.cycle.open',
+      targetType: 'performance_cycle',
+      targetId: cycleId,
+      after: { status: 'ACTIVE' },
+    }, tx)
+
     return { error: null, cycle, pendingReviews }
   })
 
   if (result.error) return { success: false, error: result.error }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'performance.cycle.open',
-    targetType: 'performance_cycle',
-    targetId: cycleId,
-    after: { status: 'ACTIVE' },
-  })
 
   // Send one notification per manager about their pending reviews
   if (result.pendingReviews && result.cycle) {
@@ -197,19 +199,19 @@ export async function closeCycle(
       where: { id: cycleId },
       data: { status: 'CLOSED' },
     })
+
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'performance.cycle.close',
+      targetType: 'performance_cycle',
+      targetId: cycleId,
+      after: { status: 'CLOSED' },
+    }, tx)
     return { error: null }
   })
 
   if (result.error) return { success: false, error: result.error }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'performance.cycle.close',
-    targetType: 'performance_cycle',
-    targetId: cycleId,
-    after: { status: 'CLOSED' },
-  })
 
   revalidatePath(`/${orgSlug}/performance`)
   return { success: true }
@@ -310,19 +312,19 @@ export async function submitReview(
       })
     }
 
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'performance.review.submit',
+      targetType: 'performance_review',
+      targetId: reviewId,
+      after: { overallScore, complexity },
+    }, tx)
+
     return { error: null, employeeId: review.employeeId }
   })
 
   if (result.error) return { success: false, error: result.error }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'performance.review.submit',
-    targetType: 'performance_review',
-    targetId: reviewId,
-    after: { overallScore, complexity },
-  })
 
   revalidatePath(`/${orgSlug}/performance`)
   if (result.employeeId) {
@@ -355,19 +357,19 @@ export async function publishReview(
       where: { id: reviewId },
       data: { status: 'PUBLISHED', publishedAt: new Date() },
     })
+
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'performance.review.publish',
+      targetType: 'performance_review',
+      targetId: reviewId,
+      after: { status: 'PUBLISHED' },
+    }, tx)
     return { error: null, employeeId: review.employeeId }
   })
 
   if (result.error) return { success: false, error: result.error }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'performance.review.publish',
-    targetType: 'performance_review',
-    targetId: reviewId,
-    after: { status: 'PUBLISHED' },
-  })
 
   revalidatePath(`/${orgSlug}/performance`)
   if (result.employeeId) {
@@ -408,19 +410,19 @@ export async function submitSelfAssessment(
       where: { id: reviewId },
       data: { selfAssessment: text },
     })
+
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'performance.self_assessment.submit',
+      targetType: 'performance_review',
+      targetId: reviewId,
+      after: { selfAssessment: text.substring(0, 100) },
+    }, tx)
     return { error: null }
   })
 
   if (result.error) return { success: false, error: result.error }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'performance.self_assessment.submit',
-    targetType: 'performance_review',
-    targetId: reviewId,
-    after: { selfAssessment: text.substring(0, 100) },
-  })
 
   revalidatePath(`/${orgSlug}/employees/${callerEmployeeId}`)
   return { success: true }
@@ -450,28 +452,25 @@ export async function acknowledgeReview(
     if (review.status !== 'PUBLISHED') {
       return { error: 'Only published reviews can be acknowledged.' }
     }
-    if (review.acknowledgedAt) {
-      // Idempotent — already acknowledged
-      return { error: null }
+    if (!review.acknowledgedAt) {
+      await tx.performanceReview.update({
+        where: { id: reviewId },
+        data: { acknowledgedAt: new Date() },
+      })
     }
 
-    await tx.performanceReview.update({
-      where: { id: reviewId },
-      data: { acknowledgedAt: new Date() },
-    })
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'performance.review.acknowledge',
+      targetType: 'performance_review',
+      targetId: reviewId,
+      after: { acknowledgedAt: new Date().toISOString() },
+    }, tx)
     return { error: null }
   })
 
   if (result.error) return { success: false, error: result.error }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'performance.review.acknowledge',
-    targetType: 'performance_review',
-    targetId: reviewId,
-    after: { acknowledgedAt: new Date().toISOString() },
-  })
 
   revalidatePath(`/${orgSlug}/employees/${callerEmployeeId}`)
   return { success: true }

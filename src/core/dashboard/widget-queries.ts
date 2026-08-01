@@ -282,8 +282,8 @@ export async function getUpcomingCalendarItems(
   }
 
   const myLeave = await dbAs(userId, async (tx) => {
-    const emp = await tx.employee.findFirst({
-      where: { orgId, userId },
+    const emp = await tx.employee.findUnique({
+      where: { orgId_userId: { orgId, userId } },
       select: { id: true },
     })
     if (!emp) return []

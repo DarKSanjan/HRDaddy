@@ -125,8 +125,8 @@ export async function resolveOnboardingAssignee(
         select: { userId: true },
       })
       if (hrAdmin) {
-        const hrEmployee = await dbAdmin.employee.findFirst({
-          where: { orgId, userId: hrAdmin.userId },
+        const hrEmployee = await dbAdmin.employee.findUnique({
+          where: { orgId_userId: { orgId, userId: hrAdmin.userId } },
           select: { id: true },
         })
         return hrEmployee?.id ?? null
@@ -143,8 +143,8 @@ export async function resolveOnboardingAssignee(
         select: { userId: true },
       })
       if (hrMember) {
-        const hrEmp = await dbAdmin.employee.findFirst({
-          where: { orgId, userId: hrMember.userId },
+        const hrEmp = await dbAdmin.employee.findUnique({
+          where: { orgId_userId: { orgId, userId: hrMember.userId } },
           select: { id: true },
         })
         return hrEmp?.id ?? null

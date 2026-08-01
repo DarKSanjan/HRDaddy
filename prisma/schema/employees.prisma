@@ -44,6 +44,7 @@ model Employee {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   organisation   Organisation    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user           User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   department     Department?     @relation("EmployeeDepartment", fields: [departmentId], references: [id])
   jobTitle       JobTitle?       @relation(fields: [jobTitleId], references: [id])
   workLocation   WorkLocation?   @relation(fields: [locationId], references: [id])
@@ -89,6 +90,7 @@ model Employee {
   @@index([orgId])
   @@index([orgId, employmentStatus])
   @@index([userId])
+  @@unique([orgId, userId], map: "employees_org_id_user_id_key")
   @@index([departmentId])
   @@index([managerId])
   @@map("employees")

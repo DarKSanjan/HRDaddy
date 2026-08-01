@@ -33,6 +33,7 @@ import {
   cancelLeaveRequestTransaction,
   getLeaveRequestWithEmployee,
   getEmployeeWithManager,
+  LeaveRequestError,
 } from '@/core/leave'
 import {
   createLeaveRequestSchema,
@@ -142,29 +143,41 @@ export async function submitLeaveRequest(
     }
   }
 
-  const request = await createLeaveRequestTransaction(
-    {
-      orgId: org.id,
-      employeeId,
-      leaveTypeId: input.leaveTypeId,
-      startDate: new Date(input.startDate),
-      endDate: new Date(input.endDate),
-      isHalfDay: input.isHalfDay,
-      halfDayPeriod: input.isHalfDay ? (input.halfDayPeriod ?? null) : null,
-      totalDays,
-      reason: input.reason || null,
-    },
-    balance?.id ?? null
-  )
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'leave.request.create',
-    targetType: 'leave_request',
-    targetId: request.id,
-    after: { totalDays, startDate: input.startDate, endDate: input.endDate },
-  })
+  let request: Awaited<ReturnType<typeof createLeaveRequestTransaction>>
+  try {
+    request = await createLeaveRequestTransaction(
+      {
+        orgId: org.id,
+        employeeId,
+        leaveTypeId: input.leaveTypeId,
+        startDate: new Date(input.startDate),
+        endDate: new Date(input.endDate),
+        isHalfDay: input.isHalfDay,
+        halfDayPeriod: input.isHalfDay ? (input.halfDayPeriod ?? null) : null,
+        totalDays,
+        reason: input.reason || null,
+      },
+      balance?.id ?? null,
+      async (tx, createdRequest) => writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'leave.request.create',
+        targetType: 'leave_request',
+        targetId: createdRequest.id,
+        after: { totalDays, startDate: input.startDate, endDate: input.endDate },
+      }, tx)
+    )
+  } catch (err) {
+    if (err instanceof LeaveRequestError) {
+      if (err.reason === 'overlap') {
+        return { success: false, error: 'You already have a pending or approved leave request for overlapping dates.' }
+      }
+      if (err.reason === 'insufficient_balance') {
+        return { success: false, error: 'Insufficient balance for the requested dates.' }
+      }
+    }
+    throw err
+  }
 
   // Notify manager
   const employee = await getEmployeeWithManager(employeeId)
@@ -226,22 +239,21 @@ export async function approveLeaveRequest(
     Number(request.totalDays),
     request.employeeId,
     request.leaveTypeId,
-    request.startDate.getFullYear()
+    request.startDate.getFullYear(),
+    async (tx) => writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'leave.request.approve',
+      targetType: 'leave_request',
+      targetId: requestId,
+      before: { status: 'PENDING' },
+      after: { status: 'APPROVED', reviewNote: note },
+    }, tx)
   )
 
   if (result.alreadyProcessed) {
     return { success: false, error: 'This request has already been processed.' }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'leave.request.approve',
-    targetType: 'leave_request',
-    targetId: requestId,
-    before: { status: 'PENDING' },
-    after: { status: 'APPROVED', reviewNote: note },
-  })
 
   if (request.employee.userId) {
     const notifier = getNotificationAdapter()
@@ -297,22 +309,21 @@ export async function rejectLeaveRequest(
     Number(request.totalDays),
     request.employeeId,
     request.leaveTypeId,
-    request.startDate.getFullYear()
+    request.startDate.getFullYear(),
+    async (tx) => writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'leave.request.reject',
+      targetType: 'leave_request',
+      targetId: requestId,
+      before: { status: 'PENDING' },
+      after: { status: 'REJECTED', reviewNote: reason },
+    }, tx)
   )
 
   if (result.alreadyProcessed) {
     return { success: false, error: 'This request has already been processed.' }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'leave.request.reject',
-    targetType: 'leave_request',
-    targetId: requestId,
-    before: { status: 'PENDING' },
-    after: { status: 'REJECTED', reviewNote: reason },
-  })
 
   if (request.employee.userId) {
     const notifier = getNotificationAdapter()
@@ -353,21 +364,24 @@ export async function withdrawLeaveRequest(
     return { success: false, error: 'No employee record found.' }
   }
 
-  const result = await withdrawLeaveRequestTransaction(requestId, org.id, employeeId)
+  const result = await withdrawLeaveRequestTransaction(
+    requestId,
+    org.id,
+    employeeId,
+    async (tx) => writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'leave.request.withdraw',
+      targetType: 'leave_request',
+      targetId: requestId,
+      before: { status: 'PENDING' },
+      after: { status: 'WITHDRAWN' },
+    }, tx)
+  )
 
   if (result.failed) {
     return { success: false, error: 'Cannot withdraw this request. It may have already been processed.' }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'leave.request.withdraw',
-    targetType: 'leave_request',
-    targetId: requestId,
-    before: { status: 'PENDING' },
-    after: { status: 'WITHDRAWN' },
-  })
 
   revalidatePath(`/${orgSlug}/leave`)
   return { success: true }
@@ -397,21 +411,25 @@ export async function cancelLeaveRequest(
     return { success: false, error: 'No employee record found.' }
   }
 
-  const result = await cancelLeaveRequestTransaction(requestId, org.id, employeeId, reason)
+  const result = await cancelLeaveRequestTransaction(
+    requestId,
+    org.id,
+    employeeId,
+    reason,
+    async (tx) => writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'leave.request.cancel',
+      targetType: 'leave_request',
+      targetId: requestId,
+      before: { status: 'APPROVED' },
+      after: { status: 'CANCELLED', reason },
+    }, tx)
+  )
 
   if (result.failed) {
     return { success: false, error: 'Cannot cancel this request.' }
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'leave.request.cancel',
-    targetType: 'leave_request',
-    targetId: requestId,
-    before: { status: 'APPROVED' },
-    after: { status: 'CANCELLED', reason },
-  })
 
   revalidatePath(`/${orgSlug}/leave`)
   return { success: true }

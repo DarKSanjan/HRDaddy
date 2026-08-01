@@ -10,9 +10,15 @@ import { getOrgContext, requirePermission, verifySession } from '@/core/auth'
 import { getOrgBranding } from '@/core/org/queries'
 import { dbAs } from '@/core/db'
 import { getEmployeeIdForUser } from '@/core/employees'
+import { decryptPII } from '@/core/employees/pii-crypto'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { PayslipDocument } from './pdf/payslip-document'
 import type { PayslipPdfData, PayslipEmployeeData, PayrollSummaryData } from './pdf/types'
+
+function formatBankAccountLast4(value: string | null): string | null {
+  const accountNumber = decryptPII(value)
+  return accountNumber ? `•••• ${accountNumber.slice(-4)}` : null
+}
 
 export interface PdfActionResult {
   success: boolean
@@ -74,10 +80,8 @@ export async function downloadPeriodPdf(
     lastName: r.employee.lastName,
     jobTitle: r.employee.jobTitle?.name ?? null,
     department: r.employee.department?.name ?? null,
-    bankName: r.employee.bankName ?? null,
-    bankAccountLast4: r.employee.bankAccountNumber
-      ? `•••• ${r.employee.bankAccountNumber.slice(-4)}`
-      : null,
+    bankName: decryptPII(r.employee.bankName),
+    bankAccountLast4: formatBankAccountLast4(r.employee.bankAccountNumber),
     grossAmountCents: r.grossAmountCents,
     netAmountCents: r.netAmountCents,
     cpfEmployeeCents: r.cpfEmployeeCents,
@@ -192,10 +196,8 @@ export async function downloadEmployeePdf(
     lastName: record.employee.lastName,
     jobTitle: record.employee.jobTitle?.name ?? null,
     department: record.employee.department?.name ?? null,
-    bankName: record.employee.bankName ?? null,
-    bankAccountLast4: record.employee.bankAccountNumber
-      ? `•••• ${record.employee.bankAccountNumber.slice(-4)}`
-      : null,
+    bankName: decryptPII(record.employee.bankName),
+    bankAccountLast4: formatBankAccountLast4(record.employee.bankAccountNumber),
     grossAmountCents: record.grossAmountCents,
     netAmountCents: record.netAmountCents,
     cpfEmployeeCents: record.cpfEmployeeCents,

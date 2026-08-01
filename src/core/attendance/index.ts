@@ -1,6 +1,7 @@
 /**
  * Attendance service — core kernel functions that need dbAdmin access.
  */
+import { Prisma } from '@prisma/client'
 import { dbAdmin } from '@/core/db/admin'
 
 /**
@@ -22,8 +23,8 @@ export async function createAttendanceRecord(data: {
   date: Date
   clockIn: Date
   type: 'OFFICE' | 'REMOTE'
-}) {
-  return dbAdmin.attendanceRecord.create({
+}, tx?: Prisma.TransactionClient) {
+  return (tx ?? dbAdmin).attendanceRecord.create({
     data: {
       orgId: data.orgId,
       employeeId: data.employeeId,
@@ -41,9 +42,10 @@ export async function createAttendanceRecord(data: {
 export async function closeAttendanceRecord(
   recordId: string,
   clockOut: Date,
-  durationMinutes: number
+  durationMinutes: number,
+  tx?: Prisma.TransactionClient
 ) {
-  return dbAdmin.attendanceRecord.update({
+  return (tx ?? dbAdmin).attendanceRecord.update({
     where: { id: recordId },
     data: {
       clockOut,
@@ -74,9 +76,10 @@ export async function correctAttendanceRecord(
     durationMinutes: number | null
     correctedById: string | null
     correctionReason: string
-  }
+  },
+  tx?: Prisma.TransactionClient
 ) {
-  return dbAdmin.attendanceRecord.update({
+  return (tx ?? dbAdmin).attendanceRecord.update({
     where: { id: recordId },
     data: {
       clockIn: data.clockIn,

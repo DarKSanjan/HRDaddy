@@ -11,11 +11,110 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # The Supabase roles/functions are prerequisites for the application
+      # migrations. GoTrue and storage-api create their own tables on startup.
+      - ./supabase/init.sql:/docker-entrypoint-initdb.d/00-supabase.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # These images are intentionally unpinned for local development. Pin a
+  # tested set of image tags before using this stack outside local development.
+  gotrue:
+    image: supabase/gotrue
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${SUPABASE_URL:-http://localhost:8000}
+      GOTRUE_SITE_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:postgres@postgres:5432/hrdaddy
+      GOTRUE_DB_NAMESPACE: auth
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-local-dev-jwt-secret-change-me-before-production-please}
+      GOTRUE_JWT_EXP: ${GOTRUE_JWT_EXP:-3600}
+      GOTRUE_JWT_ADMIN_GROUP_NAME: ${GOTRUE_JWT_ADMIN_GROUP_NAME:-service_role}
+      GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: ${GOTRUE_EXTERNAL_EMAIL_ENABLED:-true}
+      GOTRUE_EXTERNAL_PHONE_ENABLED: ${GOTRUE_EXTERNAL_PHONE_ENABLED:-false}
+      GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
+      GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-http://localhost:3000/**}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${GOTRUE_SMTP_ADMIN_EMAIL:-admin@example.com}
+      GOTRUE_SMTP_HOST: ${GOTRUE_SMTP_HOST:-localhost}
+      GOTRUE_SMTP_PORT: ${GOTRUE_SMTP_PORT:-2500}
+      GOTRUE_SMTP_USER: ${GOTRUE_SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${GOTRUE_SMTP_PASS:-}
+      GOTRUE_SMTP_SENDER_NAME: ${GOTRUE_SMTP_SENDER_NAME:-HRDaddy}
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_REAUTHENTICATION: /auth/v1/verify
+
+  postgrest:
+    image: postgrest/postgrest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:postgres@postgres:5432/hrdaddy
+      PGRST_DB_SCHEMAS: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-local-dev-jwt-secret-change-me-before-production-please}
+      PGRST_SERVER_PORT: 3000
+
+  storage-api:
+    image: supabase/storage-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgrest:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/hrdaddy
+      ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzEwMDAwMDAwLCJleHAiOjE4OTM0NTYwMDB9.c9RlKxgPm8jgrRipCJGJ8dv1dBHSN52c0lccBLM5Qzo}
+      SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE3MTAwMDAwMDAsImV4cCI6MTg5MzQ1NjAwMH0.beONMRAmVG_S4PPCzANHnbBeNl6iu9gJKyMF6MMcN9U}
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-local-dev-jwt-secret-change-me-before-production-please}
+      POSTGREST_URL: http://postgrest:3000
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      FILE_SIZE_LIMIT: ${FILE_SIZE_LIMIT:-52428800}
+      TENANT_ID: hrdaddy
+      REGION: local
+      GLOBAL_S3_BUCKET: hrdaddy
+    volumes:
+      - storage_data:/var/lib/storage
+
+  kong:
+    image: kong:3-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gotrue:
+        condition: service_started
+      postgrest:
+        condition: service_started
+      storage-api:
+        condition: service_started
+    environment:
+      KONG_DATABASE: 'off'
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: 127.0.0.1:8001
+      KONG_LOG_LEVEL: notice
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./supabase/kong.yml:/etc/kong/kong.yml:ro
+
 volumes:
   postgres_data:
+  storage_data:

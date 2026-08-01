@@ -285,8 +285,8 @@ describe.runIf(RUN)('onboarding — integration (live database)', () => {
           where: { orgId: orgA.id, role: { in: ['HR_ADMIN', 'OWNER'] }, isActive: true },
         })
         if (hrMember) {
-          const hrEmp = await dbAdmin.employee.findFirst({
-            where: { orgId: orgA.id, userId: hrMember.userId },
+          const hrEmp = await dbAdmin.employee.findUnique({
+            where: { orgId_userId: { orgId: orgA.id, userId: hrMember.userId } },
           })
           assigneeId = hrEmp?.id ?? null
         }
@@ -295,8 +295,8 @@ describe.runIf(RUN)('onboarding — integration (live database)', () => {
           where: { orgId: orgA.id, role: { in: ['HR_ADMIN', 'OWNER'] }, isActive: true },
         })
         if (hrMember) {
-          const hrEmp = await dbAdmin.employee.findFirst({
-            where: { orgId: orgA.id, userId: hrMember.userId },
+          const hrEmp = await dbAdmin.employee.findUnique({
+            where: { orgId_userId: { orgId: orgA.id, userId: hrMember.userId } },
           })
           assigneeId = hrEmp?.id ?? null
         }

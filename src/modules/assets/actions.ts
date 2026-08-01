@@ -16,6 +16,7 @@ import { revalidatePath } from 'next/cache'
 import { getOrgContext, requirePermission, verifySession } from '@/core/auth'
 import { dbAs } from '@/core/db'
 import { writeAudit } from '@/core/audit'
+import { Prisma } from '@prisma/client'
 import { getNotificationAdapter } from '@/core/notifications'
 import { getEmployeeIdForUser } from '@/core/employees'
 import { hasPermission } from '@/core/permissions'
@@ -89,18 +90,20 @@ export async function createAssetCategory(
   const { name } = parsed.data
 
   const category = await dbAs(userId, async (tx) => {
-    return tx.assetCategory.create({
+    const createdCategory = await tx.assetCategory.create({
       data: { orgId: org.id, name },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.category.created',
-    targetType: 'asset_category',
-    targetId: category.id,
-    after: { name },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.category.created',
+      targetType: 'asset_category',
+      targetId: createdCategory.id,
+      after: { name },
+    }, tx)
+
+    return createdCategory
   })
 
   revalidatePath(`/${orgSlug}/settings/assets`)
@@ -142,16 +145,16 @@ export async function updateAssetCategory(
       where: { id: categoryId },
       data: updateData,
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.category.updated',
-    targetType: 'asset_category',
-    targetId: categoryId,
-    before: { name: existing.name, isArchived: existing.isArchived },
-    after: updateData,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.category.updated',
+      targetType: 'asset_category',
+      targetId: categoryId,
+      before: { name: existing.name, isArchived: existing.isArchived },
+      after: updateData,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/settings/assets`)
@@ -203,7 +206,7 @@ export async function createAsset(
   }
 
   const asset = await dbAs(userId, async (tx) => {
-    return tx.asset.create({
+    const createdAsset = await tx.asset.create({
       data: {
         orgId: org.id,
         categoryId,
@@ -217,15 +220,17 @@ export async function createAsset(
         updatedAt: new Date(),
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.created',
-    targetType: 'asset',
-    targetId: asset.id,
-    after: { name, assetTag, categoryId },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.created',
+      targetType: 'asset',
+      targetId: createdAsset.id,
+      after: { name, assetTag, categoryId },
+    }, tx)
+
+    return createdAsset
   })
 
   revalidatePath(`/${orgSlug}/assets`)
@@ -297,16 +302,16 @@ export async function updateAsset(
       where: { id: assetId },
       data: updateData,
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.updated',
-    targetType: 'asset',
-    targetId: assetId,
-    before: { name: existing.name, assetTag: existing.assetTag },
-    after: updateData,
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.updated',
+      targetType: 'asset',
+      targetId: assetId,
+      before: { name: existing.name, assetTag: existing.assetTag },
+      after: updateData,
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/assets`)
@@ -333,7 +338,8 @@ async function performAssetAssignment(
     assignedById: string
     conditionAtAssignment?: string | null
     notes?: string | null
-  }
+  },
+  onComplete?: (tx: Prisma.TransactionClient, created: { id: string }) => Promise<void>
 ): Promise<{ id: string }> {
   return dbAs(userId, async (tx) => {
     const created = await tx.assetAssignment.create({
@@ -350,6 +356,8 @@ async function performAssetAssignment(
       where: { id: params.assetId },
       data: { status: 'ASSIGNED', currentAssignmentId: created.id },
     })
+
+    if (onComplete) await onComplete(tx, created)
     return created
   })
 }
@@ -428,16 +436,14 @@ export async function assignAsset(
     assignedById: assignerEmployeeId,
     conditionAtAssignment,
     notes,
-  })
-
-  await writeAudit({
+  }, async (tx, createdAssignment) => writeAudit({
     orgId: org.id,
     actorId: userId,
     action: 'asset.assigned',
     targetType: 'asset',
     targetId: assetId,
-    after: { employeeId, assignmentId: assignment.id, assetName: asset.name },
-  })
+    after: { employeeId, assignmentId: createdAssignment.id, assetName: asset.name },
+  }, tx))
 
   // Notify the assignee
   if (employee.userId) {
@@ -517,16 +523,16 @@ export async function returnAsset(
       where: { id: assetId },
       data: { status: newStatus, currentAssignmentId: null },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.returned',
-    targetType: 'asset',
-    targetId: assetId,
-    before: { status: 'ASSIGNED' },
-    after: { status: newStatus, returnToMaintenance: !!returnToMaintenance },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.returned',
+      targetType: 'asset',
+      targetId: assetId,
+      before: { status: 'ASSIGNED' },
+      after: { status: newStatus, returnToMaintenance: !!returnToMaintenance },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/assets`)
@@ -568,16 +574,16 @@ export async function markAssetInMaintenance(
       where: { id: assetId },
       data: { status: 'IN_MAINTENANCE', notes: notes || undefined },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.maintenance',
-    targetType: 'asset',
-    targetId: assetId,
-    before: { status: 'AVAILABLE' },
-    after: { status: 'IN_MAINTENANCE' },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.maintenance',
+      targetType: 'asset',
+      targetId: assetId,
+      before: { status: 'AVAILABLE' },
+      after: { status: 'IN_MAINTENANCE' },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/assets`)
@@ -619,16 +625,16 @@ export async function markAssetAvailable(
       where: { id: assetId },
       data: { status: 'AVAILABLE', notes: notes || undefined },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.available',
-    targetType: 'asset',
-    targetId: assetId,
-    before: { status: 'IN_MAINTENANCE' },
-    after: { status: 'AVAILABLE' },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.available',
+      targetType: 'asset',
+      targetId: assetId,
+      before: { status: 'IN_MAINTENANCE' },
+      after: { status: 'AVAILABLE' },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/assets`)
@@ -675,16 +681,16 @@ export async function retireAsset(
       where: { id: assetId },
       data: { status: 'RETIRED', notes: notes || undefined },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.retired',
-    targetType: 'asset',
-    targetId: assetId,
-    before: { status: asset.status },
-    after: { status: 'RETIRED' },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.retired',
+      targetType: 'asset',
+      targetId: assetId,
+      before: { status: asset.status },
+      after: { status: 'RETIRED' },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/assets`)
@@ -749,6 +755,16 @@ export async function reportAssetLost(
         where: { id: assetId },
         data: { status: 'LOST', currentAssignmentId: null, notes: notes || undefined },
       })
+
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'asset.lost',
+        targetType: 'asset',
+        targetId: assetId,
+        before: { status: asset.status },
+        after: { status: 'LOST' },
+      }, tx)
     })
   } else {
     await dbAs(userId, async (tx) => {
@@ -756,18 +772,18 @@ export async function reportAssetLost(
         where: { id: assetId },
         data: { status: 'LOST', notes: notes || undefined },
       })
+
+      await writeAudit({
+        orgId: org.id,
+        actorId: userId,
+        action: 'asset.lost',
+        targetType: 'asset',
+        targetId: assetId,
+        before: { status: asset.status },
+        after: { status: 'LOST' },
+      }, tx)
     })
   }
-
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.lost',
-    targetType: 'asset',
-    targetId: assetId,
-    before: { status: asset.status },
-    after: { status: 'LOST' },
-  })
 
   revalidatePath(`/${orgSlug}/assets`)
   return { success: true }
@@ -831,7 +847,7 @@ export async function requestAsset(
   }
 
   const request = await dbAs(userId, async (tx) => {
-    return tx.assetRequest.create({
+    const createdRequest = await tx.assetRequest.create({
       data: {
         orgId: org.id,
         employeeId,
@@ -841,15 +857,17 @@ export async function requestAsset(
         status: 'PENDING',
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.request.created',
-    targetType: 'asset_request',
-    targetId: request.id,
-    after: { categoryId, requestedAssetId, reason },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.request.created',
+      targetType: 'asset_request',
+      targetId: createdRequest.id,
+      after: { categoryId, requestedAssetId, reason },
+    }, tx)
+
+    return createdRequest
   })
 
   revalidatePath(`/${orgSlug}/assets`)
@@ -899,16 +917,16 @@ export async function cancelAssetRequest(
     await tx.assetRequest.delete({
       where: { id: requestId },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.request.cancelled',
-    targetType: 'asset_request',
-    targetId: requestId,
-    before: { status: 'PENDING' },
-    after: { status: 'CANCELLED' },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.request.cancelled',
+      targetType: 'asset_request',
+      targetId: requestId,
+      before: { status: 'PENDING' },
+      after: { status: 'CANCELLED' },
+    }, tx)
   })
 
   revalidatePath(`/${orgSlug}/assets`)
@@ -961,16 +979,16 @@ export async function approveAssetRequest(
         reviewNote: reviewNote || null,
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.request.approved',
-    targetType: 'asset_request',
-    targetId: requestId,
-    before: { status: 'PENDING' },
-    after: { status: 'APPROVED', reviewNote },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.request.approved',
+      targetType: 'asset_request',
+      targetId: requestId,
+      before: { status: 'PENDING' },
+      after: { status: 'APPROVED', reviewNote },
+    }, tx)
   })
 
   // Notify the requester
@@ -1035,16 +1053,16 @@ export async function rejectAssetRequest(
         reviewNote: reviewNote,
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.request.rejected',
-    targetType: 'asset_request',
-    targetId: requestId,
-    before: { status: 'PENDING' },
-    after: { status: 'REJECTED', reviewNote },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.request.rejected',
+      targetType: 'asset_request',
+      targetId: requestId,
+      before: { status: 'PENDING' },
+      after: { status: 'REJECTED', reviewNote },
+    }, tx)
   })
 
   // Notify the requester
@@ -1155,10 +1173,7 @@ export async function fulfillAssetRequest(
     assignedById: assignerEmployeeId,
     conditionAtAssignment: null,
     notes: `Fulfilled from asset request ${requestId}`,
-  })
-
-  // Mark request as fulfilled
-  await dbAs(userId, async (tx) => {
+  }, async (tx, createdAssignment) => {
     await tx.assetRequest.update({
       where: { id: requestId },
       data: {
@@ -1166,15 +1181,15 @@ export async function fulfillAssetRequest(
         fulfilledAssetId: assetId,
       },
     })
-  })
 
-  await writeAudit({
-    orgId: org.id,
-    actorId: userId,
-    action: 'asset.request.fulfilled',
-    targetType: 'asset_request',
-    targetId: requestId,
-    after: { assetId, assignmentId: assignment.id, employeeId: request.employeeId },
+    await writeAudit({
+      orgId: org.id,
+      actorId: userId,
+      action: 'asset.request.fulfilled',
+      targetType: 'asset_request',
+      targetId: requestId,
+      after: { assetId, assignmentId: createdAssignment.id, employeeId: request.employeeId },
+    }, tx)
   })
 
   // Notify the requester
